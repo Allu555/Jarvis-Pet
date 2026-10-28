@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# JARVIS Requirements
+# Install with:
+#   pip install -r requirements.txt
+#
+# Windows-specific pre-steps (before pip install):
+#   1. Install ffmpeg and add to PATH:
+#        winget install Gyan.FFmpeg
+#      OR download from https://ffmpeg.org/download.html and add bin/ to PATH
+#
+#   2. Install PortAudio (needed by PyAudio):
+#        pip install pipwin
+#        pipwin install pyaudio
+#      OR download the .whl from https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio
+#        pip install PyAudio‑0.2.14‑cp311‑cp311‑win_amd64.whl
+#
+#   3. (Optional) Install nircmd for precise volume control:
+#        Download from https://www.nirsoft.net/utils/nircmd.html
+#        Copy nircmd.exe to C:\Windows\System32\ or any PATH directory
+#
+#   4. (Optional) Install CUDA toolkit if you have an NVIDIA GPU
+#      to enable faster Whisper transcription (WHISPER_DEVICE = "cuda").
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Core AI ───────────────────────────────────────────────────────────────────
+anthropic==0.34.2
+
+# ── Speech-to-text ────────────────────────────────────────────────────────────
+faster-whisper==1.0.3
+
+# ── Text-to-speech ────────────────────────────────────────────────────────────
+edge-tts==6.1.12
+pyttsx3==2.90
+
+# ── Audio I/O ─────────────────────────────────────────────────────────────────
+# PyAudio: install via pipwin on Windows (see above)
+PyAudio==0.2.14
+webrtcvad==2.0.10
+sounddevice==0.4.7
+soundfile==0.12.1
+
+# ── Wake word (optional but preferred) ────────────────────────────────────────
+# openWakeWord requires onnxruntime; falls back to Whisper if unavailable
+openwakeword==0.6.0
+onnxruntime==1.18.1
+
+# ── Screen / GUI automation ───────────────────────────────────────────────────
+pyautogui==0.9.54
+pynput==1.7.7
+pyperclip==1.9.0
+pygetwindow==0.0.9
+
+# ── Image processing ──────────────────────────────────────────────────────────
+Pillow==10.4.0
+
+# ── System monitoring ─────────────────────────────────────────────────────────
+psutil==6.0.0
+
+# ── Global hotkeys ────────────────────────────────────────────────────────────
+keyboard==0.13.5
+
+# ── System tray ───────────────────────────────────────────────────────────────
+pystray==0.19.5
+
+# ── Environment variables ─────────────────────────────────────────────────────
+python-dotenv==1.0.1
+
+# ── Windows-specific: WMI for brightness control ─────────────────────────────
+# Windows only; safe to skip on macOS/Linux
+WMI==1.5.1; sys_platform == "win32"
+pywin32==306; sys_platform == "win32"
+
+# ── NumPy (used by Whisper + audio processing) ────────────────────────────────
+numpy==1.26.4

@@ -1,0 +1,20 @@
+{
+  "user_name": "friend",
+  "preferences": {
+    "accent": "en-IN",
+    "language": "English, Malayalam",
+    "native_language": "Malayalam",
+    "country": "India (Kerala)",
+    "currency": "INR (₹)",
+    "timezone": "IST"
+  },
+  "facts": [
+    "favorite color is dark blue",
+    "user is Indian from Kerala",
+    "user speaks Malayalam and English",
+    "user does NOT speak Hindi - never speak in Hindi and never use Hindi greetings like namaste",
+    "preferred regional greeting is Namaskaram (Malayalam) or standard English greetings"
+  ],
+  "created_at": "2026-10-01T10:23:57.191540",
+  "last_seen": "2026-10-27T21:52:04.682443"
+}
