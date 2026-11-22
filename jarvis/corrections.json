@@ -1,0 +1,34 @@
+{
+  "phonetic_corrections": {
+    "not bad": "notepad",
+    "not pad": "notepad",
+    "note pad": "notepad",
+    "not tab": "notepad",
+    "northbound": "notepad",
+    "noted": "notepad",
+    "spot if i": "spotify",
+    "sportify": "spotify",
+    "spottify": "spotify",
+    "spotty": "spotify",
+    "support design": "spotify",
+    "you tube": "youtube",
+    "u tube": "youtube",
+    "utube": "youtube",
+    "vs code": "vscode",
+    "visual studio code": "vscode",
+    "power shell": "powershell",
+    "command prompt": "cmd",
+    "task manager": "taskmgr",
+    "file explorer": "explorer",
+    "brave browser": "brave",
+    "google chrome": "chrome"
+  },
+  "command_lexicon": [
+    "open", "launch", "start", "close", "minimize", "maximize",
+    "search", "google", "weather", "news", "system info", "cpu usage",
+    "battery", "volume up", "volume down", "mute", "unmute",
+    "play", "pause", "resume", "stop",
+    "click", "double click", "right click", "drag", "scroll",
+    "type", "write", "remind me", "set timer", "screenshot", "lock"
+  ]
+}

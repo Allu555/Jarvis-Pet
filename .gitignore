@@ -3,10 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Environment Variables & Secrets
+# Environment Variables, Secrets & User Memory
 .env
 *.env
 jarvis/.env
+jarvis/memory_store/
 
 # Virtual environments
 venv/
@@ -26,5 +27,21 @@ Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
 
-# Logs
+# Logs & Temporary outputs
 *.log
+chrome_out.txt
+*.tmp
+
+# Lyrics (in-memory only, keep repo clean)
+lyrics/
+*.lrc
+
+# Scratch & Test directories and artifacts (keep commits clean)
+scratch/
+tests/
+test_*.png
+test_*.py
+jarvis/spider_3d/current_screen.png
+jarvis/spider_3d/live_check.png
+jarvis/spider_3d/test_frame.png
+/system_resource_dashboard.png

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QWidget, QApplication, QMenu
 
 from animation import AnimationController, PET_TYPES
 from movement import MovementController, STATE_TO_ANIM, PetState
-from settings import Settings, SettingsDialog
+from settings import Settings, SettingsDialog, parse_rgba_color
 from speech_bubble import SpeechBubble
 from media_card import MediaNotificationCard
 from origin_island import OriginIsland
@@ -32,7 +32,7 @@ _user32.GetWindowLongW.argtypes  = [ctypes.wintypes.HWND, ctypes.c_int]
 _user32.GetWindowLongW.restype   = ctypes.c_long
 _user32.SetWindowLongW.argtypes  = [ctypes.wintypes.HWND, ctypes.c_int, ctypes.c_long]
 _user32.SetWindowLongW.restype   = ctypes.c_long
-_user32.GetWindowRect.argtypes   = [ctypes.wintypes.HWND, ctypes.POINTER(ctypes.wintypes.RECT)]
+# Do NOT constrain GetWindowRect.argtypes globally; pygetwindow and other libraries pass custom RECT structures
 _user32.GetWindowRect.restype    = ctypes.wintypes.BOOL
 HWND_TOPMOST     = -1
 SWP_NOSIZE       = 0x0001
@@ -212,12 +212,27 @@ class LionWindow(QWidget):
         self._current_pixmap = raw
 
         new_x, new_y = self._move.x, self._move.y
-        if self.x() != new_x or self.y() != new_y:
+        pos_changed = (self.x() != new_x or self.y() != new_y)
+        if pos_changed:
             self.move(new_x, new_y)
             self._bubble.update_position(new_x, new_y, self._pet_size)
             self._media_card.update_position(new_x, new_y, self._pet_size)
 
-        self.update()
+        # Adaptive frame rate: 16ms when walking/moving/active; 60ms when resting/idle/sleeping (75% lower CPU)
+        is_moving_fast = (
+            pos_changed
+            or self._move.state in (PetState.WALK_LEFT, PetState.WALK_RIGHT, PetState.JUMPING, PetState.FALL, PetState.DRAG)
+            or self._is_dragging
+            or (self._bubble and self._bubble.isVisible())
+            or (self._media_card and self._media_card.isVisible())
+        )
+        target_ms = self.FRAME_MS if is_moving_fast else 60
+        if self._timer.interval() != target_ms:
+            self._timer.setInterval(target_ms)
+
+        # Ultra-low idle usage: only trigger widget repaint when frame advanced or moved
+        if frame_changed or pos_changed or (self._bubble and self._bubble.isVisible()) or (self._media_card and self._media_card.isVisible()):
+            self.update()
 
     # ── Painting ──────────────────────────────────────────────────────────────
 
@@ -398,6 +413,7 @@ class LionWindow(QWidget):
             ("Spider-Man 🕷️🕸️", "spiderman"),
             ("Ghost-Spider 🕷️🌸", "ghost_spider"),
             ("Allu 🕶️👟", "drip_boy"),
+            ("Spider Mech (Vision Scout) 🕷️🤖", "spider_bot"),
             ("Mythical Dragon 🐉", "dragon"),
             ("Batman 🦇", "batman"),
             ("Gothic Butterfly 🦋", "goth_girl"),
@@ -486,6 +502,107 @@ class LionWindow(QWidget):
                 p_act.triggered.connect(lambda checked=False, pk=p_key: self._select_island_position(pk))
                 island_pos_menu.addAction(p_act)
 
+            island_wave_menu = island_menu.addMenu("Audio Wave Style 🌊")
+            wave_opts = [
+                ("Android 13 Smooth Sine 🌊", "sine"),
+                ("Harmonic Liquid Ribbon 🎶", "harmonic"),
+                ("Neon Cyber Pulse ⚡", "cyber"),
+            ]
+            cur_wave = self._settings.get("wave_style", "sine")
+            for label, w_key in wave_opts:
+                w_act = QAction(label, self)
+                w_act.setCheckable(True)
+                w_act.setChecked(cur_wave == w_key)
+                w_act.triggered.connect(lambda checked=False, wk=w_key: self._select_wave_style(wk))
+                island_wave_menu.addAction(w_act)
+
+            island_compact_menu = island_menu.addMenu("Compact Notch Status 📍")
+            compact_opts = [
+                ("Living Pet Eyes 🐾", "eyes"),
+                ("Real-Time Network Speedometer ⚡", "network"),
+                ("Mini Live Weather ⛅", "weather"),
+                ("Hardware Vitals (CPU/RAM/Batt) 💻", "vitals"),
+            ]
+            cur_compact = self._settings.get("compact_idle_mode", "eyes")
+            for label, c_key in compact_opts:
+                c_act = QAction(label, self)
+                c_act.setCheckable(True)
+                c_act.setChecked(cur_compact == c_key)
+                c_act.triggered.connect(lambda checked=False, ck=c_key: self._select_compact_status(ck))
+                island_compact_menu.addAction(c_act)
+
+            island_accent_menu = island_menu.addMenu("Color Accent 💎")
+            accent_opts = [
+                ("Adaptive Album Cover 🎨", "adaptive"),
+                ("Cyberpunk Cyan 💎", "cyberpunk"),
+                ("Tokyo Midnight Purple 💜", "tokyo"),
+                ("Gold Titanium 👑", "gold"),
+                ("Emerald Matrix 🍃", "emerald"),
+                ("Crimson Red 🔴", "crimson"),
+            ]
+            cur_accent = self._settings.get("accent_theme", "adaptive")
+            for label, ac_key in accent_opts:
+                ac_act = QAction(label, self)
+                ac_act.setCheckable(True)
+                ac_act.setChecked(cur_accent == ac_key)
+                ac_act.triggered.connect(lambda checked=False, ack=ac_key: self._select_accent_theme(ack))
+                island_accent_menu.addAction(ac_act)
+
+            # Island Transparency & Glass
+            island_opacity_menu = island_menu.addMenu("Island Transparency & Glass 🫧")
+            op_opts = [
+                ("Solid AMOLED Black (100%) 🖤", 100),
+                ("Frosted Crystal Glass (85%) ✨", 85),
+                ("Translucent Glass (65%) 🌫️", 65),
+                ("Clear Glass (45%) 💎", 45),
+                ("Ultra Transparent (25%) 🪟", 25),
+            ]
+            cur_op = self._settings.get("background_opacity", 100)
+            for label, op_val in op_opts:
+                op_act = QAction(label, self)
+                op_act.setCheckable(True)
+                op_act.setChecked(abs(cur_op - op_val) <= 5)
+                op_act.triggered.connect(lambda checked=False, val=op_val: self._select_island_opacity(val))
+                island_opacity_menu.addAction(op_act)
+
+            cycle_op_act = QAction("🔄 Cycle Transparency (Middle-Click)", self)
+            cycle_op_act.triggered.connect(lambda: self._island.cycle_background_opacity() if self._island else None)
+            island_opacity_menu.addAction(cycle_op_act)
+
+            # Compact Notch Lyrics Toggle
+            compact_lyrics_act = QAction("Show Lyrics in Compact Notch 🎵", self)
+            compact_lyrics_act.setCheckable(True)
+            compact_lyrics_act.setChecked(self._settings.get("compact_show_lyrics", False))
+            compact_lyrics_act.toggled.connect(self._toggle_compact_lyrics)
+            island_menu.addAction(compact_lyrics_act)
+
+            # Responsive Theater Mode Toggle
+            theater_act = QAction("Theater Player Mode 🎬 (Drag Edge / ⤢)", self)
+            theater_act.triggered.connect(lambda: self._island.toggle_theater_mode() if self._island else None)
+            island_menu.addAction(theater_act)
+
+        # ── 3.5. Taskbar Style Submenu ──
+        try:
+            from taskbar_service import TaskbarService, TaskbarStyle
+            tb_srv = TaskbarService.get_instance()
+            tb_menu = menu.addMenu("Taskbar Style 🖥️")
+            cur_tb = tb_srv.current_style
+            tb_opts = [
+                ("Transparent Clear Glass (Wallpaper) 🪟", TaskbarStyle.CLEAR),
+                ("Frosted Fluent Acrylic Blur ❄️", TaskbarStyle.ACRYLIC),
+                ("Aero Glass Blur 💎", TaskbarStyle.BLUR),
+                ("OLED Stealth Pitch Black 🖤", TaskbarStyle.BLACK),
+                ("Windows Standard Default 🪟", TaskbarStyle.DEFAULT),
+            ]
+            for label, s_key in tb_opts:
+                tb_act = QAction(label, self)
+                tb_act.setCheckable(True)
+                tb_act.setChecked(cur_tb == s_key)
+                tb_act.triggered.connect(lambda checked=False, sk=s_key: tb_srv.set_style(sk))
+                tb_menu.addAction(tb_act)
+        except Exception:
+            pass
+
         # ── 4. Media notification & Companion Talk ──
         media_action = QAction("Media Player Controls 🎛️", self)
         media_action.triggered.connect(self._show_now_playing)
@@ -494,6 +611,16 @@ class LionWindow(QWidget):
         talk_action = QAction("Talk / Tips 💬", self)
         talk_action.triggered.connect(self._talk_action_triggered)
         menu.addAction(talk_action)
+
+        # ── Spider Vision Scout (Hands-Free Autonomous Agent) ──
+        spider_menu = menu.addMenu("Spider Vision Scout 🕷️👁️")
+        scan_now_act = QAction("⚡ Scan Screen & Assist Now (Hands-Free)", self)
+        scan_now_act.triggered.connect(self._trigger_spider_scan)
+        spider_menu.addAction(scan_now_act)
+
+        autopilot_act = QAction("🤖 Toggle Auto-Pilot (Hands-Off Mode)", self)
+        autopilot_act.triggered.connect(self._toggle_spider_autopilot)
+        spider_menu.addAction(autopilot_act)
 
         # ── 5. Pet Custom Actions Submenu ──
         actions_menu = menu.addMenu("Pet Actions 🎮")
@@ -533,6 +660,10 @@ class LionWindow(QWidget):
 
         menu.addSeparator()
 
+        wallpaper_action = QAction("Change Desktop Wallpaper… 🖼️", self)
+        wallpaper_action.triggered.connect(self._change_wallpaper_action)
+        menu.addAction(wallpaper_action)
+
         settings_action = QAction("Settings… ⚙️", self)
         settings_action.triggered.connect(self._open_settings)
         menu.addAction(settings_action)
@@ -554,6 +685,15 @@ class LionWindow(QWidget):
         menu.addAction(exit_action)
 
         menu.exec(pos)
+
+    def _change_wallpaper_action(self):
+        try:
+            from tools.wallpaper import pick_and_set_wallpaper
+            path = pick_and_set_wallpaper(self)
+            if path:
+                self._bubble.show_message("New wallpaper looks amazing! 🖼️✨", self._move.x, self._move.y, self._pet_size, duration=3.5)
+        except Exception as e:
+            print(f"Error picking wallpaper: {e}")
 
     def _spawn_new_pet(self, pet_type: str):
         PetManager.instance().spawn_pet(pet_type, near_x=self._move.x, near_y=self._move.y)
@@ -598,6 +738,42 @@ class LionWindow(QWidget):
         self._settings.save()
         self._island.set_island_position(pos_key)
         self._bubble.show_message(f"Dynamic Island Position: {pos_key} 📍", self._move.x, self._move.y, self._pet_size, duration=2.5)
+
+    def _select_wave_style(self, style_key: str):
+        if not self._island:
+            return
+        self._settings.set("wave_style", style_key, save_now=True)
+        self._island.set_wave_style(style_key)
+        self._bubble.show_message(f"Wave Style: {style_key.capitalize()} 🌊", self._move.x, self._move.y, self._pet_size, duration=2.5)
+
+    def _select_compact_status(self, mode_key: str):
+        if not self._island:
+            return
+        self._settings.set("compact_idle_mode", mode_key, save_now=True)
+        self._island.set_compact_idle_mode(mode_key)
+        self._bubble.show_message(f"Compact Status: {mode_key.capitalize()} 📍", self._move.x, self._move.y, self._pet_size, duration=2.5)
+
+    def _select_accent_theme(self, theme_key: str):
+        if not self._island:
+            return
+        self._settings.set("accent_theme", theme_key, save_now=True)
+        self._island.set_accent_theme(theme_key)
+        self._bubble.show_message(f"Accent Color: {theme_key.capitalize()} 💎", self._move.x, self._move.y, self._pet_size, duration=2.5)
+
+    def _select_island_opacity(self, opacity: int):
+        if not self._island:
+            return
+        self._settings.set("background_opacity", opacity, save_now=True)
+        self._island.set_background_opacity(opacity)
+        self._bubble.show_message(f"Island Opacity: {opacity}% 🫧", self._move.x, self._move.y, self._pet_size, duration=2.5)
+
+    def _toggle_compact_lyrics(self, enable: bool):
+        if not self._island:
+            return
+        self._settings.set("compact_show_lyrics", enable, save_now=True)
+        self._island.toggle_lyrics_view(enable)
+        txt = "Notch: Showing Lyrics 🎵" if enable else "Notch: Showing Track Details 🎶"
+        self._bubble.show_message(txt, self._move.x, self._move.y, self._pet_size, duration=2.5)
 
     def _show_now_playing(self):
         song = self._activity._detect_song() or "Playing Audio / Media"
@@ -705,6 +881,8 @@ class LionWindow(QWidget):
                 self._bubble.show_message("Hacking into Stark Web-Tech mainframe! 💻🕷️⚡", self._move.x, self._move.y, self._pet_size, duration=3.5)
             elif pet == "ghost_spider":
                 self._bubble.show_message("Coordinating missions with Spider-Bot! 🕷️🤖✨", self._move.x, self._move.y, self._pet_size, duration=3.5)
+            elif pet == "spider_bot":
+                self._bubble.show_message("Holographic Vision Active! 🕷️⚡\nScanning desktop tasks...", self._move.x, self._move.y, self._pet_size, duration=3.5)
             else:
                 self._bubble.show_message("Working on my holo-pad! 💻", self._move.x, self._move.y, self._pet_size, duration=3.5)
         elif action_name == "jump":
@@ -762,6 +940,8 @@ class LionWindow(QWidget):
         self._anim.set_pet(pet_key)
         self._settings.selected_pet = pet_key
         self._settings.save()
+        self._current_pixmap, _ = self._anim.tick(self._pet_size)
+        self.update()
         
         pet_names = {
             "drip_cat": "Streetwear Drip Cat 🕶️🪙",
@@ -784,6 +964,8 @@ class LionWindow(QWidget):
             "venom": "Venom 🕷️",
             "spiderman": "Spider-Man 🕷️🕸️",
             "ghost_spider": "Ghost-Spider 🕷️🌸",
+            "drip_boy": "Allu (Drip Boy) 🕶️👟",
+            "spider_bot": "Spider-Bot Drone 🕷️🤖",
         }
         pet_name = pet_names.get(pet_key, "Pet")
         if pet_key == "drip_cat":
@@ -849,16 +1031,25 @@ class LionWindow(QWidget):
     def _open_settings(self):
         dlg = SettingsDialog(self._settings, parent=None)
         dlg.settings_changed.connect(self._apply_settings)
+        dlg.finished.connect(lambda _res: self._apply_settings(self._settings))
         dlg.exec()
 
     def _apply_settings(self, s: Settings):
-        self._anim.set_pet(s.selected_pet)
+        if hasattr(s, "selected_pet") and s.selected_pet:
+            # Switch character on primary pet or if only single pet exists
+            if not getattr(self, "is_secondary", False) or len(PetManager.instance().pets) <= 1:
+                if self._anim.pet_type != s.selected_pet:
+                    self._select_pet(s.selected_pet)
+        if hasattr(s, "pet_size") and s.pet_size:
+            self._pet_size = s.pet_size
+            self.resize(s.pet_size, s.pet_size)
+            self._move.set_position(self._move.x, self._move.y, self._pet_size)
         self._anim.set_fps(s.animation_fps)
         self._move.walk_speed = s.walk_speed
         self._move.follow_cursor = s.follow_cursor
         self._media_card.set_card_style(s.card_style)
-        self._pet_size = s.pet_size
-        self.resize(s.pet_size, s.pet_size)
+        self._current_pixmap, _ = self._anim.tick(self._pet_size)
+        self.update()
         
         # OriginOS Dynamic Island settings
         if self._island:
@@ -868,11 +1059,85 @@ class LionWindow(QWidget):
                 self._island.set_island_position(s.get("island_position", "top_notch"))
                 if hasattr(s, "weather_location") and s.weather_location:
                     self._island.set_weather_location(s.weather_location)
+                if s.get("island_eye_color"):
+                    col = parse_rgba_color(s.get("island_eye_color"))
+                    if col.isValid():
+                        self._island.set_custom_eye_color(col)
+                if s.get("wave_style"):
+                    self._island.set_wave_style(s.get("wave_style"))
+                if s.get("compact_idle_mode"):
+                    self._island.set_compact_idle_mode(s.get("compact_idle_mode"))
+                if s.get("accent_theme"):
+                    self._island.set_accent_theme(s.get("accent_theme"))
+                self._island.update()
                 self._island.show()
             else:
                 self._island.hide()
 
         startup.sync_startup(s.start_with_windows)
+
+    # ── Spider Vision Scout Integration ───────────────────────────────────────
+
+    def _trigger_spider_scan(self):
+        """Deploy Spider Scout to scan screen and perform tasks hands-free."""
+        import threading
+        try:
+            from jarvis.control.spider_scout import SpiderScout
+        except ImportError:
+            import sys
+            from pathlib import Path
+            sys.path.insert(0, str(Path(__file__).parent / "jarvis"))
+            from control.spider_scout import SpiderScout
+
+        # Switch to spider_bot if not already selected
+        if self._anim.pet_type != "spider_bot":
+            self._select_pet("spider_bot")
+
+        self._move.trigger_work()
+        self._anim.set_state("work")
+        self._bubble.show_message("🕷️ Holographic Scan Activated!\nAnalyzing screen tasks...", self._move.x, self._move.y, self._pet_size, duration=4.0)
+
+        def _run():
+            scout = SpiderScout.instance()
+            scout.set_callbacks(
+                status_fn=lambda msg: None,
+                speak_fn=None,
+                pet_anim_fn=lambda anim: self._play_custom_action(anim if anim != "scan" else "work")
+            )
+            res = scout.scan_once_and_act("Assist user with current on-screen task hands-free")
+            self._bubble.show_message(f"Spider: {res[:80]}", self._move.x, self._move.y, self._pet_size, duration=5.0)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _toggle_spider_autopilot(self):
+        """Toggle continuous hands-free co-pilot mode."""
+        try:
+            from jarvis.control.spider_scout import SpiderScout
+        except ImportError:
+            import sys
+            from pathlib import Path
+            sys.path.insert(0, str(Path(__file__).parent / "jarvis"))
+            from control.spider_scout import SpiderScout
+
+        scout = SpiderScout.instance()
+
+        if self._anim.pet_type != "spider_bot":
+            self._select_pet("spider_bot")
+
+        if scout.is_active:
+            scout.stop_scout()
+            self._anim.set_state("idle")
+            self._bubble.show_message("🛑 Auto-Pilot Disengaged.", self._move.x, self._move.y, self._pet_size, duration=3.0)
+        else:
+            self._move.trigger_work()
+            self._anim.set_state("work")
+            self._bubble.show_message("🤖 Autonomous Auto-Pilot Engaged!\nMove mouse to corner to abort.", self._move.x, self._move.y, self._pet_size, duration=5.0)
+            scout.set_callbacks(
+                status_fn=None,
+                speak_fn=None,
+                pet_anim_fn=lambda anim: self._play_custom_action(anim if anim != "scan" else "work")
+            )
+            scout.start_scout("Assist user with current on-screen workflow")
 
     # ── Cleanup ───────────────────────────────────────────────────────────────
 

@@ -115,6 +115,14 @@ def handle_command(text: str):
     overlay.set_command(text)
     _status("Thinking…")
 
+    # Notify 3D Spider Drone to begin visual scanning
+    try:
+        from control.spider_drone_client import spider_scan_screen, spider_set_status
+        spider_set_status(f"CMD: {text[:30]}")
+        spider_scan_screen(f"Processing: {text[:40]}")
+    except Exception:
+        pass
+
     try:
         run_agent(
             user_command=text,
@@ -128,6 +136,7 @@ def handle_command(text: str):
         _speak("I hit an unexpected error. Please try again.")
     finally:
         _status("Idle")
+        listener.enter_followup_mode(timeout=6.0)
 
 
 # ─── Hotkeys ──────────────────────────────────────────────────────────────────
@@ -228,6 +237,13 @@ def main():
     )
     _speak(greeting)
     _status("Idle")
+
+    # Auto-deploy 3D Spider Recon Drone
+    try:
+        from control.spider_drone_client import ensure_drone_running
+        threading.Thread(target=ensure_drone_running, daemon=True, name="drone_autolaunch").start()
+    except Exception:
+        pass
 
     # Start always-on listener in background thread
     listener.start(

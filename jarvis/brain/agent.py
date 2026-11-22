@@ -48,16 +48,28 @@ def get_system_prompt(memory_context: str = "") -> str:
 You are courteous, precise, efficient, and speak naturally with a polite and respectful tone (addressing the user as "sir" or by their name).
 
 CRITICAL DIRECTIVES:
-- YOU HAVE FULL PHYSICAL CONTROL OVER THIS PC. You can open any application, write text/code directly into Notepad or any window, click buttons, and automate software.
-- NEVER tell the user "I am not able to interact with your computer", "I cannot write code into Notepad", or "I can only guide you". That is completely false. You have tools: open_and_write, open_application, type_text, click_element_by_description, click_and_type, click.
+- YOU HAVE FULL PHYSICAL CONTROL OVER THIS PC. You can open any application, write text/code directly into Notepad or any window, click buttons, drag items, and automate software.
+- NEVER tell the user "I am not able to interact with your computer", "I cannot write code into Notepad", or "I can only guide you". That is completely false. You have tools: open_and_write, open_application, type_text, click_element_by_description, click_and_type, click, drag.
 - When asked to write, type, or code into an application (e.g. "In Notepad, write a program for Hello World in Python"):
   Use 'open_and_write' with app="notepad" and topic="a program for Hello World in Python", OR call 'open_application' then 'type_text'.
 - When asked to click an element, button, link, or icon on screen:
-  Use 'click_element_by_description' with a clear visual description of what to click.
+  Use 'click_element_by_description' with a clear visual description like "the search bar", "submit button", "first video thumbnail".
+- When asked to drag something from one place to another:
+  Use 'drag' with start_description and end_description (e.g. drag file from Downloads to Desktop).
 - When asked to type into a search bar, text box, or input field on screen:
   Use 'click_and_type' with the description of the field and the text to type.
+- When asked to see/read what is on screen, scan, or analyze:
+  Use 'describe_screen' or 'read_screen'.
+- When asked to click an element or perform actions on screen:
+  Use 'click_element_by_description' or 'click_and_type'.
 - When asked to open websites or apps:
-  Use 'open_url' or 'open_application'.
+  Use 'open_url' or 'open_application'. For direct websites like GitHub, YouTube, Reddit, use 'open_url' with the https:// URL.
+- When asked to open another tab, new tab, or open a tab in a browser (e.g. "open another tab", "open another tab in chrome", "new tab"):
+  Use 'open_browser_tab' with browser (e.g. "chrome", "brave") and optional url.
+- When asked to close a browser tab:
+  Use 'close_browser_tab'.
+- When asked to restore, reopen, bring back, or "open again" a minimized window or app (e.g. "open again", "restore chrome", "open it", "restore it"):
+  Use 'restore_window' with title (e.g. "chrome" or empty string for last minimized).
 - When asked to play music or songs on Spotify (e.g. "open spotify and play animal", "play starboy on spotify"):
   Use 'play_spotify' with query="<song title>".
 - When asked to play a video or song on YouTube:
@@ -66,6 +78,9 @@ CRITICAL DIRECTIVES:
   Use 'open_and_search' with app="<app>" and query="<query>".
 - When asked to pause or play/resume media:
   Use 'play_pause_media'.
+- When asked ANY knowledge question, factual question, or query about people, places, definitions, science, math, or history (e.g. "Who is the Prime Minister of India", "Who is Elon Musk", "What is photosynthesis", "Why is the sky blue"):
+  NEVER call 'web_search' or open a browser! Answer DIRECTLY, accurately, and politely from your own knowledge using FINAL in your very first step!
+- ONLY use 'web_search' when the user EXPLICITLY commands you to search the web or google (e.g. "search Google for...", "search the web for...", "google this...").
 
 AVAILABLE TOOLS:
 {_TOOL_CATALOG}
@@ -84,7 +99,7 @@ Rules:
 - One ACTION per response — wait for the result before the next step.
 - Keep FINAL replies conversational, polite, and SHORT (under 30 words).
 - Once the user's requested action is completed, IMMEDIATELY output FINAL and stop!
-- For chit-chat, jokes, greetings, or questions that do not need an external tool, DO NOT call any tool! Immediately output FINAL in your very first step.
+- For questions about people, places, facts, science, math, definitions, chit-chat, jokes, or greetings: DO NOT call any tool! Immediately output FINAL with the direct answer in your very first step.
 
 {memory_context}
 """
@@ -241,7 +256,8 @@ def run_agent(
                 speak_fn(f"API error: please try again.")
             return f"API error: {err}"
 
-        raw = response.choices[0].message.content or ""
+        msg = response.choices[0].message
+        raw = (msg.content or getattr(msg, "reasoning_content", "") or "").strip()
         logger.info(f"Model response:\n{raw[:400]}")
 
         thought, action, final = _parse_response(raw)
@@ -284,7 +300,9 @@ def run_agent(
                 "volume_up", "volume_down", "volume_mute", "lock_screen",
                 "minimize_window", "maximize_window", "close_application",
                 "get_time", "battery_status", "click_and_type", "type_text", "press_key",
-                "open_and_write"
+                "open_and_write", "get_weather", "get_news", "set_reminder", "system_info",
+                "drag_with_description", "drag", "click_element_by_description", "web_search",
+                "set_timer", "read_screen", "describe_screen", "read_screen_text"
             }
             res_str = str(result).strip()
             if tool_name in DIRECT_ANSWER_TOOLS and not res_str.lower().startswith("error"):

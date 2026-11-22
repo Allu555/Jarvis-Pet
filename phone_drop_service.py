@@ -1,0 +1,2095 @@
+"""
+phone_drop_service.py – Instant Phone <-> Laptop Bi-directional QR Code Connect & Drop Service.
+
+Apple iOS Design Language:
+- Pure OLED true black (#000000) with dynamic ambient album art backlight glow.
+- Apple Music signature pink/red accent (#fa2d48) and iOS System Blue (#007aff).
+- Real-time synchronized karaoke lyrics (Apple Music Sing style) with auto-centering spring scroll & tap-to-seek.
+- Instant JARVIS AI controls (skip track, previous track, pause/play, volume, screenshot, lock PC, taskbar styles).
+- Direct Wi-Fi LAN QR pairing that connects reliably on all Android & iOS devices.
+"""
+
+from __future__ import annotations
+
+import os
+import io
+import sys
+import json
+import time
+import socket
+import urllib.parse
+import threading
+from pathlib import Path
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from typing import Optional, Callable, Dict, Any, List, Tuple
+
+import qrcode
+from PIL import Image
+
+# Default directory where files from phone are saved
+DOWNLOADS_DIR = Path.home() / "Downloads" / "PhoneDrop"
+DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def get_hostname() -> str:
+    """Return lowercase hostname."""
+    try:
+        return socket.gethostname().lower()
+    except Exception:
+        return "laptop"
+
+
+def get_local_ip() -> str:
+    """Detect local Wi-Fi / LAN IP address."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('10.255.255.255', 1))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = '127.0.0.1'
+    finally:
+        s.close()
+    return ip
+
+
+# ─── Apple iOS Mobile Web Application (HTML / CSS / JS) ──────────────────────────
+
+MOBILE_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Origin Link">
+<title>Origin Link · Apple iOS Hub</title>
+<style>
+:root {
+  --ios-black: #000000;
+  --ios-card: rgba(28, 28, 30, 0.72);
+  --ios-card-elevated: rgba(44, 44, 46, 0.78);
+  --ios-border: rgba(255, 255, 255, 0.12);
+  --ios-red: #fa2d48;         /* Apple Music Red */
+  --ios-blue: #007aff;        /* iOS Blue */
+  --ios-green: #34c759;       /* iOS Green */
+  --ios-purple: #af52de;      /* iOS Purple */
+  --ios-indigo: #5856d6;      /* iOS Indigo */
+  --ios-orange: #ff9500;      /* iOS Orange */
+  --ios-gray-text: #8e8e93;
+  --ios-light-gray: #aeaeb2;
+  --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --safe-bottom: env(safe-area-inset-bottom, 18px);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+body {
+  background-color: var(--ios-black);
+  color: #ffffff;
+  font-family: var(--font-stack);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  padding-bottom: calc(84px + var(--safe-bottom));
+  position: relative;
+}
+
+/* Dynamic Ambient Backdrop Aura (Apple Music style) */
+.ambient-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ambient-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.38;
+  transition: all 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.blob-1 {
+  width: 320px;
+  height: 320px;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, var(--ios-red) 0%, transparent 70%);
+}
+
+.blob-2 {
+  width: 280px;
+  height: 280px;
+  bottom: 120px;
+  right: -40px;
+  background: radial-gradient(circle, var(--ios-indigo) 0%, transparent 70%);
+}
+
+/* iOS Glass Header */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(35px) saturate(200%);
+  -webkit-backdrop-filter: blur(35px) saturate(200%);
+  background: rgba(0, 0, 0, 0.75);
+  border-bottom: 0.5px solid var(--ios-border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #fc3c44, #fa2d48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(250, 45, 72, 0.4);
+}
+
+.brand-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+
+.brand-subtitle {
+  font-size: 11px;
+  color: var(--ios-gray-text);
+  font-weight: 500;
+}
+
+.ios-pill-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(52, 199, 89, 0.14);
+  border: 0.5px solid rgba(52, 199, 89, 0.35);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ios-green);
+}
+
+.ios-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ios-green);
+  box-shadow: 0 0 8px var(--ios-green);
+  animation: iosPulse 2s infinite ease-in-out;
+}
+
+@keyframes iosPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+/* Main Container */
+.main-content {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  padding: 16px 18px;
+  max-width: 520px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.view-section {
+  display: none;
+  animation: iosSpringIn 0.32s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.view-section.active {
+  display: block;
+}
+
+@keyframes iosSpringIn {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* iOS Card Surfaces */
+.ios-card {
+  background: rgba(24, 24, 28, 0.58);
+  backdrop-filter: blur(50px) saturate(220%);
+  -webkit-backdrop-filter: blur(50px) saturate(220%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 26px;
+  padding: 22px;
+  margin-bottom: 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65), inset 0 1px 1.5px rgba(255, 255, 255, 0.25);
+}
+
+.card-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ios-light-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ══════════ VIEW 1: APPLE MUSIC & SYNCED LYRICS ══════════ */
+.now-playing-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.cover-wrapper {
+  width: min(280px, 80vw);
+  height: min(280px, 80vw);
+  margin: 6px 0 20px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cover-reflection {
+  position: absolute;
+  width: 90%;
+  height: 90%;
+  border-radius: 28px;
+  filter: blur(45px) saturate(220%);
+  opacity: 0.72;
+  transform: translateY(14px) scale(0.96);
+  z-index: 1;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+.cover-art {
+  width: 100%;
+  height: 100%;
+  border-radius: 26px;
+  object-fit: cover;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  image-rendering: -webkit-optimize-contrast;
+  transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.cover-art.playing {
+  animation: vinylBreathe 5s infinite ease-in-out;
+}
+
+@keyframes vinylBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.028); }
+}
+
+.track-name {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: #ffffff;
+  max-width: 90%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.artist-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ios-gray-text);
+  margin-bottom: 20px;
+}
+
+/* Apple iOS Scrubber */
+.scrub-container {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.scrub-track {
+  width: 100%;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+}
+
+.scrub-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  background: #ffffff;
+  border-radius: 999px;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
+  transition: width 0.1s linear;
+}
+
+.scrub-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ios-gray-text);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Playback Control Hub */
+.controls-hub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 22px;
+}
+
+.ctrl-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.ctrl-btn:active {
+  transform: scale(0.86);
+}
+
+.ctrl-btn.play-circle {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 28px rgba(255, 255, 255, 0.35);
+}
+
+.ctrl-btn.play-circle:active {
+  transform: scale(0.92);
+}
+
+/* Apple Control Center Liquid Glass Volume Capsule */
+.ios-volume-capsule {
+  width: 100%;
+  height: 40px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(35px);
+  -webkit-backdrop-filter: blur(35px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: none;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.25), 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.ios-volume-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 50%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), #ffffff);
+  border-radius: 999px;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+  transition: width 0.08s ease;
+}
+
+.ios-volume-content {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  padding: 0 16px;
+  pointer-events: none;
+  mix-blend-mode: difference;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* Apple Music Live Synced Lyrics Sheet */
+.lyrics-card {
+  min-height: 320px;
+  max-height: 480px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.lyrics-container {
+  flex: 1;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  padding: 30px 12px 60px;
+  text-align: center;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+
+.lyric-item {
+  padding: 10px 14px;
+  margin: 4px 0;
+  font-size: 18px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.32);
+  font-weight: 600;
+  border-radius: 14px;
+  cursor: pointer;
+  filter: blur(0.4px);
+  transition: all 0.32s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.lyric-item.active {
+  color: #ffffff;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  transform: scale(1.05);
+  filter: blur(0px);
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.lyric-item:active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.lyrics-placeholder {
+  color: var(--ios-gray-text);
+  font-size: 15px;
+  padding: 50px 10px;
+  font-style: italic;
+}
+
+/* ══════════ VIEW 2: JARVIS AI ASSISTANT ══════════ */
+.jarvis-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.siri-ring {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  padding: 3px;
+  background: linear-gradient(45deg, #007aff, #af52de, #fa2d48, #ff9500);
+  animation: siriSpin 6s linear infinite;
+  box-shadow: 0 0 28px rgba(250, 45, 72, 0.35);
+  margin-bottom: 12px;
+}
+
+@keyframes siriSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.siri-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.siri-badge {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ios-light-gray);
+  margin-bottom: 16px;
+}
+
+/* Chat Messages (Apple iMessage style) */
+.chat-window {
+  width: 100%;
+  min-height: 220px;
+  max-height: min(440px, 50vh);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px;
+  margin-bottom: 12px;
+  scroll-behavior: smooth;
+}
+
+.imessage {
+  max-width: 82%;
+  padding: 10px 16px;
+  font-size: 14.5px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.imessage.user {
+  align-self: flex-end;
+  background: var(--ios-blue);
+  color: #ffffff;
+  border-radius: 18px 18px 4px 18px;
+}
+
+.imessage.jarvis {
+  align-self: flex-start;
+  background: var(--ios-card-elevated);
+  border: 0.5px solid var(--ios-border);
+  color: #f2f2f7;
+  border-radius: 18px 18px 18px 4px;
+}
+
+/* Apple iOS Horizontal Suggestion Rail (Smart Chips) */
+.ios-suggestion-rail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 2px 10px 2px;
+  margin-bottom: 8px;
+  scrollbar-width: none;
+}
+
+.ios-suggestion-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.action-chip {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 0.5px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #f2f2f7;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.action-chip:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.action-chip svg {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+/* iOS Prompt Bar */
+.ios-input-dock {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid var(--ios-border);
+  border-radius: 999px;
+  padding: 4px 6px 4px 16px;
+}
+
+.ios-input-dock:focus-within {
+  border-color: var(--ios-blue);
+  box-shadow: 0 0 16px rgba(0, 122, 255, 0.35);
+}
+
+.text-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.text-input::placeholder {
+  color: var(--ios-gray-text);
+}
+
+.round-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.round-btn:active {
+  transform: scale(0.9);
+}
+
+.btn-mic {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.btn-mic.active-listening {
+  background: var(--ios-red);
+  color: #ffffff;
+  box-shadow: 0 0 16px var(--ios-red);
+  animation: iosPulse 1.2s infinite ease-in-out;
+}
+
+.btn-send {
+  background: var(--ios-blue);
+  color: #ffffff;
+}
+
+/* ══════════ VIEW 3: AIRDROP & FILES ══════════ */
+.airdrop-hub {
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 24px;
+  padding: 30px 16px;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: all 0.2s ease;
+}
+
+.airdrop-hub:active, .airdrop-hub.drag-over {
+  border-color: var(--ios-blue);
+  background: rgba(0, 122, 255, 0.08);
+  transform: scale(0.98);
+}
+
+.airdrop-icon-ring {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(0, 122, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ios-blue);
+  margin: 0 auto 12px;
+}
+
+.shelf-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shelf-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 0.5px solid var(--ios-border);
+  border-radius: 14px;
+}
+
+.shelf-file-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(0, 122, 255, 0.18);
+  color: var(--ios-blue);
+  text-transform: uppercase;
+}
+
+.shelf-file-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+}
+
+.shelf-dl-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid var(--ios-border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #ffffff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* ══════════ VIEW 4: CONTROL CENTER ══════════ */
+.control-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.ios-tile {
+  background: rgba(255, 255, 255, 0.05);
+  border: 0.5px solid var(--ios-border);
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.ios-tile:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.clipboard-textarea {
+  width: 100%;
+  min-height: 70px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 0.5px solid var(--ios-border);
+  border-radius: 14px;
+  padding: 12px;
+  color: #ffffff;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+  margin-bottom: 8px;
+}
+
+.clipboard-textarea:focus {
+  border-color: var(--ios-blue);
+}
+
+.ios-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid var(--ios-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.12s ease;
+}
+
+.ios-btn:active {
+  transform: scale(0.96);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Floating iOS Tab Bar */
+.ios-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  backdrop-filter: blur(40px) saturate(210%);
+  -webkit-backdrop-filter: blur(40px) saturate(210%);
+  background: rgba(18, 18, 20, 0.84);
+  border-top: 0.5px solid var(--ios-border);
+  padding: 8px 16px calc(8px + var(--safe-bottom));
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.tab-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: var(--ios-gray-text);
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  padding: 4px 10px;
+}
+
+.tab-btn.active {
+  color: var(--ios-red);
+}
+
+.tab-btn:active {
+  transform: scale(0.92);
+}
+
+/* Toast */
+.ios-toast {
+  position: fixed;
+  top: 68px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: rgba(30, 30, 32, 0.95);
+  backdrop-filter: blur(25px);
+  border: 0.5px solid var(--ios-border);
+  color: #ffffff;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.ios-toast.visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+</style>
+</head>
+<body>
+
+<!-- Ambient Backlight -->
+<div class="ambient-backdrop">
+  <div class="ambient-blob blob-1"></div>
+  <div class="ambient-blob blob-2"></div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="brand">
+    <div class="brand-icon">
+      <!-- Apple Music Vector Note -->
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 18V5l12-2v13"></path>
+        <circle cx="6" cy="18" r="3"></circle>
+        <circle cx="18" cy="16" r="3"></circle>
+      </svg>
+    </div>
+    <div class="brand-titles">
+      <span class="brand-title">Origin Link</span>
+      <span class="brand-subtitle">Connected to Laptop</span>
+    </div>
+  </div>
+  <div class="ios-pill-badge">
+    <div class="ios-pulse-dot"></div>
+    <span>Live</span>
+  </div>
+</header>
+
+<div class="main-content">
+
+  <!-- ══════════ TAB 1: NOW PLAYING & SYNCED LYRICS ══════════ -->
+  <section id="tab-music" class="view-section active">
+    <div class="ios-card now-playing-box">
+      <div class="cover-wrapper">
+        <img id="cover-reflection" class="cover-reflection" src="/api/media/cover" alt="" onerror="this.style.opacity='0'">
+        <img id="track-cover" class="cover-art" src="/api/media/cover" alt="Album Artwork" onerror="this.src='/api/media/cover'">
+      </div>
+
+      <div class="track-name" id="track-name">No Music Playing</div>
+      <div class="artist-name" id="track-artist">Desktop Idle</div>
+
+      <!-- Scrubber -->
+      <div class="scrub-container">
+        <div class="scrub-track" id="scrub-track">
+          <div class="scrub-progress" id="scrub-progress"></div>
+        </div>
+        <div class="scrub-labels">
+          <span id="label-pos">0:00</span>
+          <span id="label-dur">0:00</span>
+        </div>
+      </div>
+
+      <!-- Controls Hub -->
+      <div class="controls-hub">
+        <!-- Previous -->
+        <button class="ctrl-btn" id="ctrl-prev" title="Previous Track">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="19 20 9 12 19 4 19 20"></polygon>
+            <rect x="5" y="4" width="3" height="16" rx="1"></rect>
+          </svg>
+        </button>
+
+        <!-- Play / Pause -->
+        <button class="ctrl-btn play-circle" id="ctrl-playpause" title="Play/Pause">
+          <svg id="glyph-play" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="6 4 20 12 6 20 6 4"></polygon>
+          </svg>
+          <svg id="glyph-pause" style="display:none;" width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16" rx="1.5"></rect>
+            <rect x="14" y="4" width="4" height="16" rx="1.5"></rect>
+          </svg>
+        </button>
+
+        <!-- Next / Skip -->
+        <button class="ctrl-btn" id="ctrl-next" title="Next Track">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 4 15 12 5 20 5 4"></polygon>
+            <rect x="16" y="4" width="3" height="16" rx="1"></rect>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Apple Control Center Liquid Glass Volume Capsule -->
+      <div class="ios-volume-capsule" id="vol-capsule">
+        <div class="ios-volume-fill" id="vol-fill"></div>
+        <div class="ios-volume-content">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+            </svg>
+            <span style="font-size:12px; letter-spacing:0.4px;">VOLUME</span>
+          </div>
+          <span class="vol-label" id="vol-pct-text">50%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Apple Music Real-Time Synced Lyrics -->
+    <div class="ios-card lyrics-card">
+      <div class="card-header">
+        <span>Synchronized Lyrics</span>
+        <span style="color:var(--ios-red); font-size:11px; font-weight:700;">LIVE</span>
+      </div>
+      <div class="lyrics-container" id="lyrics-container">
+        <div class="lyrics-placeholder" id="lyrics-loading">Connecting to music stream...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ TAB 2: JARVIS AI ══════════ -->
+  <section id="tab-jarvis" class="view-section">
+    <div class="ios-card jarvis-hero">
+      <div class="siri-ring">
+        <div class="siri-inner">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fa2d48" stroke-width="2.5">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+        </div>
+      </div>
+      <div class="siri-badge" id="jarvis-status-badge">JARVIS Ready</div>
+
+      <!-- Chat Bubbles -->
+      <div class="chat-window" id="chat-window">
+        <div class="imessage jarvis">Hello! I am JARVIS. Ask a task, tap a quick action below, or speak hands-free.</div>
+      </div>
+
+      <!-- Apple iOS Horizontal Suggestion Rail -->
+      <div class="ios-suggestion-rail">
+        <div class="action-chip action-tile" data-action="vision mode">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2.5">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span style="color:#00f0ff; font-weight:600;">Vision Scan</span>
+        </div>
+
+        <div class="action-chip action-tile" data-action="open notepad and do code of hello world in python">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2.5">
+            <polyline points="16 18 22 12 16 6"></polyline>
+            <polyline points="8 6 2 12 8 18"></polyline>
+          </svg>
+          <span>Notepad &amp; Python</span>
+        </div>
+
+        <div class="action-chip action-tile" data-action="skip song">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 4 15 12 5 20 5 4"></polygon>
+            <rect x="16" y="4" width="3" height="16" rx="1"></rect>
+          </svg>
+          <span>Skip Track</span>
+        </div>
+
+        <div class="action-chip action-tile" data-action="previous song">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="19 20 9 12 19 4 19 20"></polygon>
+            <rect x="5" y="4" width="3" height="16" rx="1"></rect>
+          </svg>
+          <span>Prev Track</span>
+        </div>
+
+        <div class="action-chip action-tile" data-action="take a screenshot">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          <span>Screenshot</span>
+        </div>
+
+        <div class="action-chip action-tile" data-action="make taskbar clear glass">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0a84ff" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span>Clear Taskbar</span>
+        </div>
+
+        <div class="action-chip action-tile" data-action="what is my battery level">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2">
+            <rect x="2" y="7" width="16" height="10" rx="2"></rect>
+            <line x1="22" y1="11" x2="22" y2="13"></line>
+          </svg>
+          <span>Battery</span>
+        </div>
+
+        <div class="action-chip action-tile" data-action="set volume to 80">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+          <span>Volume 80%</span>
+        </div>
+
+        <div class="action-chip action-tile" data-action="lock pc">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff453a" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Lock Laptop</span>
+        </div>
+      </div>
+
+      <!-- Prompt Input -->
+      <div class="ios-input-dock">
+        <input type="text" class="text-input" id="jarvis-input" placeholder="Ask JARVIS (e.g. 'skip', 'volume 80')...">
+        <button class="round-btn btn-mic" id="jarvis-mic" title="Voice Input">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+          </svg>
+        </button>
+        <button class="round-btn btn-send" id="jarvis-send" title="Send">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ TAB 3: AIRDROP & FILES ══════════ -->
+  <section id="tab-airdrop" class="view-section">
+    <div class="ios-card">
+      <div class="card-header">AirDrop to Laptop</div>
+      <input type="file" id="upload-input" multiple style="display:none;">
+      <div class="airdrop-hub" id="airdrop-dropzone">
+        <div class="airdrop-icon-ring">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <div style="font-size:16px; font-weight:700; margin-bottom:4px;">Tap to Send Files</div>
+        <div style="font-size:13px; color:var(--ios-gray-text);">Photos, Videos, Audio, Documents</div>
+      </div>
+    </div>
+
+    <div class="ios-card">
+      <div class="card-header">Desktop Shelf Files</div>
+      <div class="shelf-card-list" id="shelf-items">
+        <div style="font-size:13px; color:var(--ios-gray-text); text-align:center; padding:18px;">
+          No files on laptop shelf.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ TAB 4: CONTROL CENTER ══════════ -->
+  <section id="tab-control" class="view-section">
+    <div class="ios-card">
+      <div class="card-header">Control Center</div>
+      <div class="control-tiles">
+        <div class="ios-tile" data-cmd="screenshot">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ios-blue)" stroke-width="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          <span>Screenshot</span>
+        </div>
+
+        <div class="ios-tile" data-cmd="lock_pc">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ios-red)" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Lock Laptop</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2-Way Clipboard Bridge -->
+    <div class="ios-card">
+      <div class="card-header">Clipboard Bridge</div>
+      <textarea class="clipboard-textarea" id="clip-text" placeholder="Type text to send to laptop clipboard..."></textarea>
+      <div style="display:flex; gap:8px;">
+        <button class="ios-btn" style="flex:1;" id="btn-push-clip">Send to PC</button>
+        <button class="ios-btn" style="flex:1;" id="btn-pull-clip">Copy from PC</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Floating Apple Tab Bar -->
+<nav class="ios-tab-bar">
+  <div class="tab-btn active" data-tab="tab-music">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"></path>
+    </svg>
+    <span>Music</span>
+  </div>
+
+  <div class="tab-btn" data-tab="tab-jarvis">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+    </svg>
+    <span>JARVIS</span>
+  </div>
+
+  <div class="tab-btn" data-tab="tab-airdrop">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="17 8 12 3 7 8"></polyline>
+      <line x1="12" y1="3" x2="12" y2="15"></line>
+    </svg>
+    <span>AirDrop</span>
+  </div>
+
+  <div class="tab-btn" data-tab="tab-control">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="4" y1="21" x2="4" y2="14"></line>
+      <line x1="4" y1="10" x2="4" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="12"></line>
+      <line x1="12" y1="8" x2="12" y2="3"></line>
+      <line x1="20" y1="21" x2="20" y2="16"></line>
+      <line x1="20" y1="12" x2="20" y2="3"></line>
+      <line x1="1" y1="14" x2="7" y2="14"></line>
+      <line x1="9" y1="8" x2="15" y2="8"></line>
+      <line x1="17" y1="16" x2="23" y2="16"></line>
+    </svg>
+    <span>Control</span>
+  </div>
+</nav>
+
+<!-- iOS Toast -->
+<div class="ios-toast" id="ios-toast">
+  <span id="toast-msg">Success</span>
+</div>
+
+<script>
+// State
+let isPlaying = false;
+let currentPos = 0.0;
+let currentDur = 0.0;
+let lyricsList = [];
+let activeIdx = -1;
+let currentSongTitle = "";
+
+function showToast(msg) {
+  const t = document.getElementById("ios-toast");
+  document.getElementById("toast-msg").innerText = msg;
+  t.classList.add("visible");
+  setTimeout(() => t.classList.remove("visible"), 2000);
+}
+
+function fmtTime(sec) {
+  if (isNaN(sec) || sec < 0) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+// Tab Switching
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".view-section").forEach(v => v.classList.remove("active"));
+    btn.classList.add("active");
+    const target = document.getElementById(btn.dataset.tab);
+    if (target) target.classList.add("active");
+  });
+});
+
+// ══════════ MUSIC & LYRICS CONTROLLER ══════════
+const trackCover = document.getElementById("track-cover");
+const coverReflection = document.getElementById("cover-reflection");
+const trackName = document.getElementById("track-name");
+const trackArtist = document.getElementById("track-artist");
+const labelPos = document.getElementById("label-pos");
+const labelDur = document.getElementById("label-dur");
+const scrubProgress = document.getElementById("scrub-progress");
+const scrubTrack = document.getElementById("scrub-track");
+const glyphPlay = document.getElementById("glyph-play");
+const glyphPause = document.getElementById("glyph-pause");
+const lyricsBox = document.getElementById("lyrics-container");
+const volCapsule = document.getElementById("vol-capsule");
+const volFill = document.getElementById("vol-fill");
+const volPctText = document.getElementById("vol-pct-text");
+
+let isDraggingVol = false;
+
+function setVolumePct(pct, shouldSend = true) {
+  const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+  if (volFill) volFill.style.width = clamped + "%";
+  if (volPctText) volPctText.innerText = clamped + "%";
+  if (shouldSend) {
+    sendCommand("set_volume", clamped);
+  }
+}
+
+function handleVolTouch(e) {
+  if (!volCapsule) return;
+  const rect = volCapsule.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  setVolumePct(ratio * 100, true);
+}
+
+if (volCapsule) {
+  volCapsule.addEventListener("mousedown", (e) => {
+    isDraggingVol = true;
+    handleVolTouch(e);
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (isDraggingVol) handleVolTouch(e);
+  });
+  window.addEventListener("mouseup", () => { isDraggingVol = false; });
+
+  volCapsule.addEventListener("touchstart", (e) => {
+    isDraggingVol = true;
+    handleVolTouch(e);
+  }, { passive: true });
+  window.addEventListener("touchmove", (e) => {
+    if (isDraggingVol) handleVolTouch(e);
+  }, { passive: true });
+  window.addEventListener("touchend", () => { isDraggingVol = false; });
+}
+
+// Next / Skip
+document.getElementById("ctrl-next").addEventListener("click", () => {
+  sendCommand("next_track");
+  showToast("Skipping to next track");
+});
+
+// Previous
+document.getElementById("ctrl-prev").addEventListener("click", () => {
+  sendCommand("prev_track");
+  showToast("Playing previous track");
+});
+
+// Play / Pause
+document.getElementById("ctrl-playpause").addEventListener("click", () => {
+  sendCommand("play_pause");
+  isPlaying = !isPlaying;
+  setPlayState(isPlaying);
+});
+
+function setPlayState(playing) {
+  glyphPlay.style.display = playing ? "none" : "block";
+  glyphPause.style.display = playing ? "block" : "none";
+  if (playing) {
+    trackCover.classList.add("playing");
+  } else {
+    trackCover.classList.remove("playing");
+  }
+}
+
+// Scrubber Click
+scrubTrack.addEventListener("click", (e) => {
+  if (currentDur <= 0) return;
+  const rect = scrubTrack.getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const target = ratio * currentDur;
+  currentPos = target;
+  updateScrubber();
+  sendCommand("seek", target);
+});
+
+function updateScrubber() {
+  if (currentDur > 0) {
+    const pct = Math.min(100, (currentPos / currentDur) * 100);
+    scrubProgress.style.width = pct + "%";
+    labelPos.innerText = fmtTime(currentPos);
+    labelDur.innerText = fmtTime(currentDur);
+  }
+}
+
+// Render Lyrics
+function renderLyrics(lines) {
+  lyricsBox.innerHTML = "";
+  if (!lines || lines.length === 0) {
+    lyricsBox.innerHTML = '<div class="lyrics-placeholder">♪ Instrumental or searching lyrics... ♪</div>';
+    return;
+  }
+  lines.forEach((item, idx) => {
+    const el = document.createElement("div");
+    el.className = "lyric-item";
+    el.dataset.idx = idx;
+    el.dataset.sec = item.sec;
+    el.innerText = item.text || "♪";
+    el.addEventListener("click", () => {
+      const sec = parseFloat(item.sec);
+      sendCommand("seek", sec);
+      currentPos = sec;
+      highlightLyric(idx, true);
+    });
+    lyricsBox.appendChild(el);
+  });
+}
+
+function highlightLyric(idx, force = false) {
+  if (idx === activeIdx && !force) return;
+  activeIdx = idx;
+  const all = lyricsBox.querySelectorAll(".lyric-item");
+  all.forEach((item, i) => {
+    if (i === idx) {
+      item.classList.add("active");
+      // Center active lyric with Apple smooth scroll
+      const boxRect = lyricsBox.getBoundingClientRect();
+      const lineRect = item.getBoundingClientRect();
+      const offset = (lineRect.top - boxRect.top) - (boxRect.height / 2) + (lineRect.height / 2);
+      lyricsBox.scrollTop += offset;
+    } else {
+      item.classList.remove("active");
+    }
+  });
+}
+
+// High-Frequency Real-Time Lyrics Evaluator (Matches playback timestamp exactly)
+function evaluateCurrentLyric() {
+  if (!lyricsList || lyricsList.length === 0) return;
+  let targetIdx = 0;
+  for (let i = 0; i < lyricsList.length; i++) {
+    if (currentPos >= lyricsList[i].sec) {
+      targetIdx = i;
+    } else {
+      break;
+    }
+  }
+  highlightLyric(targetIdx);
+}
+
+async function fetchLyrics() {
+  try {
+    const res = await fetch("/api/media/lyrics");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.lines && data.lines.length > 0) {
+      if (lyricsList.length !== data.lines.length || data.title !== currentSongTitle) {
+        currentSongTitle = data.title;
+        lyricsList = data.lines;
+        renderLyrics(lyricsList);
+      }
+    }
+  } catch (e) {}
+}
+
+// ══════════ JARVIS AI CONTROLLER ══════════
+const chatWindow = document.getElementById("chat-window");
+const jarvisInput = document.getElementById("jarvis-input");
+const jarvisStatus = document.getElementById("jarvis-status-badge");
+const jarvisSend = document.getElementById("jarvis-send");
+const jarvisMic = document.getElementById("jarvis-mic");
+
+function addMessage(role, text) {
+  const el = document.createElement("div");
+  el.className = `imessage ${role}`;
+  el.innerText = text;
+  chatWindow.appendChild(el);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+async function askJarvis(query) {
+  if (!query || !query.trim()) return;
+  const q = query.trim();
+  addMessage("user", q);
+  jarvisInput.value = "";
+  jarvisStatus.innerText = "Executing...";
+
+  try {
+    const res = await fetch("/api/jarvis", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: q })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      addMessage("jarvis", "Could not dispatch request.");
+    }
+  } catch (e) {
+    addMessage("jarvis", "Network error contacting laptop.");
+  }
+}
+
+jarvisSend.addEventListener("click", () => askJarvis(jarvisInput.value));
+jarvisInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") askJarvis(jarvisInput.value);
+});
+
+// Action buttons (Skip track, previous, screenshot, etc.)
+document.querySelectorAll(".action-tile").forEach(tile => {
+  tile.addEventListener("click", () => {
+    const action = tile.dataset.action;
+    if (action) {
+      askJarvis(action);
+      showToast(`Triggered ${action}`);
+    }
+  });
+});
+
+// Voice Input
+if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+  rec.continuous = false;
+  rec.interimResults = false;
+  rec.lang = "en-US";
+
+  rec.onstart = () => {
+    jarvisMic.classList.add("active-listening");
+    jarvisStatus.innerText = "Listening to phone mic...";
+  };
+  rec.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    askJarvis(text);
+  };
+  rec.onend = () => jarvisMic.classList.remove("active-listening");
+  rec.onerror = () => jarvisMic.classList.remove("active-listening");
+
+  jarvisMic.addEventListener("click", () => {
+    try { rec.start(); } catch (e) { rec.stop(); }
+  });
+}
+
+// ══════════ AIRDROP & FILES ══════════
+const airdropDropzone = document.getElementById("airdrop-dropzone");
+const uploadInput = document.getElementById("upload-input");
+
+airdropDropzone.addEventListener("click", () => uploadInput.click());
+uploadInput.addEventListener("change", (e) => {
+  if (e.target.files.length > 0) uploadFiles(Array.from(e.target.files));
+});
+
+async function uploadFiles(files) {
+  for (const f of files) {
+    showToast(`AirDropping ${f.name}...`);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/upload?filename=${encodeURIComponent(f.name)}`, true);
+    xhr.onload = () => {
+      if (xhr.status === 200) showToast(`AirDropped ${f.name}!`);
+    };
+    xhr.send(f);
+  }
+}
+
+// ══════════ REMOTE TILES & CLIPBOARD ══════════
+document.querySelectorAll(".ios-tile").forEach(tile => {
+  tile.addEventListener("click", () => {
+    sendCommand(tile.dataset.cmd);
+    showToast(`Executed ${tile.dataset.cmd}`);
+  });
+});
+
+document.getElementById("btn-push-clip").addEventListener("click", async () => {
+  const text = document.getElementById("clip-text").value;
+  if (!text) return;
+  await fetch("/api/clipboard", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text })
+  });
+  showToast("Sent to Laptop Clipboard");
+});
+
+document.getElementById("btn-pull-clip").addEventListener("click", async () => {
+  const res = await fetch("/api/status");
+  const data = await res.json();
+  if (data.clipboard) {
+    document.getElementById("clip-text").value = data.clipboard;
+    showToast("Copied from Laptop Clipboard");
+  } else {
+    showToast("Laptop clipboard is empty");
+  }
+});
+
+async function sendCommand(command, query = "") {
+  try {
+    await fetch("/api/command", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command, query: String(query) })
+    });
+  } catch (e) {}
+}
+
+// ══════════ POLLING LOOP ══════════
+let lastSongId = "";
+let lastReply = "";
+
+async function pollStatus() {
+  try {
+    const res = await fetch("/api/status");
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const song = data.now_playing;
+    if (song && song.title) {
+      trackName.innerText = song.title;
+      trackArtist.innerText = song.artist || "Unknown Artist";
+      isPlaying = song.is_playing || false;
+      setPlayState(isPlaying);
+
+      currentPos = song.pos_sec || 0.0;
+      currentDur = song.dur_sec || 0.0;
+      updateScrubber();
+
+      const songId = `${song.title}:${song.artist}`;
+      if (songId !== lastSongId) {
+        lastSongId = songId;
+        const newCover = "/api/media/cover?t=" + Date.now();
+        trackCover.src = newCover;
+        const coverRefl = document.getElementById("cover-reflection");
+        if (coverRefl) coverRefl.src = newCover;
+        fetchLyrics();
+      }
+
+      // If lyrics are not yet loaded, keep retrying
+      if (lyricsList.length === 0) {
+        fetchLyrics();
+      }
+    } else {
+      trackName.innerText = "No Music Playing";
+      trackArtist.innerText = "Desktop Idle";
+      setPlayState(false);
+    }
+
+    if (data.volume !== undefined && !isDraggingVol) {
+      setVolumePct(data.volume, false);
+    }
+
+    // JARVIS reply stream
+    if (data.jarvis) {
+      jarvisStatus.innerText = data.jarvis.status || "JARVIS Ready";
+      if (data.jarvis.reply && data.jarvis.reply !== lastReply) {
+        lastReply = data.jarvis.reply;
+        addMessage("jarvis", data.jarvis.reply);
+      }
+    }
+
+    // Shelf files
+    if (data.shelf_files && Array.isArray(data.shelf_files)) {
+      renderShelf(data.shelf_files);
+    }
+  } catch (e) {}
+}
+
+function renderShelf(files) {
+  const container = document.getElementById("shelf-items");
+  if (!files || files.length === 0) {
+    container.innerHTML = '<div style="font-size:13px; color:var(--ios-gray-text); text-align:center; padding:18px;">No files on laptop shelf.</div>';
+    return;
+  }
+  container.innerHTML = "";
+  files.forEach(f => {
+    const row = document.createElement("div");
+    row.className = "shelf-row";
+    row.innerHTML = `
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="shelf-file-badge">${f.ext}</span>
+        <span class="shelf-file-name">${f.name}</span>
+      </div>
+      <a class="shelf-dl-btn" href="/api/download/${encodeURIComponent(f.name)}" download>Save</a>
+    `;
+    container.appendChild(row);
+  });
+}
+
+// Initial Call & 1s Polling
+pollStatus();
+fetchLyrics();
+setInterval(pollStatus, 1000);
+
+// Ultra-smooth 100ms real-time lyrics & progress sync loop
+setInterval(() => {
+  if (isPlaying && currentDur > 0) {
+    currentPos = Math.min(currentDur, currentPos + 0.1);
+    updateScrubber();
+    evaluateCurrentLyric();
+  }
+}, 100);
+</script>
+</body>
+</html>
+"""
+
+
+# ─── HTTP Request Handler ─────────────────────────────────────────────────────
+
+class PhoneDropHandler(BaseHTTPRequestHandler):
+    server: 'PhoneDropServer'
+
+    def log_message(self, format, *args):
+        pass
+
+    def _send_json(self, data: dict, status: int = 200):
+        body = json.dumps(data).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+
+        client_ip = self.client_address[0]
+        user_agent = self.headers.get("User-Agent", "Unknown Device")
+        self.server.service.register_client(client_ip, user_agent)
+
+        if path == "/" or path == "/index.html":
+            body = MOBILE_HTML.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        elif path == "/qr":
+            buf = io.BytesIO()
+            qr_img = self.server.service.get_qr_image()
+            qr_img.save(buf, format="PNG")
+            img_bytes = buf.getvalue()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(img_bytes)))
+            self.end_headers()
+            self.wfile.write(img_bytes)
+            return
+
+        elif path == "/api/status":
+            status_data = self.server.service.get_status_data()
+            self._send_json(status_data)
+            return
+
+        elif path == "/api/media/cover":
+            cover_info = self.server.service.get_cover_bytes()
+            if cover_info:
+                img_bytes, mime = cover_info
+                self.send_response(200)
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Length", str(len(img_bytes)))
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                self.wfile.write(img_bytes)
+                return
+            else:
+                svg = self.server.service.get_placeholder_cover_svg()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/svg+xml")
+                self.send_header("Content-Length", str(len(svg)))
+                self.end_headers()
+                self.wfile.write(svg)
+                return
+
+        elif path == "/api/media/lyrics":
+            lyrics_data = self.server.service.get_lyrics_data()
+            self._send_json(lyrics_data)
+            return
+
+        elif path.startswith("/api/download/"):
+            filename = urllib.parse.unquote(path[len("/api/download/"):])
+            fpath = self.server.service.find_shared_file(filename)
+            if fpath and os.path.exists(fpath):
+                sz = os.path.getsize(fpath)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                self.send_header("Content-Length", str(sz))
+                self.end_headers()
+                with open(fpath, "rb") as f:
+                    while chunk := f.read(65536):
+                        self.wfile.write(chunk)
+                return
+            else:
+                self.send_error(404, "File Not Found")
+                return
+
+        self.send_error(404, "Not Found")
+
+    def do_POST(self):
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+
+        client_ip = self.client_address[0]
+        user_agent = self.headers.get("User-Agent", "Unknown Device")
+        self.server.service.register_client(client_ip, user_agent)
+
+        content_length = int(self.headers.get("Content-Length", 0))
+
+        if path == "/api/upload":
+            params = urllib.parse.parse_qs(parsed.query)
+            raw_name = params.get("filename", ["phone_upload.dat"])[0]
+            filename = urllib.parse.unquote(raw_name)
+            safe_name = Path(filename).name or f"upload_{int(time.time())}.dat"
+
+            target_path = DOWNLOADS_DIR / safe_name
+            base_stem = target_path.stem
+            ext = target_path.suffix
+            counter = 1
+            while target_path.exists():
+                target_path = DOWNLOADS_DIR / f"{base_stem}_{counter}{ext}"
+                counter += 1
+
+            with open(target_path, "wb") as out_f:
+                remaining = content_length
+                while remaining > 0:
+                    read_size = min(remaining, 65536)
+                    chunk = self.rfile.read(read_size)
+                    if not chunk:
+                        break
+                    out_f.write(chunk)
+                    remaining -= len(chunk)
+
+            self.server.service.on_file_received(str(target_path), target_path.name)
+            self._send_json({"success": True, "path": str(target_path), "name": target_path.name})
+            return
+
+        elif path == "/api/jarvis":
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            query = data.get("query", "").strip()
+            if query:
+                self.server.service.on_jarvis_query(query)
+            self._send_json({"success": True, "query": query})
+            return
+
+        elif path == "/api/clipboard":
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            text = data.get("text", "")
+            self.server.service.on_clipboard_received(text)
+            self._send_json({"success": True})
+            return
+
+        elif path == "/api/command":
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            cmd = data.get("command", "")
+            query = data.get("query", "")
+            self.server.service.on_command_received(cmd, query)
+            self._send_json({"success": True})
+            return
+
+        self.send_error(404, "Not Found")
+
+
+class PhoneDropServer(ThreadingHTTPServer):
+    def __init__(self, server_address, RequestHandlerClass, service: 'PhoneDropService'):
+        super().__init__(server_address, RequestHandlerClass)
+        self.service = service
+
+
+# ─── Phone Drop Service Core ──────────────────────────────────────────────────
+
+class PhoneDropService:
+    _instance: Optional['PhoneDropService'] = None
+
+    @classmethod
+    def get_instance(cls) -> 'PhoneDropService':
+        if cls._instance is None:
+            cls._instance = PhoneDropService()
+        return cls._instance
+
+    def __init__(self, port: int = 8765):
+        self.port = port
+        self.hostname = get_hostname()
+        self.local_ip = get_local_ip()
+        self.server: Optional[PhoneDropServer] = None
+        self.server_thread: Optional[threading.Thread] = None
+        self.is_running = False
+
+        self.connected_clients: Dict[str, Dict[str, Any]] = {}
+
+        self.cb_file_received: Optional[Callable[[str, str], None]] = None
+        self.cb_clipboard_received: Optional[Callable[[str], None]] = None
+        self.cb_url_received: Optional[Callable[[str], None]] = None
+        self.cb_command_received: Optional[Callable[[str, str], None]] = None
+        self.cb_get_status: Optional[Callable[[], Dict[str, Any]]] = None
+        self.cb_get_cover_bytes: Optional[Callable[[], Optional[Tuple[bytes, str]]]] = None
+        self.cb_get_lyrics: Optional[Callable[[], Dict[str, Any]]] = None
+        self.cb_jarvis_query: Optional[Callable[[str], None]] = None
+
+        self._qr_image: Optional[Image.Image] = None
+
+    @property
+    def url(self) -> str:
+        """Reliable direct Wi-Fi URL that connects immediately without DNS errors."""
+        return f"http://{self.local_ip}:{self.port}"
+
+    @property
+    def display_url(self) -> str:
+        """Clean Apple-style label shown on laptop modal pill."""
+        return f"origin.link :{self.port}"
+
+    def start(self):
+        if self.is_running:
+            return
+
+        cur_port = self.port
+        for p in range(cur_port, cur_port + 10):
+            try:
+                self.server = PhoneDropServer(("0.0.0.0", p), PhoneDropHandler, self)
+                self.port = p
+                self.local_ip = get_local_ip()
+                break
+            except OSError:
+                continue
+
+        if not self.server:
+            print("[PhoneDropService] Error: Could not bind to port.")
+            return
+
+        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True, name="phone_drop_server")
+        self.server_thread.start()
+        self.is_running = True
+        print(f"[PhoneDropService] Apple iOS Hub online at {self.url}")
+
+    def stop(self):
+        if self.server:
+            self.server.shutdown()
+            self.server.server_close()
+            self.server = None
+        self.is_running = False
+
+    def get_qr_image(self) -> Image.Image:
+        if self._qr_image is None:
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_M,
+                box_size=8,
+                border=2,
+            )
+            qr.add_data(self.url)
+            qr.make(fit=True)
+            self._qr_image = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+        return self._qr_image
+
+    def get_qr_pixmap(self, size: int = 140):
+        img = self.get_qr_image()
+        from PIL.ImageQt import ImageQt
+        from PySide6.QtGui import QPixmap
+        from PySide6.QtCore import Qt
+        qim = ImageQt(img)
+        pix = QPixmap.fromImage(qim)
+        if size and (pix.width() != size or pix.height() != size):
+            pix = pix.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        return pix
+
+    def register_client(self, ip: str, user_agent: str):
+        friendly = "Phone"
+        ua_lower = user_agent.lower()
+        if "iphone" in ua_lower:
+            friendly = "iPhone"
+        elif "ipad" in ua_lower:
+            friendly = "iPad"
+        elif "android" in ua_lower:
+            friendly = "Android Phone"
+        self.connected_clients[ip] = {
+            "name": friendly,
+            "agent": user_agent,
+            "last_seen": time.time()
+        }
+
+    def get_connected_device_summary(self) -> str:
+        now = time.time()
+        active = [c["name"] for ip, c in self.connected_clients.items() if (now - c["last_seen"]) < 90.0]
+        if not active:
+            return "Ready to Pair"
+        return f"Connected: {active[-1]}"
+
+    def on_file_received(self, fpath: str, filename: str):
+        if self.cb_file_received:
+            try:
+                self.cb_file_received(fpath, filename)
+            except Exception as e:
+                print(f"[PhoneDropService] Error in cb_file_received: {e}")
+
+    def on_clipboard_received(self, text: str):
+        if self.cb_clipboard_received:
+            try:
+                self.cb_clipboard_received(text)
+            except Exception as e:
+                print(f"[PhoneDropService] Error in cb_clipboard_received: {e}")
+
+    def on_url_received(self, url: str):
+        if self.cb_url_received:
+            try:
+                self.cb_url_received(url)
+            except Exception as e:
+                print(f"[PhoneDropService] Error in cb_url_received: {e}")
+
+    def on_command_received(self, cmd: str, query: str):
+        if self.cb_command_received:
+            try:
+                self.cb_command_received(cmd, query)
+            except Exception as e:
+                print(f"[PhoneDropService] Error in cb_command_received: {e}")
+
+    def on_jarvis_query(self, query: str):
+        if self.cb_jarvis_query:
+            try:
+                self.cb_jarvis_query(query)
+            except Exception as e:
+                print(f"[PhoneDropService] Error in cb_jarvis_query: {e}")
+
+    def get_cover_bytes(self) -> Optional[Tuple[bytes, str]]:
+        if self.cb_get_cover_bytes:
+            try:
+                return self.cb_get_cover_bytes()
+            except Exception:
+                pass
+        return None
+
+    def get_lyrics_data(self) -> Dict[str, Any]:
+        if self.cb_get_lyrics:
+            try:
+                return self.cb_get_lyrics()
+            except Exception:
+                pass
+        return {"title": "", "artist": "", "pos_sec": 0.0, "active_idx": -1, "lines": []}
+
+    def get_placeholder_cover_svg(self) -> bytes:
+        """High-resolution Apple Music style vinyl artwork SVG."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+  <defs>
+    <linearGradient id="appleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fc3c44"/>
+      <stop offset="50%" stop-color="#fa2d48"/>
+      <stop offset="100%" stop-color="#5856d6"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="300" rx="36" fill="url(#appleGradient)"/>
+  <circle cx="150" cy="150" r="105" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+  <circle cx="150" cy="150" r="70" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+  <circle cx="150" cy="150" r="32" fill="#000000" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+  <path d="M142 134 v20 a12 12 0 1 0 10 11.8 V140 h14 v-6 z" fill="#ffffff"/>
+</svg>"""
+        return svg.encode("utf-8")
+
+    def get_status_data(self) -> Dict[str, Any]:
+        data = {
+            "pc_name": self.hostname.upper(),
+            "hostname": self.hostname,
+            "url": self.url,
+            "clipboard": "",
+            "now_playing": None,
+            "shelf_files": [],
+            "volume": 50,
+            "jarvis": {
+                "status": "Ready",
+                "status_detail": "Ready",
+                "reply": "",
+                "is_talking": False,
+                "history": []
+            }
+        }
+        if self.cb_get_status:
+            try:
+                res = self.cb_get_status()
+                if isinstance(res, dict):
+                    data.update(res)
+            except Exception as e:
+                print(f"[PhoneDropService] Error in cb_get_status: {e}")
+        return data
+
+    def find_shared_file(self, filename: str) -> Optional[str]:
+        dl_target = DOWNLOADS_DIR / filename
+        if dl_target.exists():
+            return str(dl_target)
+        status = self.get_status_data()
+        for f in status.get("shelf_files", []):
+            if f.get("name") == filename and os.path.exists(f.get("path", "")):
+                return f.get("path")
+        return None

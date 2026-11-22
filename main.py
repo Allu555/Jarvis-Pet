@@ -8,8 +8,10 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFont, QIcon, QPixmapCache
+import gc
+import ctypes
 
 from settings import Settings
 from animation import PET_TYPES
@@ -30,14 +32,62 @@ def ensure_sprites():
             print("App will run with placeholder (transparent) sprites.")
 
 
+_single_instance_mutex = None
+
+
+def _acquire_single_instance_mutex(mutex_name="Global\\PixelPetDesktop_SingleInstanceMutex"):
+    """
+    Guarantees only one instance of Desktop Pet & Origin Island runs at a time.
+    Prevents duplicate instances and avoids wasting CPU/RAM if launched repeatedly.
+    """
+    global _single_instance_mutex
+    try:
+        import ctypes
+        from ctypes import wintypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+        kernel32.CreateMutexW.restype = wintypes.HANDLE
+        
+        handle = kernel32.CreateMutexW(None, True, mutex_name)
+        if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+            return None
+        _single_instance_mutex = handle
+        return handle
+    except Exception:
+        return True
+
+
 def main():
+    # 0. Single instance guard (don't waste resources with duplicate processes)
+    if _acquire_single_instance_mutex() is None:
+        print("Desktop Pet & Origin Island is already running. Exiting duplicate instance to save resources.")
+        sys.exit(0)
+
+    # Ensure window is attached to user's interactive 'Default' desktop
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            h_default_desk = user32.OpenDesktopW("Default", 0, False, 0x01FF)
+            if h_default_desk:
+                user32.SetThreadDesktop(h_default_desk)
+        except Exception:
+            pass
+
     # High-DPI support
     os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
 
     app = QApplication(sys.argv)
+    QPixmapCache.setCacheLimit(2048)   # Cap Qt internal image cache to 2MB to prevent RAM bloat
     app.setApplicationName("PixelPet")
     app.setOrganizationName("PixelPet")
     app.setQuitOnLastWindowClosed(False)   # keep alive via tray / multi-pets
+
+    app_ico = PROJECT_ROOT / "assets" / "app_icon.ico"
+    if not app_ico.exists():
+        app_ico = PROJECT_ROOT / "assets" / "desktop_pet.ico"
+    if app_ico.exists():
+        app.setWindowIcon(QIcon(str(app_ico)))
 
     # Pixel-perfect rendering: disable font antialiasing effects
     font = QFont()
@@ -83,6 +133,25 @@ def main():
     else:
         # Single primary pet from saved settings
         primary_window = LionWindow(settings, is_secondary=False)
+
+    def _trim_working_set():
+        gc.collect()
+        if sys.platform == "win32":
+            try:
+                pid = os.getpid()
+                h = ctypes.windll.kernel32.OpenProcess(0x1F0FFF, False, pid)
+                if h:
+                    ctypes.windll.psapi.EmptyWorkingSet(h)
+                    ctypes.windll.kernel32.CloseHandle(h)
+            except Exception:
+                pass
+
+    # Automatic memory optimization: trim 3s after startup, and every 60s during idle
+    QTimer.singleShot(3000, _trim_working_set)
+    _trim_timer = QTimer(app)
+    _trim_timer.setInterval(60000)
+    _trim_timer.timeout.connect(_trim_working_set)
+    _trim_timer.start()
 
     sys.exit(app.exec())
 

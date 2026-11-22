@@ -24,7 +24,9 @@ MEMORY_DIR.mkdir(exist_ok=True)
 ALLOWED_FILE_DIR.mkdir(exist_ok=True)
 
 ACTION_LOG      = LOG_DIR / "actions.log"
+VOICE_LOG       = LOG_DIR / "voice.log"
 MEMORY_FILE     = MEMORY_DIR / "user_memory.json"
+CORRECTIONS_FILE = BASE_DIR / "corrections.json"
 
 # ─── API Keys ─────────────────────────────────────────────────────────────────
 ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")   # kept for reference
@@ -33,14 +35,16 @@ NVIDIA_API_KEY:    str = os.getenv("NVIDIA_API_KEY", "")
 # ─── NVIDIA NIM (free brain — 1000 credits/month) ─────────────────────────────
 # Free key at: https://build.nvidia.com → Sign in → Get API Key
 NVIDIA_BASE_URL      = "https://integrate.api.nvidia.com/v1"
-NVIDIA_MODEL         = "meta/llama-3.2-11b-vision-instruct"       # verified active free model
-NVIDIA_VISION_MODEL  = "meta/llama-3.2-11b-vision-instruct"       # for screenshots
+NVIDIA_MODEL         = "nvidia/nemotron-3.5-bolt-e4b"              # ultra-fast 240ms-1.2s agent model
+NVIDIA_VISION_MODEL  = "nvidia/nemotron-3.5-super-vl-120b-a12b"   # verified active vision model
 
 MAX_AGENT_STEPS = 15                        # max tool calls per command
 
 # ─── Wake word ────────────────────────────────────────────────────────────────
-WAKE_WORD = "jarvis"                        # primary wake word
-WAKE_WORD_ALIASES = [                       # phonetic matches & accent variations
+WAKE_WORD_ENGINE    = "openwakeword"        # "openwakeword" (ultra low CPU/power) with Whisper fallback
+WAKE_WORD           = "jarvis"
+WAKE_WORD_THRESHOLD = 0.50                  # openWakeWord confidence trigger threshold
+WAKE_WORD_ALIASES   = [                     # phonetic matches & accent variations
     "jarvis", "service", "harvest", "javis", "charvis", "darvis", "jarves", "sarvis",
     "jaarvis", "jarvish", "jervis", "zarvis"
 ]
@@ -49,20 +53,28 @@ WAKE_WORD_ALIASES = [                       # phonetic matches & accent variatio
 SAMPLE_RATE         = 16000                 # Hz – required by Whisper + webrtcvad
 CHUNK_MS            = 30                    # ms per VAD frame (10 / 20 / 30 only)
 CHUNK_SAMPLES       = SAMPLE_RATE * CHUNK_MS // 1000
-VAD_AGGRESSIVENESS  = 1                     # 1 = balanced, prevents cutting off quiet speech or syllables
-SILENCE_TIMEOUT_SEC = 1.0                   # 1.0s silence allows natural breathing between words
-MAX_RECORD_SEC      = 10                    # max 10s gives comfortable time for full commands
+VAD_AGGRESSIVENESS  = 2                     # 2 = good balance against room noise
+SILENCE_TIMEOUT_SEC = 0.45                  # snappy 450ms endpointing finishes promptly
+VAD_PRE_ROLL_MS     = 300                   # 300ms pre-roll preserves initial consonant
+MAX_RECORD_SEC      = 8                     # max recording seconds
+MICROPHONE_DEVICE_INDEX = None             # None = system default mic, or integer index
+ENABLE_NOISE_REDUCTION  = True             # Clean background noise with noisereduce / spectral gating
+CONVERSATION_FOLLOWUP_SEC = 6.0             # Keep mic open 6s for natural follow-up queries
 
 # ─── STT (faster-whisper) ─────────────────────────────────────────────────────
-WHISPER_MODEL_SIZE  = "tiny.en"              # tiny.en = 3x faster transcription on CPU (~0.4s)
-WHISPER_DEVICE      = "cpu"                 # "cuda" if NVIDIA GPU available
-WHISPER_COMPUTE     = "int8"                # int8 fastest on CPU
-WHISPER_LANGUAGE    = "en"                  # English default; avoids language auto-detection crash
-WHISPER_CPU_THREADS = 6                     # 6 threads = optimal performance on 8-core CPU
+WHISPER_MODEL_SIZE  = "small"               # Cached locally, highly accurate, low-power (~400MB)
+WHISPER_DEVICE      = "cuda" if os.environ.get("USE_CPU", "0") != "1" else "cpu"
+WHISPER_COMPUTE     = "float16" if WHISPER_DEVICE == "cuda" else "int8"
+WHISPER_LANGUAGE    = "en"                  # English default; skips auto-detect latency
+WHISPER_BEAM_SIZE   = 1                     # Fast greedy decoding, minimal power
+WHISPER_CPU_THREADS = 4
+WHISPER_INITIAL_PROMPT = "Spotify, Notepad, VS Code, Brave, Chrome, YouTube, File Explorer, Terminal, PowerShell, Jarvis, Windows, volume, mute, drag, click, search."
+CONFIDENCE_THRESHOLD = -1.15                # avg_logprob threshold below which clarification is asked
 
 # ─── TTS ──────────────────────────────────────────────────────────────────────
+USE_EDGE_TTS        = False                 # False for instant 0ms offline speech (eliminates 4.2s websocket lag)
 EDGE_TTS_VOICE      = "en-IN-PrabhatNeural" # Indian English male voice (natural, crisp)
-PYTTSX3_RATE        = 175                   # words-per-minute for fallback TTS
+PYTTSX3_RATE        = 185                   # brisk, natural words-per-minute for instant speech
 
 # ─── Hotkeys ──────────────────────────────────────────────────────────────────
 PTT_HOTKEY   = "ctrl+alt+space"             # push-to-talk
@@ -98,8 +110,8 @@ SENSITIVE_EXTENSIONS = {".docx", ".pdf", ".xlsx", ".py", ".env", ".json"}
 APP_MAP: dict[str, str] = {
     "chrome":         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
     "google chrome":  r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-    "brave":          "brave.exe",
-    "brave browser":  "brave.exe",
+    "brave":          r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+    "brave browser":  r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
     "edge":           "msedge.exe",
     "microsoft edge": "msedge.exe",
     "firefox":        r"C:\Program Files\Mozilla Firefox\firefox.exe",

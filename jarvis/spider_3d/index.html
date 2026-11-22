@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS 3D Spider Recon Drone</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, monospace;
+            color: #00e5ff;
+        }
+
+        #drone-stage {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 1000px;
+            pointer-events: auto;
+        }
+
+        /* ── 3D Spider Canvas Container ── */
+        .spider-container {
+            position: relative;
+            width: 320px;
+            height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-style: preserve-3d;
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .spider-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.75))
+                   drop-shadow(0 0 18px rgba(0, 229, 255, 0.25));
+            transition: all 0.2s ease;
+            transform-origin: center bottom;
+        }
+
+        /* Subtle 3D breathing animation */
+        @keyframes spider-hover {
+            0% { transform: translateY(0px) rotateX(4deg); }
+            50% { transform: translateY(-8px) rotateX(-2deg); }
+            100% { transform: translateY(0px) rotateX(4deg); }
+        }
+
+        .hovering {
+            animation: spider-hover 3.8s ease-in-out infinite;
+        }
+
+        /* Holographic 3D Scanning Laser Cone */
+        .scan-beam-overlay {
+            position: absolute;
+            bottom: 30px;
+            left: -30px;
+            width: 220px;
+            height: 160px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            background: radial-gradient(ellipse at 85% 35%, rgba(0, 229, 255, 0.55) 0%, rgba(0, 229, 255, 0.15) 50%, transparent 80%);
+            clip-path: polygon(85% 35%, 0% 0%, 15% 100%);
+            filter: drop-shadow(0 0 20px #00e5ff);
+            animation: beam-pulse 1.2s infinite alternate;
+        }
+
+        @keyframes beam-pulse {
+            0% { opacity: 0.5; filter: drop-shadow(0 0 15px #00e5ff); }
+            100% { opacity: 0.95; filter: drop-shadow(0 0 30px #00e5ff); }
+        }
+
+        /* 360° LIDAR Radar Ring */
+        .radar-ring {
+            position: absolute;
+            bottom: 5px;
+            width: 260px;
+            height: 90px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 229, 255, 0.4);
+            box-shadow: 0 0 25px rgba(0, 229, 255, 0.35), inset 0 0 20px rgba(0, 229, 255, 0.2);
+            transform: rotateX(65deg);
+            pointer-events: none;
+            animation: radar-spin 4s linear infinite;
+        }
+
+        .radar-sweep {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent 40%, rgba(0, 229, 255, 0.4) 100%);
+            transform-origin: left center;
+            border-radius: 50%;
+        }
+
+        @keyframes radar-spin {
+            0% { transform: rotateX(65deg) rotateZ(0deg); }
+            100% { transform: rotateX(65deg) rotateZ(360deg); }
+        }
+
+        /* ── Tactical HUD Overlay ── */
+        .hud-panel {
+            position: absolute;
+            z-index: 100;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .hud-top-left {
+            top: 14px;
+            left: 18px;
+            background: rgba(10, 15, 24, 0.85);
+            border-left: 3px solid #00e5ff;
+            border-top: 1px solid rgba(0, 229, 255, 0.3);
+            border-bottom: 1px solid rgba(0, 229, 255, 0.3);
+            border-right: 1px solid rgba(0, 229, 255, 0.15);
+            padding: 8px 14px;
+            border-radius: 0 8px 8px 0;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 20px rgba(0, 229, 255, 0.15);
+        }
+
+        .hud-title {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            color: #00e5ff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hud-title .blink-dot {
+            width: 8px;
+            height: 8px;
+            background: #00e5ff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #00e5ff;
+            animation: pulse-dot 1.4s infinite alternate;
+        }
+
+        @keyframes pulse-dot {
+            0% { opacity: 0.3; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1.2); }
+        }
+
+        .hud-info {
+            font-size: 10px;
+            letter-spacing: 1px;
+            color: #a4d8ec;
+        }
+
+        .hud-target {
+            font-size: 10.5px;
+            color: #ff9100;
+            font-weight: 600;
+        }
+
+        /* ── Bottom Controls ── */
+        .hud-bottom {
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+            background: rgba(8, 12, 20, 0.9);
+            border: 1px solid rgba(0, 229, 255, 0.4);
+            padding: 6px 14px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 25px rgba(0, 229, 255, 0.25);
+        }
+
+        .hud-btn {
+            background: rgba(0, 229, 255, 0.12);
+            border: 1px solid #00e5ff;
+            color: #00e5ff;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            padding: 6px 14px;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .hud-btn:hover {
+            background: #00e5ff;
+            color: #050b14;
+            box-shadow: 0 0 15px #00e5ff;
+        }
+
+        .hud-btn.active {
+            background: #ff9100;
+            border-color: #ff9100;
+            color: #050b14;
+            box-shadow: 0 0 18px #ff9100;
+        }
+
+        .hud-btn.close-btn {
+            background: rgba(255, 23, 68, 0.15);
+            border-color: #ff1744;
+            color: #ff1744;
+        }
+        .hud-btn.close-btn:hover {
+            background: #ff1744;
+            color: #fff;
+            box-shadow: 0 0 15px #ff1744;
+        }
+
+        /* Mode Indicator */
+        .mode-badge {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(0, 229, 255, 0.2);
+            color: #00e5ff;
+            display: inline-block;
+            margin-top: 3px;
+        }
+        .mode-badge.acting {
+            background: rgba(255, 145, 0, 0.3);
+            color: #ff9100;
+        }
+
+        /* ── Target Reticle Box ── */
+        #target-reticle {
+            position: absolute;
+            display: none;
+            pointer-events: none;
+            width: 44px;
+            height: 44px;
+            border: 2px solid #ff9100;
+            border-radius: 4px;
+            box-shadow: 0 0 15px #ff9100;
+            transform: translate(-50%, -50%);
+            z-index: 99;
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #target-reticle::before, #target-reticle::after {
+            content: '';
+            position: absolute;
+            background: #ff9100;
+        }
+        #target-reticle::before { top: 50%; left: -6px; width: 6px; height: 2px; }
+        #target-reticle::after { top: 50%; right: -6px; width: 6px; height: 2px; }
+    </style>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+<body>
+    <div id="drone-stage">
+        <div class="spider-container hovering" id="spider-box">
+            <!-- 360 LIDAR Radar -->
+            <div class="radar-ring" id="radar">
+                <div class="radar-sweep"></div>
+            </div>
+
+            <!-- Primary 3D Spider Model Render -->
+            <img id="spider-graphic" class="spider-img" src="sprites/idle.png" alt="JARVIS 3D Spider Drone">
+
+            <!-- Dynamic Scan Laser Cone -->
+            <div class="scan-beam-overlay" id="scan-beam"></div>
+        </div>
+    </div>
+
+    <!-- Target Reticle for Screen Element Lock-On -->
+    <div id="target-reticle"></div>
+
+    <!-- HUD Telemetry -->
+    <div class="hud-panel hud-top-left">
+        <div class="hud-title">
+            <span class="blink-dot" id="status-dot"></span>
+            JARVIS TACTICAL 3D SCOUT // SPIDER-01
+        </div>
+        <div class="hud-info" id="hud-status">STATUS: STANDBY // VISION ACTIVE</div>
+        <div class="hud-target" id="hud-target">TARGET: NONE (IDLE)</div>
+        <div>
+            <span class="mode-badge" id="mode-badge">AUTONOMOUS SCOUT</span>
+        </div>
+    </div>
+
+    <!-- Bottom Controls -->
+    <div class="hud-bottom">
+        <button class="hud-btn" id="btn-scan" onclick="triggerScan()">⚡ SCAN SCREEN</button>
+        <button class="hud-btn" id="btn-autopilot" onclick="toggleAutopilot()">🤖 AUTO-PILOT: OFF</button>
+        <button class="hud-btn close-btn" onclick="closeDrone()">✖ DOCK</button>
+    </div>
+
+    <script>
+        // ── Audio Synthesizer (Cyber Sound FX) ──
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playChirp(freq = 880, type = 'sine', duration = 0.12) {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + duration);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function playScanHum() {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(640, audioCtx.currentTime + 0.35);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.35);
+            } catch(e) {}
+        }
+
+        // ── 3D Spider State Controller ──
+        const spiderImg = document.getElementById('spider-graphic');
+        const spiderBox = document.getElementById('spider-box');
+        const scanBeam = document.getElementById('scan-beam');
+        const radar = document.getElementById('radar');
+        const statusDot = document.getElementById('status-dot');
+        const hudStatus = document.getElementById('hud-status');
+        const hudTarget = document.getElementById('hud-target');
+        const modeBadge = document.getElementById('mode-badge');
+
+        let isScanning = false;
+        let isAutopilot = false;
+
+        function setPose(poseName) {
+            spiderImg.src = `sprites/${poseName}.png`;
+        }
+
+        function setScannerState(active, targetDesc = "") {
+            isScanning = active;
+            if (active) {
+                setPose('scan');
+                playScanHum();
+                scanBeam.style.opacity = '1';
+                radar.style.borderColor = '#00e5ff';
+                statusDot.style.background = '#00e5ff';
+                hudStatus.innerText = 'STATUS: 3D VOLUMETRIC LIDAR SCANNING';
+                hudTarget.innerText = `TARGET: ${targetDesc || 'PERCEIVING ON-SCREEN TASKS...'}`;
+                modeBadge.innerText = 'PERCEIVING';
+                modeBadge.className = 'mode-badge';
+                spiderBox.style.transform = 'rotateX(12deg) scale(1.08)';
+            } else {
+                setPose(isAutopilot ? 'walk' : 'idle');
+                scanBeam.style.opacity = '0';
+                radar.style.borderColor = 'rgba(0, 229, 255, 0.4)';
+                statusDot.style.background = '#ff9100';
+                hudStatus.innerText = 'STATUS: STANDBY // MONITORING';
+                modeBadge.innerText = isAutopilot ? 'AUTO-PILOT ACTIVE' : 'STANDBY';
+                modeBadge.className = 'mode-badge' + (isAutopilot ? ' acting' : '');
+                spiderBox.style.transform = 'rotateX(0deg) scale(1.0)';
+            }
+        }
+
+        function triggerScan() {
+            playChirp(600, 'triangle', 0.15);
+            setScannerState(true, 'ANALYZING ACTIVE WINDOW & PENDING ACTIONS');
+
+            if (window.pyBridge && window.pyBridge.scanScreen) {
+                window.pyBridge.scanScreen();
+            } else {
+                setTimeout(() => {
+                    const sampleTasks = [
+                        "Clicking 'Run Code' button",
+                        "Executing pending terminal confirmation",
+                        "Accepting dialog prompt",
+                        "Form auto-completion verified"
+                    ];
+                    const chosen = sampleTasks[Math.floor(Math.random() * sampleTasks.length)];
+                    showTargetLock(window.innerWidth * 0.65, window.innerHeight * 0.35, chosen);
+                    setTimeout(() => setScannerState(false), 2400);
+                }, 1600);
+            }
+        }
+
+        function toggleAutopilot() {
+            isAutopilot = !isAutopilot;
+            const btn = document.getElementById('btn-autopilot');
+            btn.innerText = isAutopilot ? '🤖 AUTO-PILOT: ACTIVE' : '🤖 AUTO-PILOT: OFF';
+            btn.className = 'hud-btn' + (isAutopilot ? ' active' : '');
+            playChirp(isAutopilot ? 980 : 440, 'sine', 0.2);
+
+            modeBadge.innerText = isAutopilot ? 'HANDS-FREE CO-PILOT' : 'STANDBY';
+            modeBadge.className = 'mode-badge' + (isAutopilot ? ' acting' : '');
+
+            setPose(isAutopilot ? 'walk' : 'idle');
+
+            if (window.pyBridge && window.pyBridge.toggleAutopilot) {
+                window.pyBridge.toggleAutopilot(isAutopilot);
+            }
+        }
+
+        function showTargetLock(screenX, screenY, desc) {
+            playChirp(1200, 'sawtooth', 0.18);
+            const reticle = document.getElementById('target-reticle');
+            reticle.style.display = 'block';
+            reticle.style.left = screenX + 'px';
+            reticle.style.top = screenY + 'px';
+
+            hudTarget.innerText = `TARGET: ${desc.toUpperCase()}`;
+            setPose('turn');
+
+            setTimeout(() => {
+                reticle.style.display = 'none';
+                setPose('jump'); // Cyber celebration
+                setTimeout(() => setPose('idle'), 1500);
+            }, 2500);
+        }
+
+        function closeDrone() {
+            if (window.pyBridge && window.pyBridge.dock) {
+                window.pyBridge.dock();
+            }
+        }
+
+        // Connect PySide6 QWebChannel
+        window.onload = () => {
+            if (typeof QWebChannel !== 'undefined') {
+                new QWebChannel(qt.webChannelTransport, function(channel) {
+                    window.pyBridge = channel.objects.pyBridge;
+                    console.log('Jarvis Python Bridge connected to 3D Drone.');
+                });
+            }
+        };
+    </script>
+</body>
+</html>

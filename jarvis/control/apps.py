@@ -7,6 +7,7 @@ import ctypes
 import glob
 import logging
 import os
+import re
 import subprocess
 import time
 import winreg
@@ -14,6 +15,29 @@ from pathlib import Path
 
 import psutil         # type: ignore
 import pygetwindow as gw  # type: ignore
+
+# ─── Fix: Prevent LP_RECT / RECT ctypes collision in pygetwindow ─────────────
+try:
+    ctypes.windll.user32.GetWindowRect.argtypes = None
+    _orig_gw_getWindowRect = gw.Win32Window._getWindowRect
+
+    def _safe_gw_getWindowRect(self):
+        try:
+            ctypes.windll.user32.GetWindowRect.argtypes = None
+            return _orig_gw_getWindowRect(self)
+        except Exception:
+            import pyrect
+            class _LocalRECT(ctypes.Structure):
+                _fields_ = [('left', ctypes.c_long), ('top', ctypes.c_long), ('right', ctypes.c_long), ('bottom', ctypes.c_long)]
+            r = _LocalRECT()
+            ctypes.windll.user32.GetWindowRect.argtypes = None
+            if ctypes.windll.user32.GetWindowRect(int(self._hWnd), ctypes.byref(r)) != 0:
+                return pyrect.Rect(r.left, r.top, r.right - r.left, r.bottom - r.top)
+            return pyrect.Rect(0, 0, 800, 600)
+
+    gw.Win32Window._getWindowRect = _safe_gw_getWindowRect
+except Exception:
+    pass
 
 from config import APP_MAP
 from control.keyboard_mouse import ensure_desktop_attached
@@ -199,7 +223,7 @@ def _resolve_path(name: str) -> str | None:
         if Path(candidate).exists():
             return candidate
         try:
-            r = subprocess.run(["where", candidate], capture_output=True, text=True, timeout=2)
+            r = subprocess.run(["where", candidate], capture_output=True, text=True, timeout=2, creationflags=0x08000000)
             if r.returncode == 0:
                 return r.stdout.strip().splitlines()[0]
         except Exception:
@@ -233,7 +257,7 @@ def _resolve_path(name: str) -> str | None:
     for lookup in (name, key, clean_k):
         try:
             result = subprocess.run(
-                ["where", lookup], capture_output=True, text=True, timeout=2
+                ["where", lookup], capture_output=True, text=True, timeout=2, creationflags=0x08000000
             )
             if result.returncode == 0:
                 found = result.stdout.strip().splitlines()[0]
@@ -245,29 +269,89 @@ def _resolve_path(name: str) -> str | None:
     return None
 
 
+class WindowItem:
+    def __init__(self, hwnd: int, title: str, pid: int, pname: str):
+        self.hwnd = hwnd
+        self._hWnd = hwnd
+        self.title = title
+        self.pid = pid
+        self.pname = pname
+
+    def __repr__(self):
+        return f"<WindowItem hwnd={self.hwnd} title={self.title!r} pname={self.pname!r}>"
+
+
+_last_minimized_title: str = ""
+_last_minimized_hwnd: int = 0
+_last_interacted_app: str = ""
+
+
+def _get_all_windows() -> list[WindowItem]:
+    """
+    Enumerate all real application windows using Windows native Win32 APIs.
+    Returns a list of WindowItem objects.
+    """
+    ensure_desktop_attached()
+    import win32gui, win32process
+    user32 = ctypes.windll.user32
+    result: list[WindowItem] = []
+
+    def _cb(hwnd, extra):
+        if user32.IsWindow(hwnd):
+            t = win32gui.GetWindowText(hwnd).strip()
+            is_vis = user32.IsWindowVisible(hwnd)
+            is_icon = user32.IsIconic(hwnd)
+            if is_vis or is_icon:
+                pid_c = ctypes.c_ulong()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid_c))
+                pid = pid_c.value
+                pname = ""
+                try:
+                    pname = psutil.Process(pid).name().lower()
+                except Exception:
+                    pass
+                if t or pname:
+                    extra.append(WindowItem(hwnd, t, pid, pname))
+
+    win32gui.EnumWindows(_cb, result)
+    return result
+
+
 def open_application(name: str) -> str:
     """
     Launch or focus an application, folder, or service by friendly name.
     """
     ensure_desktop_attached()
+    global _last_minimized_title, _last_minimized_hwnd, _last_interacted_app
     key = name.lower().strip()
 
-    # First check if a matching window is ALREADY running and can simply be focused
-    try:
-        windows = [w for w in gw.getAllWindows() if w.title.strip()]
-        for w in windows:
-            if key in w.title.lower():
-                bring_window_to_front(w._hWnd)
-                logger.info(f"App '{name}' was already open; focused window: {w.title}")
-                return f"Brought {name.title()} to the foreground for you, sir."
-    except Exception:
-        pass
+    # Contextual keywords like "open again", "open it", "restore it"
+    if key in ("again", "it", "that", "this", "window", "app", "application", "previous", "last") or key.startswith("again"):
+        return restore_window()
 
+    # Tab management requests routed via open_application (e.g. "another tab", "another tab in chrome", "new tab")
+    if "tab" in key:
+        m_br = re.search(r'\b(chrome|brave|edge|firefox|opera)\b', key)
+        browser = m_br.group(1) if m_br else ""
+        return open_browser_tab(browser)
+
+    # 1. First check if a matching window is ALREADY running and simply bring it to front
+    windows = _get_all_windows()
+    for w in windows:
+        if (key in w.title.lower()) or (key in w.pname):
+            ctypes.windll.user32.ShowWindow(w.hwnd, 9)  # SW_RESTORE
+            bring_window_to_front(w.hwnd)
+            _last_interacted_app = name
+            logger.info(f"App '{name}' was already open; brought window {w.hwnd} ({w.title!r}) to front")
+            return f"Brought {name.title()} to the foreground for you, sir."
+
+    # 2. Path resolution
     path = _resolve_path(name)
     if not path:
         logger.warning(f"Could not resolve path for '{name}'")
         return f"I couldn't locate an application called '{name}'. Please verify the name."
 
+    _last_interacted_app = name
     try:
         # Web URL
         if path.startswith(("http://", "https://")):
@@ -283,6 +367,7 @@ def open_application(name: str) -> str:
             os.startfile(path)
             logger.info(f"Launched protocol: {path}")
             time.sleep(1.0)
+            focus_window(name)
             return f"Opened {name.title()} for you, sir."
 
         # Folder
@@ -290,6 +375,7 @@ def open_application(name: str) -> str:
             os.startfile(path)
             logger.info(f"Opened folder: {path}")
             time.sleep(0.8)
+            focus_window(name)
             return f"Opened your {name.title()} folder, sir."
 
         # Shortcut (.lnk)
@@ -302,10 +388,13 @@ def open_application(name: str) -> str:
 
         # Executable
         else:
-            subprocess.Popen(
-                [path],
-                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-            )
+            if "chrome.exe" in path.lower() or "brave.exe" in path.lower():
+                try:
+                    os.startfile(path)
+                except Exception:
+                    subprocess.Popen([path])
+            else:
+                subprocess.Popen([path])
             logger.info(f"Launched binary: {path}")
             time.sleep(1.2)
             focus_window(name)
@@ -316,19 +405,24 @@ def open_application(name: str) -> str:
         return f"Failed to open {name}: {e}"
 
 
-def _focus_browser() -> None:
+def _focus_browser(maximize: bool = False) -> bool:
     """Bring the active browser window to the front."""
     ensure_desktop_attached()
-    browser_names = ["brave", "edge", "chrome", "firefox", "opera"]
+    browser_names = ["chrome", "brave", "firefox", "edge", "opera"]
     try:
-        windows = [w for w in gw.getAllWindows() if w.title.strip()]
+        windows = _get_all_windows()
         for b in browser_names:
             for w in windows:
-                if b in w.title.lower():
-                    bring_window_to_front(w._hWnd)
-                    return
+                if (b in w.title.lower() or b in w.pname) and "spotify" not in w.title.lower():
+                    if maximize:
+                        ctypes.windll.user32.ShowWindow(w.hwnd, 3)  # SW_MAXIMIZE
+                    else:
+                        ctypes.windll.user32.ShowWindow(w.hwnd, 9)  # SW_RESTORE
+                    bring_window_to_front(w.hwnd)
+                    return True
     except Exception:
         pass
+    return False
 
 
 def close_application(name: str) -> str:
@@ -348,6 +442,18 @@ def close_application(name: str) -> str:
 
     if closed:
         return f"Closed {', '.join(set(closed))} for you, sir."
+
+    # If no process matched by executable name, try matching and closing active window (e.g. Spotify PWA)
+    all_wins = _get_all_windows()
+    win = _find_matching_window(name, all_wins)
+    if win:
+        try:
+            WM_CLOSE = 0x0010
+            ctypes.windll.user32.PostMessageW(win.hwnd, WM_CLOSE, 0, 0)
+            return f"Closed {win.title or name} for you, sir."
+        except Exception:
+            pass
+
     return f"No running application found matching '{name}'."
 
 
@@ -368,88 +474,243 @@ def _normalize_title_search(title: str) -> str:
     return alias_map.get(key, key)
 
 
-def focus_window(title: str) -> str:
+def _find_matching_window(title: str, all_wins: list[WindowItem]) -> WindowItem | None:
+    search_key = _normalize_title_search(title)
+    if not search_key:
+        return None
+
+    # Special handling for Spotify (native app, PWA, or browser tab with song)
+    if search_key in ("spotify", "music", "song"):
+        for w in all_wins:
+            if w.title.strip().lower() == "spotify" and "antigravity" not in w.pname.lower():
+                return w
+        for w in all_wins:
+            if "spotify" in w.pname.lower():
+                return w
+        for w in all_wins:
+            if "antigravity" in w.pname.lower() or "code.exe" in w.pname.lower():
+                continue
+            t = w.title.lower()
+            p = w.pname.lower()
+            if (" • " in w.title or "spotify" in t) and any(b in p for b in ("brave", "chrome", "edge", "opera", "firefox")):
+                return w
+
+    # Special handling for Chrome
+    if search_key in ("chrome", "google chrome"):
+        for w in all_wins:
+            if "chrome.exe" in w.pname.lower():
+                return w
+
+    # General matching, but exclude IDE/editor windows unless specifically requested
+    ide_names = ("antigravity", "code", "ide", "vscode", "vs code")
+    is_looking_for_ide = any(i in search_key for i in ide_names)
+
+    filtered = all_wins
+    if not is_looking_for_ide:
+        filtered = [w for w in all_wins if not any(i in w.pname.lower() for i in ("antigravity", "code.exe"))]
+
+    for w in filtered:
+        if w.title and w.title.lower().startswith(search_key):
+            return w
+    for w in filtered:
+        if w.title and search_key in w.title.lower():
+            return w
+    for w in filtered:
+        if search_key in w.pname.lower():
+            return w
+
+    return None
+
+
+def focus_window(title: str, maximize: bool = False) -> str:
     """Bring a window with the given title substring or process name to the foreground."""
     ensure_desktop_attached()
-    search_key = _normalize_title_search(title)
-    wins = gw.getWindowsWithTitle(search_key)
-    if not wins:
-        all_wins = [w for w in gw.getAllWindows() if w.title.strip()]
-        wins = [w for w in all_wins if search_key in w.title.lower()]
+    all_wins = _get_all_windows()
+    win = _find_matching_window(title, all_wins)
 
-    # If title search fails, search by process executable or command line (e.g. Spotify PWA, media apps)
-    if not wins:
-        user32 = ctypes.windll.user32
-        all_wins = [w for w in gw.getAllWindows() if w.title.strip()]
-        for w in all_wins:
-            pid = ctypes.c_ulong()
-            user32.GetWindowThreadProcessId(w._hWnd, ctypes.byref(pid))
-            try:
-                proc = psutil.Process(pid.value)
-                pname = proc.name().lower()
-                cmd = " ".join(proc.cmdline()).lower()
-                if search_key in ("spotify", "music", "song") and (
-                    "spotify" in pname or "spotify" in cmd or "pjibgclleladliembfgfagdaldikeohf" in cmd
-                ):
-                    wins.append(w)
-                    break
-                elif search_key in pname or search_key in cmd:
-                    wins.append(w)
-                    break
-            except Exception:
-                pass
-
-    if not wins:
+    if not win:
         return f"No active window found matching '{title}'."
 
-    win = wins[0]
-    success = bring_window_to_front(win._hWnd)
+    if maximize:
+        ctypes.windll.user32.ShowWindow(win.hwnd, 3)  # SW_MAXIMIZE
+    else:
+        ctypes.windll.user32.ShowWindow(win.hwnd, 9)  # SW_RESTORE
+    success = bring_window_to_front(win.hwnd)
     if success:
-        return f"Focused {win.title}, sir."
-    return f"Could not bring window to foreground: {win.title}"
-
+        return f"Focused {win.title or win.pname}, sir."
+    return f"Could not bring window to foreground: {win.title or win.pname}"
 
 
 def list_windows() -> str:
     """Return a list of all visible window titles."""
     ensure_desktop_attached()
-    titles = [w.title for w in gw.getAllWindows() if w.title.strip()]
+    titles = [w.title for w in _get_all_windows() if w.title.strip()]
     return "Open windows:\n" + "\n".join(f"  • {t}" for t in titles[:30])
 
 
-def minimize_window(title: str) -> str:
+def minimize_window(title: str = "") -> str:
     ensure_desktop_attached()
-    search_key = _normalize_title_search(title)
-    wins = gw.getWindowsWithTitle(search_key)
-    if not wins:
-        all_wins = [w for w in gw.getAllWindows() if w.title.strip()]
-        wins = [w for w in all_wins if search_key in w.title.lower()]
-    if not wins:
+    global _last_minimized_title, _last_minimized_hwnd, _last_interacted_app
+    search_key = _normalize_title_search(title) if title else ""
+    user32 = ctypes.windll.user32
+    import win32gui
+
+    target_win: WindowItem | None = None
+    if not search_key or search_key in ("it", "this", "window", "current"):
+        fg_hwnd = user32.GetForegroundWindow()
+        if fg_hwnd and user32.IsWindow(fg_hwnd):
+            t = win32gui.GetWindowText(fg_hwnd).strip()
+            target_win = WindowItem(fg_hwnd, t, 0, "")
+    else:
+        all_wins = _get_all_windows()
+        target_win = _find_matching_window(title, all_wins)
+
+    if not target_win:
         return f"No open window found matching '{title}'."
+
+    _last_minimized_title = target_win.title
+    _last_minimized_hwnd = target_win.hwnd
+    _last_interacted_app = title or target_win.title
     try:
-        ctypes.windll.user32.ShowWindow(wins[0]._hWnd, 6)  # SW_MINIMIZE
-        return f"Minimized {wins[0].title}, sir."
-    except Exception:
-        wins[0].minimize()
-        return f"Minimized {wins[0].title}, sir."
+        user32.ShowWindow(target_win.hwnd, 6)  # SW_MINIMIZE
+        return f"Minimized {target_win.title or _last_interacted_app}, sir."
+    except Exception as e:
+        logger.warning(f"Could not minimize window {target_win.hwnd}: {e}")
+        return f"Could not minimize {target_win.title}."
+
+
+def restore_window(title: str = "") -> str:
+    """Restore a previously minimized window or specific app back to the screen."""
+    ensure_desktop_attached()
+    global _last_minimized_title, _last_minimized_hwnd, _last_interacted_app
+    target = title.lower().strip() if title else ""
+    user32 = ctypes.windll.user32
+
+    # Contextual references: "again", "it", "that", "this", "window", empty string
+    if not target or target in ("again", "it", "that", "this", "window", "app", "application", "previous", "last") or target.startswith("again"):
+        if _last_minimized_hwnd and user32.IsWindow(_last_minimized_hwnd):
+            user32.ShowWindow(_last_minimized_hwnd, 9)  # SW_RESTORE
+            bring_window_to_front(_last_minimized_hwnd)
+            name = _last_minimized_title or _last_interacted_app or "window"
+            return f"Restored {name} to the screen, sir."
+        elif _last_interacted_app and _last_interacted_app not in ("again", "it", "that", "this", "window"):
+            return open_application(_last_interacted_app)
+
+    # Search by title or app name in all windows (including iconic/minimized)
+    search_key = _normalize_title_search(title)
+    all_wins = _get_all_windows()
+    matched = [w for w in all_wins if (w.title and search_key in w.title.lower()) or (search_key in w.pname)]
+    if matched:
+        target_win = matched[0]
+        user32.ShowWindow(target_win.hwnd, 9)  # SW_RESTORE
+        bring_window_to_front(target_win.hwnd)
+        _last_interacted_app = target_win.title or target_win.pname
+        return f"Restored {target_win.title or target_win.pname} to the screen, sir."
+
+    return open_application(title)
 
 
 def maximize_window(title: str) -> str:
     ensure_desktop_attached()
-    search_key = _normalize_title_search(title)
-    wins = gw.getWindowsWithTitle(search_key)
-    if not wins:
-        all_wins = [w for w in gw.getAllWindows() if w.title.strip()]
-        wins = [w for w in all_wins if search_key in w.title.lower()]
-    if not wins:
+    all_wins = _get_all_windows()
+    win = _find_matching_window(title, all_wins)
+    if not win:
         return f"No open window found matching '{title}'."
+    ctypes.windll.user32.ShowWindow(win.hwnd, 3)  # SW_MAXIMIZE
+    bring_window_to_front(win.hwnd)
+    return f"Maximized {win.title or win.pname}, sir."
+
+
+def open_browser_tab(browser: str = "", url: str = "") -> str:
+    """Open a new browser tab in Chrome, Edge, Brave, Firefox, or the currently focused browser."""
+    ensure_desktop_attached()
+    import time
     try:
-        bring_window_to_front(wins[0]._hWnd)
-        ctypes.windll.user32.ShowWindow(wins[0]._hWnd, 3)  # SW_MAXIMIZE
-        return f"Maximized {wins[0].title}, sir."
-    except Exception:
-        wins[0].maximize()
-        return f"Maximized {wins[0].title}, sir."
+        from control import keyboard_mouse
+    except ImportError:
+        from jarvis.control import keyboard_mouse
+
+    target_app = browser.lower().strip() if browser else ""
+    if target_app:
+        res = focus_window(target_app, maximize=True)
+        if "no active window" in res.lower() or "not found" in res.lower():
+            open_application(target_app)
+            time.sleep(1.0)
+            focus_window(target_app, maximize=True)
+        time.sleep(0.3)
+    else:
+        # Try finding any open browser window
+        found = False
+        all_wins = _get_all_windows()
+        for w in all_wins:
+            t = w.title.lower()
+            p = w.pname.lower()
+            if any(b in t or b in p for b in ["chrome", "edge", "brave", "firefox", "opera"]) and "spotify" not in t:
+                ctypes.windll.user32.ShowWindow(w.hwnd, 3)  # SW_MAXIMIZE
+                bring_window_to_front(w.hwnd)
+                target_app = "browser"
+                found = True
+                break
+        if not found:
+            target_app = "browser"
+            _focus_browser(maximize=True)
+
+    time.sleep(0.3)
+    keyboard_mouse.press_keys("ctrl+t")
+    time.sleep(0.3)
+    if url:
+        keyboard_mouse.type_text(url)
+        time.sleep(0.1)
+        keyboard_mouse.press_single_key("enter")
+        return f"Opened {url} in a new tab, sir."
+
+    disp = target_app.title() if target_app else "Browser"
+    return f"Opened a new tab in {disp}, sir."
+
+
+def close_browser_tab() -> str:
+    """Close the current browser tab (Ctrl+W)."""
+    ensure_desktop_attached()
+    try:
+        from control import keyboard_mouse
+    except ImportError:
+        from jarvis.control import keyboard_mouse
+    keyboard_mouse.press_keys("ctrl+w")
+    return "Closed current browser tab, sir."
+
+
+def switch_next_tab() -> str:
+    """Switch to the next browser tab (Ctrl+Tab)."""
+    ensure_desktop_attached()
+    try:
+        from control import keyboard_mouse
+    except ImportError:
+        from jarvis.control import keyboard_mouse
+    keyboard_mouse.press_keys("ctrl+tab")
+    return "Switched to next tab, sir."
+
+
+def switch_prev_tab() -> str:
+    """Switch to the previous browser tab (Ctrl+Shift+Tab)."""
+    ensure_desktop_attached()
+    try:
+        from control import keyboard_mouse
+    except ImportError:
+        from jarvis.control import keyboard_mouse
+    keyboard_mouse.press_keys("ctrl+shift+tab")
+    return "Switched to previous tab, sir."
+
+
+def reopen_closed_tab() -> str:
+    """Reopen the previously closed tab (Ctrl+Shift+T)."""
+    ensure_desktop_attached()
+    try:
+        from control import keyboard_mouse
+    except ImportError:
+        from jarvis.control import keyboard_mouse
+    keyboard_mouse.press_keys("ctrl+shift+t")
+    return "Reopened previously closed tab, sir."
+
 
 
 

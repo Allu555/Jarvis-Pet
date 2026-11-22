@@ -1,9 +1,18 @@
+import ctypes
 import math
 import random
+import sys
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict
 
-from PySide6.QtCore import Qt, QTimer, QPoint, QRect, QRectF
+# Ensure 1ms OS multimedia timer precision on Windows
+if sys.platform == "win32":
+    try:
+        ctypes.windll.winmm.timeBeginPeriod(1)
+    except Exception:
+        pass
+
+from PySide6.QtCore import Qt, QTimer, QPoint, QPointF, QRect, QRectF
 from PySide6.QtGui import (
     QPainter, QColor, QFont, QFontMetrics, QPainterPath, QPen, QPixmap, QImage,
     QLinearGradient
@@ -19,6 +28,30 @@ ALBUM_ART_PATH = Path(__file__).parent / "assets" / "sprites" / "album_art.png"
 
 
 CARD_THEMES = {
+    "bloom_dark": {
+        "name": "Bloom Obsidian Peach 🌸",
+        "bg_top": QColor(24, 20, 21, 252),
+        "bg_bottom": QColor(18, 15, 16, 252),
+        "border": QColor(255, 255, 255, 25),
+        "border_width": 1.0,
+        "badge_color": QColor(240, 181, 166),
+        "title_color": QColor(255, 255, 255),
+        "artist_color": QColor(204, 165, 154),
+        "art_bg": QColor(24, 20, 21),
+        "art_border": QColor(255, 255, 255, 30),
+        "ctrl_btn_bg": "rgba(255, 255, 255, 0.08)",
+        "ctrl_btn_hover": "rgba(255, 255, 255, 0.18)",
+        "ctrl_btn_border": "rgba(255, 255, 255, 0.15)",
+        "ctrl_btn_color": "#f0b5a6",
+        "play_grad_0": "#f0b5a6",
+        "play_grad_1": "#e8a598",
+        "play_btn_color": "#181415",
+        "resume_bg": "rgba(240, 181, 166, 0.2)",
+        "resume_border": "#f0b5a6",
+        "resume_color": "#f0b5a6",
+        "eq_color_0": QColor(240, 181, 166),
+        "eq_color_1": QColor(232, 165, 152),
+    },
     "glass": {
         "name": "Frosted Glass 🪟",
         "bg_top": QColor(18, 24, 38, 235),
@@ -242,9 +275,12 @@ class MediaNotificationCard(QWidget):
         self._badge = "🎵 MUSIC"
         self._album_pixmap: Optional[QPixmap] = None
 
-        # Equalizer bar animation
+        # Equalizer bar & marquee animation
         self._eq_phase = 0.0
         self._eq_heights = [3, 7, 10, 5]
+        self._marquee_x = 0.0
+        self._marquee_pause = 1.5
+        self._marquee_pixmap_cache: Dict[tuple, tuple] = {}
 
         # Timers (started only when card is visible)
         self._eq_timer = QTimer(self)
@@ -391,12 +427,20 @@ class MediaNotificationCard(QWidget):
             """)
 
     def _animate_eq(self):
-        if not self._is_playing or not self.isVisible():
+        if not self.isVisible():
             return
-        self._eq_phase += 0.08
-        for i in range(len(self._eq_heights)):
-            val = math.sin(self._eq_phase + i * 1.25) * 4.2 + 6.0
-            self._eq_heights[i] = max(2, min(11, int(round(val))))
+        if self._is_playing:
+            self._eq_phase += 0.08
+            for i in range(len(self._eq_heights)):
+                val = math.sin(self._eq_phase + i * 1.25) * 4.2 + 6.0
+                self._eq_heights[i] = max(2, min(11, int(round(val))))
+
+        # Smooth marquee ticker advance
+        if self._marquee_pause > 0.0:
+            self._marquee_pause = max(0.0, self._marquee_pause - 0.016)
+        else:
+            self._marquee_x += 0.016 * 34.0
+
         self.update()
 
     def _on_media_changed(self, info: MediaInfo):
@@ -405,7 +449,11 @@ class MediaNotificationCard(QWidget):
     def _apply_media_info(self, info: MediaInfo):
         if not info.has_media:
             return
-        self._title = info.display_title()
+        new_title = info.display_title()
+        if new_title != self._title:
+            self._title = new_title
+            self._marquee_x = 0.0
+            self._marquee_pause = 2.0
         self._artist = info.display_artist()
         self._badge = f"🎵 {info.app_name.upper()}"
         self._is_playing = info.is_playing
@@ -514,6 +562,104 @@ class MediaNotificationCard(QWidget):
         self._eq_timer.stop()
         super().hide()
 
+    def _draw_smooth_marquee(
+        self,
+        p: QPainter,
+        rect: QRectF,
+        text: str,
+        font: QFont,
+        color: QColor,
+        offset_x: float,
+        gap: float = 40.0,
+        fade_width: float = 16.0
+    ):
+        if not text or rect.width() <= 0 or rect.height() <= 0:
+            return
+
+        fm = QFontMetrics(font)
+        t_width = fm.horizontalAdvance(text)
+
+        if t_width <= rect.width():
+            p.save()
+            p.setFont(font)
+            p.setPen(color)
+            p.drawText(rect, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, text)
+            p.restore()
+            return
+
+        dpr = p.devicePixelRatio() if hasattr(p, "devicePixelRatio") else 1.0
+        if dpr <= 0.0:
+            dpr = 1.0
+
+        cache_key = (text, font.key(), color.rgba(), int(rect.height()), float(dpr))
+        cached = self._marquee_pixmap_cache.get(cache_key)
+
+        if cached is None:
+            pix_w = int(math.ceil(t_width + 8))
+            pix_h = int(math.ceil(rect.height()))
+            img = QImage(int(pix_w * dpr), int(pix_h * dpr), QImage.Format.Format_ARGB32_Premultiplied)
+            img.setDevicePixelRatio(dpr)
+            img.fill(0)
+
+            ip = QPainter(img)
+            ip.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            ip.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+            ip.setFont(font)
+            ip.setPen(color)
+            ip.drawText(QRectF(0, 0, pix_w, pix_h), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, text)
+            ip.end()
+
+            cached = (QPixmap.fromImage(img), t_width)
+            if len(self._marquee_pixmap_cache) > 20:
+                self._marquee_pixmap_cache.pop(next(iter(self._marquee_pixmap_cache)))
+            self._marquee_pixmap_cache[cache_key] = cached
+
+        pix, text_w = cached
+        span = float(text_w + gap)
+        cur_off = float(offset_x % span)
+
+        buf_w = int(math.ceil(rect.width()))
+        buf_h = int(math.ceil(rect.height()))
+
+        buf = QImage(int(buf_w * dpr), int(buf_h * dpr), QImage.Format.Format_ARGB32_Premultiplied)
+        buf.setDevicePixelRatio(dpr)
+        buf.fill(0)
+
+        bp = QPainter(buf)
+        bp.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        bp.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        x1 = -cur_off
+        bp.drawPixmap(QPointF(x1, 0), pix)
+
+        x2 = x1 + span
+        if x2 < buf_w:
+            bp.drawPixmap(QPointF(x2, 0), pix)
+        if x2 + text_w < buf_w:
+            bp.drawPixmap(QPointF(x2 + span, 0), pix)
+
+        if fade_width > 0:
+            bp.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationIn)
+            if cur_off > 1.5:
+                left_fade = min(fade_width, cur_off)
+                l_grad = QLinearGradient(0, 0, left_fade, 0)
+                l_grad.setColorAt(0.0, QColor(0, 0, 0, 0))
+                l_grad.setColorAt(1.0, QColor(0, 0, 0, 255))
+                bp.fillRect(QRectF(0, 0, left_fade, buf_h), l_grad)
+
+            r_fade = min(fade_width, buf_w * 0.35)
+            r_grad = QLinearGradient(buf_w - r_fade, 0, buf_w, 0)
+            r_grad.setColorAt(0.0, QColor(0, 0, 0, 255))
+            r_grad.setColorAt(1.0, QColor(0, 0, 0, 0))
+            bp.fillRect(QRectF(buf_w - r_fade, 0, r_fade, buf_h), r_grad)
+
+        bp.end()
+
+        p.save()
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        p.drawImage(QPointF(rect.x(), rect.y()), buf)
+        p.restore()
+
     def paintEvent(self, event):
         theme = CARD_THEMES.get(self._card_style, CARD_THEMES["glass"])
 
@@ -592,15 +738,20 @@ class MediaNotificationCard(QWidget):
             p.fillPath(b_path, eq_grad)
             eq_x += bar_w + spacing
 
-        # 5. Song Title
+        # 5. Song Title (Smooth Subpixel Marquee)
         title_font = QFont("Segoe UI", 9)
         title_font.setBold(True)
-        p.setFont(title_font)
-        p.setPen(theme["title_color"])
-
-        fm_title = QFontMetrics(title_font)
-        elided_title = fm_title.elidedText(self._title, Qt.TextElideMode.ElideRight, 175)
-        p.drawText(76, 36, elided_title)
+        title_rect = QRectF(76, 23, 175, 18)
+        self._draw_smooth_marquee(
+            p,
+            title_rect,
+            self._title,
+            title_font,
+            theme["title_color"],
+            self._marquee_x,
+            gap=36.0,
+            fade_width=14.0
+        )
 
         # 6. Artist Name
         artist_font = QFont("Segoe UI", 8)

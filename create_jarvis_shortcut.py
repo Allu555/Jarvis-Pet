@@ -54,7 +54,7 @@ def get_desktop_directories() -> list[Path]:
         pass
 
     # 2. Check user profile paths
-    user_profile = Path(os.environ.get("USERPROFILE", "C:/Users/alame"))
+    user_profile = Path.home()
     onedrive_desktop = user_profile / "OneDrive" / "Desktop"
     local_desktop = user_profile / "Desktop"
 

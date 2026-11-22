@@ -13,12 +13,19 @@ import time
 
 import pyttsx3  # type: ignore
 
-from config import EDGE_TTS_VOICE, PYTTSX3_RATE
+from config import EDGE_TTS_VOICE, PYTTSX3_RATE, USE_EDGE_TTS
 
 logger = logging.getLogger("jarvis.speaker")
 
 # Global flag so other threads can interrupt playback
 _stop_speaking = threading.Event()
+_is_speaking_flag = False
+_edge_tts_disabled_until = 0.0
+
+
+def is_speaking() -> bool:
+    """Return True if speaker is actively playing audio."""
+    return _is_speaking_flag
 
 
 def stop_speaking():
@@ -72,6 +79,8 @@ async def _edge_speak_async(text: str):
             await asyncio.sleep(0.05)
     except Exception as e:
         logger.warning(f"edge-tts failed ({e}); falling back to pyttsx3.")
+        global _edge_tts_disabled_until
+        _edge_tts_disabled_until = time.time() + 300.0  # 5-minute circuit breaker
         raise
 
 
@@ -93,9 +102,13 @@ def _get_pyttsx3_engine():
     global _pyttsx3_engine
     with _pyttsx3_lock:
         if _pyttsx3_engine is None:
+            try:
+                import pythoncom
+                pythoncom.CoInitialize()
+            except Exception:
+                pass
             _pyttsx3_engine = pyttsx3.init()
             _pyttsx3_engine.setProperty("rate", PYTTSX3_RATE)
-            # Prefer a female voice if available
             voices = _pyttsx3_engine.getProperty("voices")
             for v in voices:
                 if "female" in v.name.lower() or "zira" in v.name.lower():
@@ -105,6 +118,11 @@ def _get_pyttsx3_engine():
 
 
 def _pyttsx3_speak(text: str):
+    try:
+        import pythoncom
+        pythoncom.CoInitialize()
+    except Exception:
+        pass
     engine = _get_pyttsx3_engine()
     with _pyttsx3_lock:
         engine.say(text)
@@ -113,23 +131,32 @@ def _pyttsx3_speak(text: str):
 
 # ─── Public API ───────────────────────────────────────────────────────────────
 
-def speak(text: str, use_edge: bool = True):
+def speak(text: str, use_edge: bool = None):
     """
     Speak `text` aloud. Blocks until done or interrupted.
-    Set use_edge=False to force pyttsx3.
+    If use_edge is None, defaults to config.USE_EDGE_TTS.
     """
+    global _is_speaking_flag
     if not text or not text.strip():
         return
 
+    if use_edge is None:
+        use_edge = USE_EDGE_TTS
+    else:
+        use_edge = use_edge and USE_EDGE_TTS
+
     reset_stop()
     logger.info(f"Speaking: {text[:80]}{'...' if len(text) > 80 else ''}")
+    _is_speaking_flag = True
+    try:
+        if use_edge and time.time() > _edge_tts_disabled_until:
+            try:
+                _edge_speak(text)
+                return
+            except Exception:
+                pass
 
-    if use_edge:
-        try:
-            _edge_speak(text)
-            return
-        except Exception:
-            pass  # already logged inside _edge_speak
-
-    # Fallback
-    _pyttsx3_speak(text)
+        # Fallback to offline pyttsx3 (ultra-fast, zero network latency)
+        _pyttsx3_speak(text)
+    finally:
+        _is_speaking_flag = False

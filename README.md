@@ -1,71 +1,138 @@
-# Pixel Pet 🛸🦕
+# Desktop Pet & JARVIS AI Companion 🛸🐾
 
-A cute retro pixel-art desktop pet that lives and plays along the top edge of your Windows screen.
+An ultra-lightweight, high-performance desktop companion for Windows featuring **autonomous pixel pets**, an interactive **Dynamic Origin Island**, and **JARVIS** — an intelligent voice, vision, and system automation agent.
 
-## Features
+Designed with an ultra-lightweight architecture: **~60 MB RAM**, **< 1% idle CPU**, and a **100% in-memory zero-disk lyrics engine**.
 
-- **16 Animation States & Actions**:
-  - `idle` & `idle_flip`: Curious idle, head tilting, blushing cute.
-  - `walk_right` & `walk_left`: Smooth 8-frame walking/running cycle.
-  - `idea`: Thinking deeply -> lightbulb pops up with eureka moment!
-  - `work`: Typing & researching on a holographic tablet.
-  - `happy`: Giggling, clapping, and giving an OK-sign wink.
-  - `shrug`: Welcoming hands-open greeting & shrug.
-  - `sleep`: Collapsing flat on belly with animated pixel Zzz.
-  - `wake`: Waking up, sitting up, and getting back on feet.
-  - `sit`: Relaxed sitting pose looking around.
-  - `cry` & `sad`: Sobbing tears and pouting.
-  - `jump` & `roar`: Excited leaps and super cheer.
-  - `blink`: Subtle blinking and winking.
-- **Interactive Controls**:
-  - **Left-click**: Cheerful random reaction (Happy / Idea / Shrug / Blink)
-  - **Double-click**: Lightbulb idea or Hologram tablet typing
-  - **Middle-click**: Hologram tablet work
-  - **Right-click**: Context menu with **"Pet Actions 🎮"** submenu to trigger any action on demand, plus Pause/Resume, Settings, and Exit.
-- **Autonomous Behaviors**:
-  - Roams across your top screen edge.
-  - Works on its tablet, gets ideas, sits, naps after inactivity, and wakes up naturally.
-- **Always-on-top transparent overlay** with pixel-perfect rendering and click-through transparency.
-- **Customizable**:
-  - Settings dialog for Pet Size (48px – 192px), Walking Speed, Animation FPS, Start with Windows, and Always-on-top.
+---
 
-## Requirements
+![Desktop Pet Preview](docs/images/desktop_pet_preview.png)
 
-- Windows 10 or Windows 11
-- Python 3.10+ (PySide6 & Pillow)
+---
 
-## Installation & Running
+## ⚡ Highlights & Features
 
-```bash
-pip install -r requirements.txt
-python main.py
-```
+### 🐾 1. Autonomous Desktop Pets
+- **21 Animated Retro Pets**: Tanjiro, Spider-Bot, Robot, Gwen, Inosuke, Zenitsu, Nezuko, Goku, and more.
+- **16 Autonomous Behaviors & State Machine**:
+  - `walk_left` & `walk_right`: Fluid 8-phase articulated walking along screen edges.
+  - `work`: Typing and researching on a holographic cyber-tablet.
+  - `idea`: Deep thinking followed by an animated eureka lightbulb.
+  - `sleep` & `wake`: Resting after inactivity with animated Zzz and natural wake-up.
+  - `happy`, `shrug`, `sit`, `jump`, `roar`, `cry`, `blink`, and more.
+- **Interactive Controls**: Click to play, double-click for eureka reactions, and right-click for the context menu.
+- **Always-on-Top Click-Through Overlay**: Native Windows Desktop Window Manager (`DWM`) integration with hardware composited alpha transparency.
 
-Or double-click `start_pet.bat`.
+---
 
-## Project Structure
+### 🏝️ 2. Dynamic Origin Island
+Floating interactive top-notch overlay inspired by modern mobile dynamic islands:
 
-```
-Desktop-Pet/
-├── assets/
-│   ├── sprites/              # Production pixel-art PNG sprite sheets for all pets
-│   └── jarvis.ico            # Application icon
-├── launchers/                # Direct launchers for all 21 desktop pets
-├── tools/                    # Sprite extraction & generator scripts & raw sources
-├── jarvis/                   # Jarvis AI voice assistant companion
-├── main.py                   # Application entry point
-├── lion.py                   # Low-power PetWindow (transparent overlay widget + game loop)
-├── animation.py              # Sprite sheet loader + pre-scaled animation controller
-├── movement.py               # Autonomous state machine + physics movement engine
-├── origin_island.py          # Dynamic Island overlay with adaptive power throttling
-├── media_service.py          # Adaptive Windows SMTC media detection service
-├── media_card.py             # Zero-ghosting media notification widget
-├── activity.py               # Low-overhead user typing & activity monitor
-├── speech_bubble.py          # Floating comic speech bubble
-├── settings.py               # Persistent JSON settings + settings dialog UI
-├── startup.py                # Windows registry auto-start helper
-├── start_pet.bat             # Unified quick launcher batch file (accepts pet name argument)
-├── start_island.bat          # Standalone Island launcher
-├── requirements.txt
-└── README.md
-```
+| Dynamic Island Notch | Expanded Music Player |
+| :---: | :---: |
+| ![Origin Island Notch](docs/images/origin_island_notch.png) | ![Origin Island Player](docs/images/origin_island_player.png) |
+
+- **Real-Time Media Detection**: Windows SMTC integration for Spotify, YouTube, and media players.
+- **Live WASAPI Audio Visualizer**: 60 FPS real-time audio loopback frequency spectrum with adaptive theme colors.
+- **100% In-Memory Karaoke Lyrics Engine**: Real-time synchronized lyrics via LRCLIB with zero disk writes, keeping the repository clean and lightweight.
+- **Control Center & HUD**: Live battery percentage, weather updates, pomodoro focus timer, and quick tool shortcuts.
+
+---
+
+### 📱 3. Phone Drop Link & Web Remote
+Control your desktop and stream lyrics directly to your smartphone:
+
+<p align="center">
+  <img src="docs/images/phone_drop_qr.png" width="400" alt="Phone Drop QR Pairing">
+</p>
+
+- **Instant Local Pairing**: Scan the QR code to open the web dashboard on any phone connected to your Wi-Fi (port `8765`).
+- **Live Lyrics Stream**: Watch synced karaoke lyrics on your phone in real time.
+- **Wireless File Drop**: Effortlessly transfer photos, links, and documents between your phone and PC.
+
+---
+
+### 🤖 4. JARVIS Voice & Vision Agent
+
+<p align="center">
+  <img src="docs/images/jarvis_hud.png" width="450" alt="JARVIS HUD">
+</p>
+
+- **Agent Brain**: Powered by NVIDIA NIM (`nvidia/nemotron-3.5-bolt-e4b`) for low-latency tool orchestration and reasoning.
+- **Vision Grounding**: Set-of-Marks visual perception (`nvidia/nemotron-3.5-super-vl-120b-a12b`) for precise UI element localization.
+- **Direct App Control**: Native window management (`user32.dll`), full-screen window maximization, PWA launch, and intelligent Spotify search & playback.
+- **Hands-Free Speech Engine**:
+  - **Wake Word**: `openWakeWord` (`hey_jarvis_v0.1` ONNX) operating at < 0.5% CPU.
+  - **Speech-to-Text (STT)**: `faster-whisper` (`small.en`) with custom prompt biasing.
+  - **Speech Synthesis (TTS)**: Microsoft Neural voice streaming (`edge-tts`) with offline Windows SAPI5 fallback.
+
+---
+
+## 📊 System Telemetry & Model Architecture
+
+The entire suite is engineered for zero system lag and minimal resource consumption:
+
+![System Resource Dashboard](docs/images/system_resource_dashboard.png)
+
+| Subsystem | Model / Technology | Execution | Memory Footprint |
+| :--- | :--- | :--- | :--- |
+| **Agent Brain** | `nvidia/nemotron-3.5-bolt-e4b` | Cloud API (NVIDIA NIM) | **0 MB** |
+| **Vision Grounding** | `nvidia/nemotron-3.5-super-vl-120b-a12b` | Cloud API (NVIDIA NIM) | **0 MB** |
+| **Local Screen OCR** | `Windows.Media.Ocr` (WinRT) | Hardware Accelerated | **~20 MB** (on-demand) |
+| **Speech-to-Text (STT)**| `faster-whisper` (`small.en`) | Local CTranslate2 | **~180 - 320 MB** (on-demand) |
+| **Wake Word Engine** | `openWakeWord` (`hey_jarvis_v0.1` ONNX) | Local ONNX Runtime | **~22 MB** (< 0.5% CPU) |
+| **Speech Synthesis (TTS)**| `edge-tts` (`en-GB-RyanNeural`) | Cloud WebSockets | **0 MB** |
+| **Karaoke Lyrics** | `LRCLIB` Synced Engine | In-Memory LRU Cache | **< 0.1 MB** (0 Disk Files) |
+| **GUI & Overlay** | `PySide6` (Qt 6) | DWM Hardware Composited | **~42 MB** |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Windows 10 or Windows 11 (64-bit)
+- Python 3.10 or 3.11
+
+### Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/Allu555/Jarvis-Pet.git
+   cd Jarvis-Pet
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Configure API Keys (Optional for Cloud Agent)**:
+   Create a `.env` file in the project root:
+   ```env
+   NVIDIA_API_KEY=your_nvidia_nim_api_key
+   ```
+
+4. **Launch Application**:
+   ```bash
+   python main.py
+   ```
+   Or double-click `start_everything.vbs` to start silently in the background without any command prompt windows.
+
+---
+
+## 🎮 Controls & Shortcuts
+
+| Action | Control |
+| :--- | :--- |
+| **Pet Reaction** | Left-Click on pet |
+| **Eureka / Hologram Work** | Double-Click on pet |
+| **Context Menu & Pet Switcher**| Right-Click on pet |
+| **Expand Dynamic Island** | Hover or click top notch |
+| **Phone Link QR** | Click Phone icon on Island shelf |
+| **Settings Dialog** | Right-click pet → Settings ⚙️ |
+
+---
+
+## 🛡️ License
+
+This project is licensed under the MIT License.

@@ -30,6 +30,7 @@ PET_TYPES = {
     "spiderman": "Spider-Man 🕷️🕸️",
     "ghost_spider": "Ghost-Spider 🕷️🌸",
     "drip_boy": "Allu 🕶️👟",
+    "spider_bot": "Spider Mech (Vision Scout) 🕷️🤖",
 }
 
 
@@ -181,18 +182,14 @@ class AnimationController:
         self._load_all()
 
     def _load_all(self):
-        names = [
-            "idle", "idle_flip",
-            "walk_right", "walk_left",
-            "sit", "sleep", "wake",
-            "blink", "happy", "idea", "work",
-            "cry", "sad", "shrug",
-            "jump", "roar",
-            "drag", "fall", "land", "music",
-        ]
         self._cache.clear()
-        for n in names:
-            self._cache[n] = Animation(n, self._fps, pet_type=self._pet_type)
+        # Pre-load only initial idle animation; all others loaded lazily on demand to save RAM!
+        self._cache["idle"] = Animation("idle", self._fps, pet_type=self._pet_type)
+
+    def _get_anim(self, state: str) -> Optional[Animation]:
+        if state not in self._cache:
+            self._cache[state] = Animation(state, self._fps, pet_type=self._pet_type)
+        return self._cache.get(state)
 
     def set_pet(self, pet_type: str):
         if pet_type not in PET_TYPES:
@@ -209,16 +206,17 @@ class AnimationController:
         return self._pet_type
 
     def set_state(self, state: str, queue_after: str = "idle"):
-        if state not in self._cache:
+        anim = self._get_anim(state)
+        if not anim:
             return
         if self._state == state:
             return
         self._state = state
-        self._cache[state].reset()
+        anim.reset()
         self._queued = queue_after if state in self.ONE_SHOT else None
 
     def tick(self, target_size: Optional[int] = None) -> tuple[QPixmap, bool]:
-        anim = self._cache.get(self._state)
+        anim = self._get_anim(self._state)
         if not anim:
             return QPixmap(), False
         pixmap, frame_changed = anim.tick(target_size)
@@ -229,7 +227,7 @@ class AnimationController:
         return pixmap, frame_changed
 
     def current_frame(self, target_size: Optional[int] = None) -> QPixmap:
-        anim = self._cache.get(self._state)
+        anim = self._get_anim(self._state)
         if not anim:
             return QPixmap()
         if target_size is not None:
@@ -239,7 +237,7 @@ class AnimationController:
         return anim.frames[anim.current_frame]
 
     def current_frame_image(self, size: int) -> Optional[QImage]:
-        anim = self._cache.get(self._state)
+        anim = self._get_anim(self._state)
         if not anim:
             return None
         return anim.get_scaled_image(size)

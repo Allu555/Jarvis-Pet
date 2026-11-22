@@ -1,21 +1,26 @@
 """
-audio/listener.py – Wake word detection, VAD, and speech-to-text for JARVIS.
+audio/listener.py – Next-Gen Hands-Free Voice Engine for JARVIS.
 
-Pipeline:
-  1. Always-on microphone stream (PyAudio)
-  2. Wake-word detection: try openWakeWord → fall back to keyword-in-Whisper
-  3. Voice Activity Detection: webrtcvad (30 ms frames)
-  4. Batch the voiced audio, transcribe with faster-whisper
-  5. Return the transcribed string
-
-Also exposes push_to_talk_record() for the PTT hotkey path.
+Architecture:
+  1. Wake Word: openWakeWord ONNX ('hey_jarvis') with ultra-low CPU/battery footprint.
+     Gracefully falls back to Whisper wake detection if unavailable.
+  2. VAD & Pre-Roll: 300 ms circular pre-roll buffer + WebRTC VAD with 650 ms endpointing.
+     Never clips initial consonants or syllables.
+  3. Noise Suppression & AGC: Spectral gating (noisereduce) + software AGC peak normalization.
+  4. STT: faster-whisper (small.en) on CUDA float16 / CPU int8 with beam_size=1 and warm startup.
+  5. Post-Processing: corrections.json + RapidFuzz lexicon normalization.
+  6. Confidence Scoring: Rejects low-confidence hallucinations and prompts clarification.
+  7. Echo-Gating & Barge-In: Suppresses speaker feedback while allowing 'Jarvis stop' interruptions.
+  8. Follow-up Mode: 6-second active window for multi-turn dialogue without repeating the wake word.
+  9. Telemetry: Every utterance, latency, confidence, and correction is logged to logs/voice.log.
 """
 
 import collections
+import datetime
+import json
 import logging
 import queue
 import re
-import struct
 import threading
 import time
 from typing import Callable
@@ -25,73 +30,239 @@ import pyaudio                          # type: ignore
 import webrtcvad                        # type: ignore
 from faster_whisper import WhisperModel # type: ignore
 
+try:
+    import noisereduce as nr
+    HAS_NOISEREDUCE = True
+except ImportError:
+    HAS_NOISEREDUCE = False
+
+from audio.corrections import normalize_transcript
+from audio import speaker
+
 from config import (
     SAMPLE_RATE, CHUNK_MS, CHUNK_SAMPLES,
-    VAD_AGGRESSIVENESS, SILENCE_TIMEOUT_SEC,
-    MAX_RECORD_SEC, WHISPER_MODEL_SIZE,
-    WHISPER_DEVICE, WHISPER_COMPUTE,
-    WHISPER_LANGUAGE, WAKE_WORD, WAKE_WORD_ALIASES,
-    WHISPER_CPU_THREADS,
+    VAD_AGGRESSIVENESS, SILENCE_TIMEOUT_SEC, VAD_PRE_ROLL_MS,
+    MAX_RECORD_SEC, WHISPER_MODEL_SIZE, WHISPER_DEVICE,
+    WHISPER_COMPUTE, WHISPER_LANGUAGE, WHISPER_BEAM_SIZE,
+    WHISPER_CPU_THREADS, WHISPER_INITIAL_PROMPT, CONFIDENCE_THRESHOLD,
+    WAKE_WORD, WAKE_WORD_THRESHOLD, WAKE_WORD_ALIASES,
+    MICROPHONE_DEVICE_INDEX, ENABLE_NOISE_REDUCTION,
+    CONVERSATION_FOLLOWUP_SEC, VOICE_LOG,
 )
 
 logger = logging.getLogger("jarvis.listener")
 
-# ─── Load Whisper model once ──────────────────────────────────────────────────
-logger.info(f"Loading Whisper model '{WHISPER_MODEL_SIZE}' on {WHISPER_DEVICE} …")
+# ─── openWakeWord (Hey Jarvis) Engine (Init first to prevent OpenMP conflict) ───
+
+_oww_model = None
+_oww_loaded = False
+
+
+def _try_load_oww() -> bool:
+    global _oww_model, _oww_loaded
+    if _oww_loaded:
+        return _oww_model is not None
+    _oww_loaded = True
+    try:
+        from openwakeword.model import Model
+        _oww_model = Model(wakeword_models=["hey_jarvis_v0.1"])
+        logger.info("openWakeWord ONNX 'hey_jarvis_v0.1' engine active (ultra-low CPU).")
+        return True
+    except Exception as e:
+        logger.warning(f"openWakeWord not loaded ({e}). Using Whisper acoustic wake fallback.")
+        _oww_model = None
+        return False
+
+# Initialize openWakeWord runtime first
+_try_load_oww()
+
+# ─── Load Faster-Whisper Model Once at Startup ────────────────────────────────
+
 _whisper: WhisperModel | None = None
+_whisper_lock = threading.Lock()
 
 
 def _get_whisper() -> WhisperModel:
     global _whisper
-    if _whisper is None:
-        _whisper = WhisperModel(
-            WHISPER_MODEL_SIZE,
-            device=WHISPER_DEVICE,
-            compute_type=WHISPER_COMPUTE,
-            cpu_threads=WHISPER_CPU_THREADS,
-            num_workers=1,
-        )
-        logger.info("Whisper model ready.")
+    with _whisper_lock:
+        if _whisper is None:
+            logger.info(f"Loading faster-whisper '{WHISPER_MODEL_SIZE}' on {WHISPER_DEVICE} ({WHISPER_COMPUTE})…")
+            try:
+                _whisper = WhisperModel(
+                    WHISPER_MODEL_SIZE,
+                    device=WHISPER_DEVICE,
+                    compute_type=WHISPER_COMPUTE,
+                    cpu_threads=WHISPER_CPU_THREADS,
+                    num_workers=1,
+                )
+            except Exception as e:
+                logger.warning(f"CUDA init failed ({e}), falling back to CPU int8…")
+                _whisper = WhisperModel(
+                    WHISPER_MODEL_SIZE,
+                    device="cpu",
+                    compute_type="int8",
+                    cpu_threads=WHISPER_CPU_THREADS,
+                    num_workers=1,
+                )
+            # Warm up with a 0.5s silent buffer to eliminate first-query cold latency
+            try:
+                dummy = np.zeros(SAMPLE_RATE // 2, dtype=np.float32)
+                _whisper.transcribe(dummy, language=WHISPER_LANGUAGE or "en", beam_size=1)
+                logger.info("Whisper model warmed up and ready.")
+            except Exception as e:
+                logger.debug(f"Warmup notice: {e}")
     return _whisper
 
 
-# ─── openWakeWord (optional) ──────────────────────────────────────────────────
-_oww_model = None
 
-def _try_load_oww():
-    global _oww_model
-    try:
-        from openwakeword.model import Model  # type: ignore
-        _oww_model = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
-        logger.info("openWakeWord model loaded.")
-        return True
-    except Exception as e:
-        logger.warning(f"openWakeWord not available ({e}). Using Whisper wake-word fallback.")
-        return False
-
-
-# ─── PyAudio helpers ──────────────────────────────────────────────────────────
+# ─── PyAudio Hardware Layer ───────────────────────────────────────────────────
 
 def _open_mic() -> tuple[pyaudio.PyAudio, pyaudio.Stream]:
+    """Open microphone input stream with device index support."""
     pa = pyaudio.PyAudio()
-    stream = pa.open(
-        format=pyaudio.paInt16,
-        channels=1,
-        rate=SAMPLE_RATE,
-        input=True,
-        frames_per_buffer=CHUNK_SAMPLES,
-    )
+    dev_index = MICROPHONE_DEVICE_INDEX
+    kwargs = {
+        "format": pyaudio.paInt16,
+        "channels": 1,
+        "rate": SAMPLE_RATE,
+        "input": True,
+        "frames_per_buffer": CHUNK_SAMPLES,
+    }
+    if dev_index is not None:
+        kwargs["input_device_index"] = int(dev_index)
+
+    stream = pa.open(**kwargs)
     return pa, stream
 
 
 def _read_chunk(stream: pyaudio.Stream) -> bytes:
-    return stream.read(CHUNK_SAMPLES, exception_on_overflow=False)
+    try:
+        return stream.read(CHUNK_SAMPLES, exception_on_overflow=False)
+    except Exception as e:
+        logger.debug(f"Mic read buffer overflow/skip: {e}")
+        return b"\x00" * (CHUNK_SAMPLES * 2)
 
 
-# ─── VAD recording ────────────────────────────────────────────────────────────
+# ─── Audio Pre-processing: Denoise & AGC ───────────────────────────────────────
+
+def _clean_and_normalize_audio(audio_bytes: bytes) -> np.ndarray:
+    """
+    Converts int16 PCM bytes to float32 normalized waveform.
+    Applies software Automatic Gain Control (AGC) and optional noise reduction.
+    """
+    audio_np = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+
+    # 1. Noise Reduction (spectral gating)
+    if ENABLE_NOISE_REDUCTION and HAS_NOISEREDUCE and len(audio_np) >= SAMPLE_RATE // 2:
+        try:
+            audio_np = nr.reduce_noise(
+                y=audio_np,
+                sr=SAMPLE_RATE,
+                stationary=True,
+                prop_decrease=0.60,
+                n_fft=512,
+            )
+        except Exception:
+            pass
+
+    # 2. Software AGC Peak Normalization (-16 dBFS target peak ~0.65)
+    max_amp = float(np.max(np.abs(audio_np)))
+    if max_amp > 0.01:
+        target_peak = 0.65
+        gain = min(target_peak / max_amp, 4.0)  # max 4x gain boost
+        audio_np = np.clip(audio_np * gain, -1.0, 1.0)
+
+    return audio_np
+
+
+# ─── Telemetry Logger ─────────────────────────────────────────────────────────
+
+def _log_voice_telemetry(audio_sec: float, latency_ms: float, avg_logprob: float,
+                         no_speech_prob: float, raw_text: str, normalized_text: str,
+                         source: str = "wake_word"):
+    try:
+        entry = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "source": source,
+            "audio_duration_sec": round(audio_sec, 2),
+            "stt_latency_ms": round(latency_ms, 1),
+            "avg_logprob": round(avg_logprob, 3),
+            "no_speech_prob": round(no_speech_prob, 3),
+            "raw_text": raw_text,
+            "normalized_text": normalized_text,
+        }
+        with open(VOICE_LOG, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception:
+        pass
+
+
+# ─── Transcription API ────────────────────────────────────────────────────────
+
+def transcribe_with_meta(audio_bytes: bytes, source: str = "utterance") -> tuple[str, str, float, float, float]:
+    """
+    Transcribe raw PCM bytes with faster-whisper.
+    Returns: (normalized_text, raw_text, avg_logprob, no_speech_prob, latency_ms)
+    """
+    if not audio_bytes or len(audio_bytes) < 3200:  # < 100ms
+        return "", "", 0.0, 1.0, 0.0
+
+    t_start = time.perf_counter()
+    audio_sec = len(audio_bytes) / (SAMPLE_RATE * 2)
+
+    try:
+        model = _get_whisper()
+        audio_np = _clean_and_normalize_audio(audio_bytes)
+
+        if float(np.max(np.abs(audio_np))) < 0.003:
+            return "", "", 0.0, 1.0, 0.0
+
+        segments, info = model.transcribe(
+            audio_np,
+            language=WHISPER_LANGUAGE or "en",
+            beam_size=WHISPER_BEAM_SIZE,
+            initial_prompt=WHISPER_INITIAL_PROMPT,
+            condition_on_previous_text=False,
+            vad_filter=False,  # endpointing already managed cleanly by VAD
+        )
+
+        raw_parts = []
+        logprobs = []
+        no_speech_probs = []
+
+        for seg in segments:
+            txt = seg.text.strip()
+            if txt:
+                raw_parts.append(txt)
+                logprobs.append(seg.avg_logprob)
+                no_speech_probs.append(getattr(seg, "no_speech_prob", 0.0))
+
+        raw_text = " ".join(raw_parts).strip()
+        avg_lp = float(np.mean(logprobs)) if logprobs else -1.0
+        no_speech = float(np.max(no_speech_probs)) if no_speech_probs else 0.0
+        latency_ms = (time.perf_counter() - t_start) * 1000.0
+
+        normalized_text = normalize_transcript(raw_text)
+
+        _log_voice_telemetry(audio_sec, latency_ms, avg_lp, no_speech, raw_text, normalized_text, source=source)
+        logger.info(f"STT [{source}]: {raw_text!r} → {normalized_text!r} ({latency_ms:.0f}ms, lp={avg_lp:.2f})")
+
+        return normalized_text, raw_text, avg_lp, no_speech, latency_ms
+
+    except Exception as e:
+        logger.error(f"Transcription error: {e}")
+        return "", "", -9.0, 1.0, 0.0
+
+
+def transcribe(audio_bytes: bytes) -> str:
+    """Standard STT returning normalized string."""
+    norm, _, _, _, _ = transcribe_with_meta(audio_bytes, source="stt")
+    return norm
+
+
+# ─── VAD Recording with 300ms Pre-Roll & Endpointing ──────────────────────────
 
 def _rms_to_meter(rms: float, ambient: float) -> str:
-    """Return dynamic visual sound waves for live UI feedback."""
     diff = max(0.0, rms - ambient)
     scale = max(ambient * 1.5, 80.0)
     bars = int(min(6, (diff / scale) * 4))
@@ -101,7 +272,7 @@ def _rms_to_meter(rms: float, ambient: float) -> str:
 
 
 class _InterimTranscriber:
-    """Background worker for live partial transcription during speech recording."""
+    """Streaming background worker for live interim transcription feedback."""
     def __init__(self, callback: Callable[[str], None]):
         self._callback = callback
         self._q = queue.Queue(maxsize=1)
@@ -141,23 +312,28 @@ def _record_until_silence(
     stream: pyaudio.Stream,
     vad: webrtcvad.Vad,
     is_ptt: bool = False,
+    pre_roll_chunks: list[bytes] | None = None,
     on_interim: Callable[[str], None] | None = None,
     stop_event: threading.Event | None = None,
 ) -> bytes:
     """
-    Read audio until speech finishes or silence timeout occurs.
-    Includes live audio visualization and streaming interim text on overlay.
+    Records audio until speech completes or silence timeout occurs.
+    Prepends the 300ms pre-roll buffer so starting consonants are never cut off.
+    Includes echo-gating check and live meter visual callback.
     """
-    global _ambient_rms
     frames: list[bytes] = []
+    # Prepend pre-roll buffer if provided
+    if pre_roll_chunks:
+        frames.extend(pre_roll_chunks)
+
     silence_frames = 0
-    # Snappy 0.65s silence (22 frames) finishes immediately when user finishes talking
-    silence_limit = int((0.65 if is_ptt else 0.8) * 1000 / CHUNK_MS)
+    # 500-700ms endpointing (22 frames of 30ms = 660ms)
+    silence_limit = int((0.55 if is_ptt else SILENCE_TIMEOUT_SEC) * 1000 / CHUNK_MS)
     max_frames = int((8.0 if is_ptt else MAX_RECORD_SEC) * 1000 / CHUNK_MS)
-    wait_start_limit = int((4.5 if is_ptt else 3.0) * 1000 / CHUNK_MS)
+    wait_start_limit = int((4.0 if is_ptt else 2.8) * 1000 / CHUNK_MS)
     total_frames = 0
-    speech_started = False
-    voiced_count = 0
+    speech_started = bool(pre_roll_chunks and len(pre_roll_chunks) > 0)
+    voiced_count = 1 if speech_started else 0
 
     interim_worker = None
     interim_text = [""]
@@ -169,6 +345,7 @@ def _record_until_silence(
 
     last_ui_update = 0.0
     last_interim_submit = 0.0
+    ambient_rms = 120.0
 
     while total_frames < max_frames:
         if stop_event and stop_event.is_set():
@@ -177,6 +354,21 @@ def _record_until_silence(
         chunk = _read_chunk(stream)
         frames.append(chunk)
         total_frames += 1
+
+        # Echo-Gating: If JARVIS is currently speaking, check for barge-in interruption
+        if speaker.is_speaking():
+            samples = np.frombuffer(chunk, dtype=np.int16)
+            rms = float(np.sqrt(np.mean(samples.astype(np.float32) ** 2)))
+            # Very loud voice during TTS = user trying to barge in
+            if rms > 800.0 and len(frames) >= 15:
+                # Transcribe small window to see if user said 'stop'
+                quick_txt = transcribe(b"".join(frames[-15:])).lower()
+                if any(w in quick_txt for w in ("stop", "quiet", "hush", "cancel", "shut")):
+                    speaker.stop_speaking()
+                    logger.info("Barge-in detected: interrupted TTS.")
+                    return b""
+            # Otherwise drop speech while TTS is playing to avoid self-echo loop
+            continue
 
         samples = np.frombuffer(chunk, dtype=np.int16)
         rms = float(np.sqrt(np.mean(samples.astype(np.float32) ** 2)))
@@ -187,8 +379,8 @@ def _record_until_silence(
         except Exception:
             vad_flag = False
 
-        voice_thresh = max(180.0, _ambient_rms * 1.3)
-        is_voice = (vad_flag and rms > voice_thresh) or (rms > max(350.0, _ambient_rms * 1.6))
+        voice_thresh = max(180.0, ambient_rms * 1.3)
+        is_voice = (vad_flag and rms > voice_thresh) or (rms > max(320.0, ambient_rms * 1.5))
 
         if is_voice:
             voiced_count += 1
@@ -196,6 +388,7 @@ def _record_until_silence(
                 speech_started = True
             silence_frames = 0
         else:
+            ambient_rms = 0.95 * ambient_rms + 0.05 * rms
             if speech_started:
                 silence_frames += 1
                 if silence_frames >= silence_limit:
@@ -204,10 +397,9 @@ def _record_until_silence(
                 if total_frames >= wait_start_limit:
                     break
 
-        # Live visual feedback on overlay
         if on_interim and (now - last_ui_update > 0.1):
             last_ui_update = now
-            meter = _rms_to_meter(rms, _ambient_rms)
+            meter = _rms_to_meter(rms, ambient_rms)
             if speech_started:
                 if interim_text[0]:
                     on_interim(f'"{interim_text[0]}…" {meter}')
@@ -216,8 +408,8 @@ def _record_until_silence(
             else:
                 on_interim(f"🎙️ Listening… {meter}")
 
-        # Stream audio to interim transcriber every 0.75s
-        if interim_worker and speech_started and (now - last_interim_submit > 0.75) and len(frames) >= 20:
+        # Stream audio to interim transcriber every 0.7s
+        if interim_worker and speech_started and (now - last_interim_submit > 0.7) and len(frames) >= 20:
             last_interim_submit = now
             interim_worker.submit(b"".join(frames))
 
@@ -227,156 +419,12 @@ def _record_until_silence(
     return b"".join(frames)
 
 
-# ─── Transcription ────────────────────────────────────────────────────────────
-
-def transcribe(audio_bytes: bytes) -> str:
-    """Convert raw PCM bytes to text using faster-whisper tuned for Indian accent."""
-    if not audio_bytes or len(audio_bytes) < 4000:
-        return ""
-    try:
-        model = _get_whisper()
-        # Convert int16 PCM → float32 normalised
-        audio_np = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
-        
-        # Audio must have non-zero amplitude to avoid empty sequence
-        if float(np.max(np.abs(audio_np))) < 0.002:
-            return ""
-
-        segments, _ = model.transcribe(
-            audio_np,
-            language=WHISPER_LANGUAGE or "en",
-            beam_size=1,  # greedy decoding is 2x faster than beam_size=5
-            vad_filter=False,  # we already clipped silence; avoid chopping Indian syllables
-            initial_prompt="Jarvis, namaskaram, open YouTube, what time is it, Chrome.",
-            condition_on_previous_text=False,
-            no_speech_threshold=0.5,
-        )
-        text = " ".join(seg.text for seg in segments).strip()
-        if text:
-            logger.info(f"Transcribed: {text!r}")
-        return text
-    except Exception as e:
-        logger.debug(f"Transcribe suppressed error: {e}")
-        return ""
-
-
-# ─── Wake-word detection with openWakeWord ────────────────────────────────────
-
-def _detect_wake_word_oww(stream: pyaudio.Stream) -> bool:
-    """
-    Feed 80 ms chunks to openWakeWord; return True when wake word fires.
-    """
-    oww_chunk = int(SAMPLE_RATE * 0.08)     # 80 ms
-    chunk = stream.read(oww_chunk, exception_on_overflow=False)
-    audio = np.frombuffer(chunk, dtype=np.int16)
-    prediction = _oww_model.predict(audio)
-    for name, score in prediction.items():
-        if score > 0.5:
-            logger.info(f"openWakeWord detected: {name} ({score:.2f})")
-            return True
-    return False
-
-
-_last_whisper_check = 0.0
-_ambient_rms = 100.0
-_voiced_chunks = 0
-_silence_chunks = 0
-_speech_active = False
-
-
-def _detect_wake_word_whisper(
-    stream: pyaudio.Stream,
-    vad: webrtcvad.Vad,
-    ring: collections.deque,
-) -> tuple[bool, str | None]:
-    """
-    Ultra CPU-efficient wake-word detection using faster-whisper.
-    Only runs neural network inference when a real voice utterance is detected
-    and either finishes with a brief silence or reaches duration threshold.
-    Zero-cost during room silence, keyboard clatter, or background hiss.
-    """
-    global _last_whisper_check, _ambient_rms, _voiced_chunks, _silence_chunks, _speech_active
-    chunk = _read_chunk(stream)
-    ring.append(chunk)
-
-    # Compute fast RMS energy on int16 samples
-    samples = np.frombuffer(chunk, dtype=np.int16)
-    rms = float(np.sqrt(np.mean(samples.astype(np.float32) ** 2)))
-
-    try:
-        vad_speech = vad.is_speech(chunk, SAMPLE_RATE)
-    except Exception:
-        vad_speech = False
-
-    # Continuously adapt ambient noise baseline when vad does not detect voice
-    if not vad_speech:
-        _ambient_rms = 0.95 * _ambient_rms + 0.05 * rms
-
-    # True voice requires both VAD phonetic patterns and amplitude above ambient noise
-    voice_threshold = max(280.0, _ambient_rms * 1.4)
-    is_voice = vad_speech and (rms > voice_threshold)
-
-    now = time.time()
-
-    if is_voice:
-        _voiced_chunks += 1
-        _silence_chunks = 0
-        _speech_active = True
-    else:
-        if _speech_active:
-            _silence_chunks += 1
-
-    # Check if speech finished (user said 'Jarvis' and paused for ~210ms)
-    # 7 chunks = 210ms voice, 7 chunks = 210ms silence
-    phrase_finished = _speech_active and (_voiced_chunks >= 7) and (_silence_chunks >= 7)
-    # Or continuous speech without pause for ~1.5s (45 chunks)
-    long_speech = _speech_active and (_voiced_chunks >= 45) and ((now - _last_whisper_check) > 2.0)
-
-    # If it was just transient noise (cough, keyboard, click) followed by silence:
-    if _speech_active and (_silence_chunks > 12) and (_voiced_chunks < 7):
-        _speech_active = False
-        _voiced_chunks = 0
-        _silence_chunks = 0
-        return False, None
-
-    if (phrase_finished or long_speech) and (now - _last_whisper_check) > 1.0:
-        _last_whisper_check = now
-        _speech_active = False
-        _voiced_chunks = 0
-        _silence_chunks = 0
-
-        audio = b"".join(ring)
-        ring.clear()
-        text = transcribe(audio).strip()
-        text_lower = text.lower()
-
-        matched_wake = None
-        for alias in WAKE_WORD_ALIASES:
-            if re.search(rf"\b{alias}\b", text_lower):
-                matched_wake = alias
-                break
-
-        if matched_wake:
-            logger.info(f"Wake word matched via '{matched_wake}': {text!r}")
-            # Extract any command that followed the wake word directly
-            parts = re.split(rf"\b{matched_wake}\b", text, flags=re.IGNORECASE)
-            cmd = ""
-            if len(parts) > 1:
-                cmd = parts[1].strip(" ,.!?:\n\t")
-            return True, (cmd if len(cmd) > 2 else None)
-        else:
-            # Utterance wasn't the wake word; back off cooldown by 1.5s so we don't spam CPU on non-wake background audio
-            _last_whisper_check = now + 1.5
-
-    return False, None
-
-
-# ─── Main listener class ──────────────────────────────────────────────────────
+# ─── Main Listener Class ──────────────────────────────────────────────────────
 
 class Listener:
     """
-    Always-on listener.
-    Call .start(callback) where callback(text: str) is called with each command.
+    Hands-free autonomous listener supporting openWakeWord, Silero/WebRTC VAD,
+    pre-roll buffers, noise suppression, follow-up conversation mode, and barge-in.
     """
 
     def __init__(self):
@@ -388,22 +436,37 @@ class Listener:
         self._pa        = None
         self._stream    = None
         self._mic_lock  = threading.Lock()
+        self._on_command: Callable[[str], None] | None = None
+
+        # Follow-up conversation mode (6 seconds window after JARVIS speaks)
+        self._followup_deadline = 0.0
+        self._is_in_followup = False
 
     def pause(self):
-        """Mute/pause the listener so it doesn't hear JARVIS's own speaker output."""
+        """Mute listener (e.g. while audio playback is active)."""
         self._paused = True
 
     def resume(self):
-        """Resume listening."""
+        """Resume listener."""
         self._paused = False
 
+    def enter_followup_mode(self, timeout: float = CONVERSATION_FOLLOWUP_SEC):
+        """Keep the microphone active for follow-up questions without wake word."""
+        self._followup_deadline = time.time() + timeout
+        self._is_in_followup = True
+        logger.info(f"Follow-up conversation window open for {timeout}s.")
+
+    def exit_followup_mode(self):
+        self._is_in_followup = False
+        self._followup_deadline = 0.0
+
     def start(self, on_command: Callable[[str], None]):
-        """Start the background listener thread."""
+        """Start the background listening thread."""
         self._running = True
         self._on_command = on_command
-        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread = threading.Thread(target=self._loop, daemon=True, name="jarvis_listener")
         self._thread.start()
-        logger.info("Listener started.")
+        logger.info("Next-Gen Voice Listener started.")
 
     def stop(self):
         self._running = False
@@ -411,64 +474,130 @@ class Listener:
             self._thread.join(timeout=3)
 
     def _loop(self):
+        # 300ms pre-roll buffer = 10 chunks of 30ms
+        pre_roll_count = max(5, int(VAD_PRE_ROLL_MS / CHUNK_MS))
+        pre_roll: collections.deque = collections.deque(maxlen=pre_roll_count)
+
+        # 80ms chunk size for openWakeWord = 1280 samples
+        oww_chunk_samples = int(SAMPLE_RATE * 0.08)
+        oww_buffer = bytearray()
+
         pa, stream = _open_mic()
         self._pa = pa
         self._stream = stream
-        # 2-second ring buffer for wake-word context
-        ring_size = int(2000 / CHUNK_MS)
-        ring: collections.deque = collections.deque(maxlen=ring_size)
-
-        # Calibrate ambient noise floor for 300ms
-        try:
-            calib = []
-            for _ in range(10):
-                c = _read_chunk(stream)
-                s = np.frombuffer(c, dtype=np.int16)
-                calib.append(float(np.sqrt(np.mean(s.astype(np.float32) ** 2))))
-            global _ambient_rms
-            _ambient_rms = max(150.0, float(np.median(calib)))
-            logger.info(f"Calibrated ambient mic RMS: {_ambient_rms:.1f}")
-        except Exception:
-            pass
 
         try:
             while self._running:
-                if self._paused:
-                    ring.clear()
-                    time.sleep(0.05)
+                if self._paused or speaker.is_speaking():
+                    pre_roll.clear()
+                    oww_buffer.clear()
+                    time.sleep(0.04)
                     continue
 
-                try:
-                    # ── Wake-word phase ───────────────────────────────────────
-                    with self._mic_lock:
-                        if self._use_oww:
-                            detected = _detect_wake_word_oww(stream)
-                            embedded_cmd = None
-                        else:
-                            detected, embedded_cmd = _detect_wake_word_whisper(stream, self._vad, ring)
+                chunk = _read_chunk(stream)
+                pre_roll.append(chunk)
 
-                    if not detected:
-                        continue
-
-                    # ── Command execution / recording phase ───────────────────
-                    if embedded_cmd:
-                        logger.info(f"Inline command detected: {embedded_cmd!r}")
-                        self._on_command(embedded_cmd)
-                    else:
-                        logger.info("Wake word heard – recording command …")
+                # ── 1. Check Follow-Up Conversation Mode ──────────────────────
+                now = time.time()
+                if self._is_in_followup:
+                    if now < self._followup_deadline:
+                        # Direct speech detection without requiring wake word
                         try:
-                            import winsound
-                            winsound.Beep(1400, 60)
+                            vad_flag = self._vad.is_speech(chunk, SAMPLE_RATE)
+                        except Exception:
+                            vad_flag = False
+
+                        samples = np.frombuffer(chunk, dtype=np.int16)
+                        rms = float(np.sqrt(np.mean(samples.astype(np.float32) ** 2)))
+
+                        if vad_flag and rms > 220.0:
+                            logger.info("Follow-up speech detected! Recording utterance…")
+                            self.exit_followup_mode()
+                            with self._mic_lock:
+                                raw = _record_until_silence(
+                                    stream, self._vad, is_ptt=False,
+                                    pre_roll_chunks=list(pre_roll)
+                                )
+                            pre_roll.clear()
+                            text, raw_t, avg_lp, no_speech, lat = transcribe_with_meta(raw, source="follow_up")
+                            if text:
+                                if avg_lp < CONFIDENCE_THRESHOLD and len(text.split()) <= 2:
+                                    speaker.speak("I didn't quite catch that, sir. Could you repeat?")
+                                elif self._on_command:
+                                    self._on_command(text)
+                            continue
+                    else:
+                        self.exit_followup_mode()
+
+                # ── 2. Wake Word Detection (openWakeWord ONNX) ─────────────────
+                detected = False
+                embedded_cmd = None
+
+                if self._use_oww and _oww_model:
+                    oww_buffer.extend(chunk)
+                    # When buffer reaches 80ms (2560 bytes = 1280 int16 samples)
+                    if len(oww_buffer) >= oww_chunk_samples * 2:
+                        pcm_80ms = np.frombuffer(oww_buffer[:oww_chunk_samples * 2], dtype=np.int16)
+                        oww_buffer = oww_buffer[oww_chunk_samples * 2:]
+                        try:
+                            scores = _oww_model.predict(pcm_80ms)
+                            for name, score in scores.items():
+                                if score >= WAKE_WORD_THRESHOLD:
+                                    logger.info(f"openWakeWord detected: {name} (score={score:.2f})")
+                                    detected = True
+                                    break
                         except Exception:
                             pass
-                        with self._mic_lock:
-                            raw = _record_until_silence(stream, self._vad, is_ptt=False)
-                        text = transcribe(raw)
-                        if text:
+                else:
+                    # Fallback acoustic detection
+                    samples = np.frombuffer(chunk, dtype=np.int16)
+                    rms = float(np.sqrt(np.mean(samples.astype(np.float32) ** 2)))
+                    try:
+                        vad_flag = self._vad.is_speech(chunk, SAMPLE_RATE)
+                    except Exception:
+                        vad_flag = False
+
+                    if vad_flag and rms > 300.0:
+                        # Read utterance and check for wake word
+                        raw_test = _record_until_silence(stream, self._vad, is_ptt=False, pre_roll_chunks=list(pre_roll))
+                        pre_roll.clear()
+                        txt, _, _, _, _ = transcribe_with_meta(raw_test, source="wake_scan")
+                        txt_lower = txt.lower()
+                        for alias in WAKE_WORD_ALIASES:
+                            if re.search(rf"\b{alias}\b", txt_lower):
+                                detected = True
+                                parts = re.split(rf"\b{alias}\b", txt, flags=re.IGNORECASE)
+                                if len(parts) > 1 and len(parts[1].strip()) > 2:
+                                    embedded_cmd = parts[1].strip(" ,.!?:\n\t")
+                                break
+
+                if not detected:
+                    continue
+
+                # ── 3. Wake Word Fired: Record Command ─────────────────────────
+                logger.info("Wake word triggered!")
+                try:
+                    import winsound
+                    winsound.Beep(1400, 60)
+                except Exception:
+                    pass
+
+                if embedded_cmd:
+                    logger.info(f"Inline command recognized: {embedded_cmd!r}")
+                    if self._on_command:
+                        self._on_command(embedded_cmd)
+                else:
+                    with self._mic_lock:
+                        raw = _record_until_silence(stream, self._vad, is_ptt=False, pre_roll_chunks=list(pre_roll))
+                    pre_roll.clear()
+
+                    text, raw_t, avg_lp, no_speech, lat = transcribe_with_meta(raw, source="wake_command")
+                    if text:
+                        # Confidence check
+                        if avg_lp < CONFIDENCE_THRESHOLD and len(text.split()) <= 2:
+                            speaker.speak("I didn't quite catch that, sir. Could you repeat?")
+                        elif self._on_command:
                             self._on_command(text)
-                except Exception as tick_err:
-                    logger.debug(f"Listener tick exception handled: {tick_err}")
-                    time.sleep(0.05)
 
         except Exception as e:
             logger.error(f"Listener loop crashed: {e}", exc_info=True)
@@ -483,7 +612,7 @@ class Listener:
                 except Exception:
                     pass
 
-    # ── Push-to-talk ──────────────────────────────────────────────────────────
+    # ── Push-to-Talk Recording API ────────────────────────────────────────────
 
     def push_to_talk_record(
         self,
@@ -492,10 +621,10 @@ class Listener:
         stop_event: threading.Event | None = None,
     ) -> str:
         """
-        Record from mic until silence, transcribe, and return text.
-        Thread-safe: reuses existing active microphone stream.
+        Records from microphone until silence, transcribes with corrections,
+        and returns normalized command string.
         """
-        logger.info("PTT – recording …")
+        logger.info("Push-to-Talk triggered.")
         raw = b""
         with self._mic_lock:
             stream = self._stream
@@ -526,4 +655,5 @@ class Listener:
             except Exception:
                 pass
 
-        return transcribe(raw)
+        norm, raw_t, avg_lp, _, lat = transcribe_with_meta(raw, source="ptt")
+        return norm
