@@ -130,27 +130,14 @@ The entire suite is engineered for zero system lag and minimal resource consumpt
 
 ---
 
-## 👥 Contributors & Credits
+## 👤 Author & Creator
 
 <div align="center">
-  <table>
-    <tr>
-      <td align="center" width="180">
-        <a href="https://github.com/Allu555">
-          <img src="https://github.com/Allu555.png" width="96px;" style="border-radius: 50%;" alt="Alameen Najeeb"/><br /><br />
-          <sub><b>Alameen Najeeb</b></sub><br />
-          <sub>Creator & Lead Architect</sub>
-        </a>
-      </td>
-      <td align="center" width="180">
-        <a href="https://github.com/google-antigravity">
-          <img src="https://avatars.githubusercontent.com/u/242056456?v=4" width="96px;" style="border-radius: 50%;" alt="Google Antigravity"/><br /><br />
-          <sub><b>Google Antigravity</b></sub><br />
-          <sub>AI Autonomous Co-Developer</sub>
-        </a>
-      </td>
-    </tr>
-  </table>
+  <a href="https://github.com/Allu555">
+    <img src="https://github.com/Allu555.png" width="100px;" style="border-radius: 50%;" alt="Alameen Najeeb"/><br /><br />
+    <b>Alameen Najeeb (@Allu555)</b><br />
+    <sub>Creator & Lead Architect</sub>
+  </a>
 </div>
 
 ---
