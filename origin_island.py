@@ -1,3 +1,4 @@
+import asyncio
 import calendar
 import ctypes
 import datetime
@@ -240,7 +241,7 @@ if _JARVIS_DIR not in sys.path:
 
 from PySide6.QtCore import (
     Qt, QTimer, QPoint, QPointF, QRect, QRectF, QSize, QPropertyAnimation,
-    QEasingCurve, Signal, QUrl, QMimeData
+    QEasingCurve, Signal, QUrl, QMimeData, QThread
 )
 from PySide6.QtGui import (
     QPainter, QColor, QFont, QFontMetrics, QPainterPath, QPen, QBrush,
@@ -1028,6 +1029,86 @@ class VisionScanOverlay(QWidget):
             p.drawText(QRectF(tx - tag_w / 2, ty + box_r + 6, tag_w, 20), Qt.AlignmentFlag.AlignCenter, label_tag)
 
 
+class WindowsNotificationWatcher(QThread):
+    """
+    Lightweight background watcher for Windows 10/11 system notifications & toasts
+    (WhatsApp, Discord, Telegram, Calendar, Outlook, etc.) using the native WinRT
+    UserNotificationListener API. Operates with 0% idle CPU and minimal RAM footprint.
+    """
+    notification_received = Signal(str, str, str)  # app_name, title, body
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._running = True
+        self._seen_ids = set()
+
+    def run(self):
+        try:
+            import winsdk.windows.ui.notifications as notifs
+            import winsdk.windows.ui.notifications.management as mgmt
+            listener = mgmt.UserNotificationListener.current
+            try:
+                # 1 = UserNotificationListenerAccessStatus.ALLOWED
+                if listener.get_access_status() != 1:
+                    return
+            except Exception:
+                pass
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            async def _fetch():
+                try:
+                    return await listener.get_notifications_async(notifs.NotificationKinds.TOAST)
+                except Exception:
+                    return []
+
+            # Populate initial seen IDs so stale historical notifications are not spammed on boot
+            try:
+                initial = loop.run_until_complete(_fetch())
+                for it in initial:
+                    self._seen_ids.add(it.id)
+            except Exception:
+                pass
+
+            while self._running:
+                try:
+                    items = loop.run_until_complete(_fetch())
+                    for it in items:
+                        if it.id not in self._seen_ids:
+                            self._seen_ids.add(it.id)
+                            app_name = "Notification"
+                            try:
+                                if it.app_info and it.app_info.display_info:
+                                    app_name = it.app_info.display_info.display_name or "Notification"
+                            except Exception:
+                                pass
+
+                            title = ""
+                            body = ""
+                            try:
+                                bindings = it.notification.visual.get_binding(notifs.KnownNotificationBindings.TOAST_GENERIC)
+                                if bindings:
+                                    texts = [t.text for t in bindings.get_text_elements()]
+                                    if len(texts) > 0:
+                                        title = texts[0]
+                                    if len(texts) > 1:
+                                        body = " ".join(texts[1:])
+                            except Exception:
+                                pass
+
+                            if title or body:
+                                self.notification_received.emit(app_name, title, body)
+                except Exception:
+                    pass
+                time.sleep(1.0)
+        except Exception:
+            pass
+
+    def stop(self):
+        self._running = False
+
+
 class OriginIsland(QWidget):
     """
     OriginOS & Apple Dynamic Island Widget for Desktop.
@@ -1046,6 +1127,7 @@ class OriginIsland(QWidget):
     STATE_MAP = "map"
     STATE_CLIPBOARD = "clipboard"
     STATE_TOOLS = "tools"
+    STATE_NOTIFICATION = "notification"
 
     # Size configurations
     SIZES = {
@@ -1059,6 +1141,7 @@ class OriginIsland(QWidget):
         STATE_MAP: (400, 150),
         STATE_CLIPBOARD: (400, 150),
         STATE_TOOLS: (420, 192),
+        STATE_NOTIFICATION: (420, 80),
     }
 
     def __init__(self, settings=None, parent=None):
@@ -1380,6 +1463,20 @@ class OriginIsland(QWidget):
             self._phone_drop_service.start()
         except Exception as _e:
             print(f"[OriginIsland] Warning starting PhoneDropService: {_e}")
+
+        # Windows Notification Hub (WhatsApp, Discord, Telegram, Calendar, etc.)
+        self._current_notification: Optional[Dict[str, Any]] = None
+        self._notification_dismiss_timer = QTimer(self)
+        self._notification_dismiss_timer.setSingleShot(True)
+        self._notification_dismiss_timer.timeout.connect(self._auto_dismiss_notification)
+
+        self._notif_watcher: Optional[WindowsNotificationWatcher] = None
+        try:
+            self._notif_watcher = WindowsNotificationWatcher(self)
+            self._notif_watcher.notification_received.connect(self.show_notification)
+            self._notif_watcher.start()
+        except Exception as _e:
+            print(f"[OriginIsland] Warning starting WindowsNotificationWatcher: {_e}")
 
         # Full-Screen Holographic Blue Laser Scanner Overlay (Codex & Claude style)
         self._vision_overlay = VisionScanOverlay()
@@ -1993,6 +2090,49 @@ class OriginIsland(QWidget):
         if self._settings:
             self._settings.weather_location = loc
             self._settings.save()
+
+    def show_notification(self, app_name: str, title: str, body: str):
+        """Presents a Windows toast notification as a sleek animated Dynamic Island expansion."""
+        self._current_notification = {
+            "app_name": app_name or "Notification",
+            "title": title or "",
+            "body": body or "",
+            "time": time.time(),
+        }
+        self._wake_timer()
+        self.switch_state(self.STATE_NOTIFICATION)
+        # 6-second auto-dismiss back to compact pill
+        self._notification_dismiss_timer.start(6000)
+
+    def _auto_dismiss_notification(self):
+        if self._state == self.STATE_NOTIFICATION:
+            self.switch_state(self.STATE_COMPACT)
+
+    def _activate_notification_app(self):
+        """Brings the notification sender app to foreground focus."""
+        if not self._current_notification:
+            return
+        app_name = self._current_notification.get("app_name", "").lower()
+        if not app_name:
+            return
+        try:
+            import win32gui
+            import win32con
+            matched_hwnd = None
+            def enum_windows_cb(hwnd, _):
+                nonlocal matched_hwnd
+                if matched_hwnd:
+                    return
+                if win32gui.IsWindowVisible(hwnd):
+                    title = win32gui.GetWindowText(hwnd).lower()
+                    if title and app_name in title:
+                        matched_hwnd = hwnd
+            win32gui.EnumWindows(enum_windows_cb, None)
+            if matched_hwnd:
+                win32gui.ShowWindow(matched_hwnd, win32con.SW_RESTORE)
+                win32gui.SetForegroundWindow(matched_hwnd)
+        except Exception:
+            pass
 
     def expand_to_state(self, state_id: int):
         mapping = {
@@ -4000,6 +4140,12 @@ class OriginIsland(QWidget):
                 elif 328 <= pos.x() <= 376:
                     return "tool_lock"
 
+        elif self._state == self.STATE_NOTIFICATION:
+            if w - 74 <= pos.x() <= w - 42 and (h - 36) // 2 <= pos.y() <= (h + 36) // 2:
+                return "notif_open"
+            elif w - 38 <= pos.x() <= w - 10 and (h - 36) // 2 <= pos.y() <= (h + 36) // 2:
+                return "notif_dismiss"
+
         return None
 
     def mousePressEvent(self, event):
@@ -5171,6 +5317,25 @@ class OriginIsland(QWidget):
                     except Exception:
                         pass
                     return True
+
+        elif self._state == self.STATE_NOTIFICATION:
+            # Action 1: Dismiss [ ✕ ]
+            if w - 38 <= pos.x() <= w - 10 and (h - 36) // 2 <= pos.y() <= (h + 36) // 2:
+                self._notification_dismiss_timer.stop()
+                self.switch_state(self.STATE_COMPACT)
+                return True
+            # Action 2: Open / Focus app [ ↗ ]
+            if w - 74 <= pos.x() <= w - 42 and (h - 36) // 2 <= pos.y() <= (h + 36) // 2:
+                self._notification_dismiss_timer.stop()
+                self._activate_notification_app()
+                self.switch_state(self.STATE_COMPACT)
+                return True
+            # Clicking anywhere on the card activates app
+            if 12 <= pos.x() <= w - 80 and 12 <= pos.y() <= h - 12:
+                self._notification_dismiss_timer.stop()
+                self._activate_notification_app()
+                self.switch_state(self.STATE_COMPACT)
+                return True
 
         return False
 
@@ -8456,6 +8621,123 @@ class OriginIsland(QWidget):
             self._paint_clipboard(p, theme, w, h)
         elif tab == self.STATE_TOOLS:
             self._paint_tools(p, theme, w, h)
+        elif tab == self.STATE_NOTIFICATION:
+            self._paint_notification(p, theme, w, h)
+
+    def _paint_notification(self, p: QPainter, theme: dict, w: int, h: int):
+        """Renders Windows toast notification with sleek AMOLED dark styling and 1-click actions."""
+        p.save()
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        notif = getattr(self, "_current_notification", None) or {
+            "app_name": "Notification",
+            "title": "New Alert",
+            "body": "System notification received",
+            "time": time.time(),
+        }
+        app_name = str(notif.get("app_name", "Notification"))
+        title = str(notif.get("title", ""))
+        body = str(notif.get("body", ""))
+
+        app_lower = app_name.lower()
+        if "whatsapp" in app_lower:
+            accent = QColor(37, 211, 102)      # WhatsApp Green
+            brand_glyph = "W"
+        elif "discord" in app_lower:
+            accent = QColor(88, 101, 242)     # Discord Blurple
+            brand_glyph = "D"
+        elif "telegram" in app_lower:
+            accent = QColor(36, 161, 222)     # Telegram Blue
+            brand_glyph = "T"
+        elif "calendar" in app_lower:
+            accent = QColor(234, 67, 53)      # Google Calendar Red
+            brand_glyph = "C"
+        elif "spotify" in app_lower:
+            accent = QColor(30, 215, 96)      # Spotify Green
+            brand_glyph = "S"
+        elif "mail" in app_lower or "outlook" in app_lower:
+            accent = QColor(0, 120, 212)      # Outlook Blue
+            brand_glyph = "M"
+        else:
+            accent = QColor(0, 195, 255)      # Tech Cyan
+            brand_glyph = "🔔"
+
+        # Subtle Glowing Accent Aura Border
+        aura_grad = QLinearGradient(0, 0, w, 0)
+        aura_grad.setColorAt(0.0, QColor(accent.red(), accent.green(), accent.blue(), 70))
+        aura_grad.setColorAt(0.5, QColor(accent.red(), accent.green(), accent.blue(), 160))
+        aura_grad.setColorAt(1.0, QColor(accent.red(), accent.green(), accent.blue(), 70))
+        p.setPen(QPen(QBrush(aura_grad), 1.2))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawRoundedRect(QRectF(1.0, 1.0, float(w - 2), float(h - 2)), 18.0, 18.0)
+
+        # 1. Left Brand Icon Squircle (x: 14, y: centered, w: 48, h: 48)
+        icon_rect = QRectF(14.0, (h - 48) / 2.0, 48.0, 48.0)
+        icon_grad = QLinearGradient(icon_rect.topLeft(), icon_rect.bottomRight())
+        icon_grad.setColorAt(0.0, QColor(accent.red(), accent.green(), accent.blue(), 230))
+        icon_grad.setColorAt(1.0, QColor(max(0, accent.red() - 40), max(0, accent.green() - 40), max(0, accent.blue() - 40), 245))
+        p.setBrush(QBrush(icon_grad))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawRoundedRect(icon_rect, 13.0, 13.0)
+
+        # Brand Glyph
+        p.setPen(QColor(255, 255, 255, 245))
+        if brand_glyph == "🔔":
+            p.setFont(QFont("Segoe UI Emoji", 15))
+        else:
+            p.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        p.drawText(icon_rect, Qt.AlignmentFlag.AlignCenter, brand_glyph)
+
+        # 2. Text Details
+        text_x = 72
+        max_text_w = max(100, w - 160)
+
+        # Line 1: App Name & "• Just Now"
+        p.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        p.setPen(accent)
+        fm1 = QFontMetrics(p.font())
+        app_str = app_name.upper()
+        p.drawText(text_x, 26, app_str)
+        app_w = fm1.horizontalAdvance(app_str)
+
+        p.setFont(QFont("Segoe UI", 8, QFont.Weight.Normal))
+        p.setPen(QColor(180, 180, 190, 180))
+        p.drawText(text_x + app_w + 8, 26, "• Just Now")
+
+        # Line 2: Sender / Title
+        p.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        p.setPen(QColor(255, 255, 255, 245))
+        fm2 = QFontMetrics(p.font())
+        disp_title = fm2.elidedText(title or app_name, Qt.TextElideMode.ElideRight, max_text_w)
+        p.drawText(text_x, 46, disp_title)
+
+        # Line 3: Body Message Preview
+        p.setFont(QFont("Segoe UI", 9, QFont.Weight.Normal))
+        p.setPen(QColor(210, 210, 220, 200))
+        fm3 = QFontMetrics(p.font())
+        disp_body = fm3.elidedText(body or "New notification received", Qt.TextElideMode.ElideRight, max_text_w)
+        p.drawText(text_x, 64, disp_body)
+
+        # 3. Action Buttons on Right
+        # Button 1: Open [ ↗ ]
+        btn_open_rect = QRectF(w - 74.0, (h - 36) / 2.0, 32.0, 36.0)
+        p.setBrush(QColor(255, 255, 255, 24))
+        p.setPen(QPen(QColor(255, 255, 255, 38), 0.8))
+        p.drawRoundedRect(btn_open_rect, 10.0, 10.0)
+        p.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        p.setPen(QColor(255, 255, 255, 235))
+        p.drawText(btn_open_rect, Qt.AlignmentFlag.AlignCenter, "↗")
+
+        # Button 2: Dismiss [ ✕ ]
+        btn_close_rect = QRectF(w - 38.0, (h - 36) / 2.0, 28.0, 36.0)
+        p.setBrush(QColor(255, 255, 255, 16))
+        p.setPen(QPen(QColor(255, 255, 255, 28), 0.8))
+        p.drawRoundedRect(btn_close_rect, 10.0, 10.0)
+        p.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        p.setPen(QColor(200, 200, 210, 190))
+        p.drawText(btn_close_rect, Qt.AlignmentFlag.AlignCenter, "✕")
+
+        p.restore()
 
 
     def _set_volume(self, val_pct: float):

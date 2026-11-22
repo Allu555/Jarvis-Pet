@@ -17,6 +17,7 @@ import sys
 import json
 import time
 import socket
+import ctypes
 import urllib.parse
 import threading
 from pathlib import Path
@@ -1207,6 +1208,78 @@ header {
     </div>
   </section>
 
+  <!-- ══════════ TAB 5: WIRELESS TRACKPAD & PRESENTATION REMOTE ══════════ -->
+  <section id="tab-remote" class="view-section">
+    <!-- Mode Switcher -->
+    <div style="display:flex; justify-content:center; margin-bottom:14px;">
+      <div style="display:inline-flex; background:rgba(35,35,40,0.85); border-radius:999px; padding:4px; border:0.5px solid var(--ios-border);">
+        <button id="mode-trackpad" style="padding:6px 20px; border-radius:999px; font-size:12px; font-weight:700; border:none; background:var(--ios-red); color:#fff; cursor:pointer;">Trackpad</button>
+        <button id="mode-present" style="padding:6px 20px; border-radius:999px; font-size:12px; font-weight:700; border:none; background:transparent; color:var(--ios-gray-text); cursor:pointer;">Presentation</button>
+      </div>
+    </div>
+
+    <!-- TRACKPAD VIEW -->
+    <div id="view-trackpad-content">
+      <div class="ios-card" style="padding:12px; margin-bottom:12px;">
+        <div id="trackpad-surface" style="width:100%; height:260px; background:radial-gradient(circle at 50% 50%, rgba(45,45,52,0.6), rgba(18,18,22,0.95)); border-radius:18px; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; align-items:center; justify-content:center; touch-action:none; user-select:none; position:relative; overflow:hidden;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.4); margin-top:8px;">Drag: Move • Tap: Click • 2-Finger: Scroll</span>
+        </div>
+      </div>
+
+      <!-- Physical Click Pads -->
+      <div style="display:flex; gap:10px; margin-bottom:12px;">
+        <button id="btn-mouse-left" style="flex:1; height:60px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:16px; color:#fff; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+          Left Click
+        </button>
+        <button id="btn-mouse-right" style="flex:1; height:60px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:16px; color:var(--ios-gray-text); font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+          Right Click
+        </button>
+      </div>
+    </div>
+
+    <!-- PRESENTATION CLICKER VIEW -->
+    <div id="view-present-content" style="display:none;">
+      <div class="ios-card" style="padding:16px; margin-bottom:14px;">
+        <div style="font-size:11.5px; font-weight:700; color:var(--ios-gray-text); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.6px;">Slide Navigation</div>
+        <div style="display:flex; gap:12px; margin-bottom:14px;">
+          <button class="present-btn" data-key="prev" style="flex:1; height:120px; background:rgba(35,35,42,0.9); border:1px solid rgba(255,255,255,0.1); border-radius:20px; color:#fff; font-size:17px; font-weight:800; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>PREV</span>
+          </button>
+          <button class="present-btn" data-key="next" style="flex:1; height:120px; background:linear-gradient(135deg, rgba(255,69,58,0.3), rgba(255,69,58,0.55)); border:1.5px solid var(--ios-red); border-radius:20px; color:#fff; font-size:17px; font-weight:800; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            <span>NEXT</span>
+          </button>
+        </div>
+
+        <div style="font-size:11.5px; font-weight:700; color:var(--ios-gray-text); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.6px;">Slide Controls</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <button class="present-btn" data-key="f5" style="padding:14px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:14px; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span>▶ Start (F5)</span>
+          </button>
+          <button class="present-btn" data-key="esc" style="padding:14px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:14px; color:#ff453a; font-size:12.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span>✕ Exit (Esc)</span>
+          </button>
+          <button class="present-btn" data-key="b" style="padding:14px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:14px; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span>⬛ Blackout (B)</span>
+          </button>
+          <button class="present-btn" data-key="space" style="padding:14px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:14px; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span>␣ Advance (Space)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </div>
 
 <!-- Floating Apple Tab Bar -->
@@ -1216,6 +1289,15 @@ header {
       <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"></path>
     </svg>
     <span>Music</span>
+  </div>
+
+  <div class="tab-btn" data-tab="tab-remote">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+      <line x1="8" y1="21" x2="16" y2="21"></line>
+      <line x1="12" y1="17" x2="12" y2="21"></line>
+    </svg>
+    <span>Remote</span>
   </div>
 
   <div class="tab-btn" data-tab="tab-jarvis">
@@ -1683,6 +1765,128 @@ function renderShelf(files) {
   });
 }
 
+// ══════════ WIRELESS TRACKPAD & PRESENTATION REMOTE ══════════
+const btnModeTrackpad = document.getElementById("mode-trackpad");
+const btnModePresent = document.getElementById("mode-present");
+const viewTrackpadContent = document.getElementById("view-trackpad-content");
+const viewPresentContent = document.getElementById("view-present-content");
+
+if (btnModeTrackpad && btnModePresent) {
+  btnModeTrackpad.addEventListener("click", () => {
+    btnModeTrackpad.style.background = "var(--ios-red)";
+    btnModeTrackpad.style.color = "#fff";
+    btnModePresent.style.background = "transparent";
+    btnModePresent.style.color = "var(--ios-gray-text)";
+    if (viewTrackpadContent) viewTrackpadContent.style.display = "block";
+    if (viewPresentContent) viewPresentContent.style.display = "none";
+  });
+
+  btnModePresent.addEventListener("click", () => {
+    btnModePresent.style.background = "var(--ios-red)";
+    btnModePresent.style.color = "#fff";
+    btnModeTrackpad.style.background = "transparent";
+    btnModeTrackpad.style.color = "var(--ios-gray-text)";
+    if (viewTrackpadContent) viewTrackpadContent.style.display = "none";
+    if (viewPresentContent) viewPresentContent.style.display = "block";
+  });
+}
+
+function sendMouse(payload) {
+  fetch("/api/remote/mouse", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload)
+  }).catch(() => {});
+}
+
+function sendKey(key) {
+  fetch("/api/remote/key", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({key: key})
+  }).catch(() => {});
+}
+
+const trackpad = document.getElementById("trackpad-surface");
+let touchStartX = 0, touchStartY = 0, lastTouchX = 0, lastTouchY = 0;
+let lastScrollY = 0;
+let touchStartTime = 0;
+let isMoving = false;
+const moveThreshold = 5;
+
+if (trackpad) {
+  trackpad.addEventListener("touchstart", (e) => {
+    touchStartTime = Date.now();
+    isMoving = false;
+    if (e.touches.length === 1) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      lastTouchX = touchStartX;
+      lastTouchY = touchStartY;
+    } else if (e.touches.length === 2) {
+      lastScrollY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    }
+  }, {passive: false});
+
+  trackpad.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      const curX = e.touches[0].clientX;
+      const curY = e.touches[0].clientY;
+      const dx = (curX - lastTouchX) * 1.6;
+      const dy = (curY - lastTouchY) * 1.6;
+      lastTouchX = curX;
+      lastTouchY = curY;
+      if (Math.abs(curX - touchStartX) > moveThreshold || Math.abs(curY - touchStartY) > moveThreshold) {
+        isMoving = true;
+      }
+      sendMouse({action: "move", dx: dx, dy: dy});
+    } else if (e.touches.length === 2) {
+      const curScrollY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const dy = curScrollY - lastScrollY;
+      lastScrollY = curScrollY;
+      const scrollTicks = dy > 0 ? 1 : -1;
+      sendMouse({action: "scroll", dy: scrollTicks});
+    }
+  }, {passive: false});
+
+  trackpad.addEventListener("touchend", (e) => {
+    const elapsed = Date.now() - touchStartTime;
+    if (!isMoving && elapsed < 260) {
+      sendMouse({action: "click", btn: "left"});
+      showToast("Tap Click");
+    }
+  });
+}
+
+const btnMouseLeft = document.getElementById("btn-mouse-left");
+const btnMouseRight = document.getElementById("btn-mouse-right");
+if (btnMouseLeft) {
+  btnMouseLeft.addEventListener("click", () => {
+    sendMouse({action: "click", btn: "left"});
+    btnMouseLeft.style.transform = "scale(0.96)";
+    setTimeout(() => { btnMouseLeft.style.transform = "none"; }, 100);
+  });
+}
+if (btnMouseRight) {
+  btnMouseRight.addEventListener("click", () => {
+    sendMouse({action: "click", btn: "right"});
+    btnMouseRight.style.transform = "scale(0.96)";
+    setTimeout(() => { btnMouseRight.style.transform = "none"; }, 100);
+  });
+}
+
+document.querySelectorAll(".present-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const k = btn.dataset.key;
+    if (k) {
+      sendKey(k);
+      btn.style.transform = "scale(0.94)";
+      setTimeout(() => { btn.style.transform = "none"; }, 120);
+    }
+  });
+});
+
 // Initial Call & 1s Polling
 pollStatus();
 fetchLyrics();
@@ -1862,6 +2066,25 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             self._send_json({"success": True})
             return
 
+        elif path == "/api/remote/mouse":
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            action = data.get("action", "move")
+            dx = float(data.get("dx", 0.0))
+            dy = float(data.get("dy", 0.0))
+            btn = data.get("btn", "left")
+            self.server.service.handle_remote_mouse(action, dx, dy, btn)
+            self._send_json({"success": True})
+            return
+
+        elif path == "/api/remote/key":
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            key = data.get("key", "")
+            self.server.service.handle_remote_key(key)
+            self._send_json({"success": True})
+            return
+
         self.send_error(404, "Not Found")
 
 
@@ -2023,6 +2246,58 @@ class PhoneDropService:
                 self.cb_jarvis_query(query)
             except Exception as e:
                 print(f"[PhoneDropService] Error in cb_jarvis_query: {e}")
+
+    def handle_remote_mouse(self, action: str, dx: float = 0.0, dy: float = 0.0, btn: str = "left"):
+        """Instant Win32 hardware mouse event injection (move, click, scroll) with 0ms latency."""
+        try:
+            user32 = ctypes.windll.user32
+            if action == "move":
+                # Relative mouse cursor move
+                user32.mouse_event(0x0001, int(dx), int(dy), 0, 0)
+            elif action == "click":
+                if btn == "right":
+                    user32.mouse_event(0x0008, 0, 0, 0, 0)  # MOUSEEVENTF_RIGHTDOWN
+                    user32.mouse_event(0x0010, 0, 0, 0, 0)  # MOUSEEVENTF_RIGHTUP
+                else:
+                    user32.mouse_event(0x0002, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTDOWN
+                    user32.mouse_event(0x0004, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTUP
+            elif action == "scroll":
+                # 0x0800 = MOUSEEVENTF_WHEEL (120 units per notch)
+                wheel_delta = int(dy * 120)
+                user32.mouse_event(0x0800, 0, 0, wheel_delta, 0)
+        except Exception as e:
+            print(f"[PhoneDropService] Error in handle_remote_mouse: {e}")
+
+    def handle_remote_key(self, key: str):
+        """Instant Win32 virtual keyboard injection for presentation clicker / shortcuts."""
+        try:
+            user32 = ctypes.windll.user32
+            KEYEVENTF_KEYUP = 0x0002
+            vk = 0
+            key_lower = key.lower()
+            if key_lower == "next":
+                vk = 0x27  # VK_RIGHT (Next Slide)
+            elif key_lower == "prev":
+                vk = 0x25  # VK_LEFT (Previous Slide)
+            elif key_lower == "f5":
+                vk = 0x74  # VK_F5 (Start Presentation)
+            elif key_lower == "esc":
+                vk = 0x1B  # VK_ESCAPE (Exit Presentation)
+            elif key_lower == "b":
+                vk = 0x42  # 'B' (Black Screen Toggle)
+            elif key_lower == "space":
+                vk = 0x20  # VK_SPACE (Advance Slide)
+            elif key_lower == "volup":
+                vk = 0xAF  # VK_VOLUME_UP
+            elif key_lower == "voldown":
+                vk = 0xAE  # VK_VOLUME_DOWN
+
+            if vk:
+                user32.keybd_event(vk, 0, 0, 0)
+                time.sleep(0.015)
+                user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        except Exception as e:
+            print(f"[PhoneDropService] Error in handle_remote_key: {e}")
 
     def get_cover_bytes(self) -> Optional[Tuple[bytes, str]]:
         if self.cb_get_cover_bytes:

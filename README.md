@@ -50,6 +50,8 @@ Floating interactive top-notch overlay inspired by modern mobile dynamic islands
 - **Real-Time Media Detection**: Windows SMTC integration for Spotify, YouTube, and media players.
 - **Live WASAPI Audio Visualizer**: 60 FPS real-time audio loopback frequency spectrum with adaptive theme colors.
 - **100% In-Memory Karaoke Lyrics Engine**: Real-time synchronized lyrics via LRCLIB with zero disk writes, keeping the repository clean and lightweight.
+- **Windows Notification Hub**: Native WinRT `UserNotificationListener` integration intercepting live toast alerts (WhatsApp, Discord, Telegram, Google Calendar, Outlook) with animated pill expansions in the Island top-notch, glowing brand accents, and 1-click Quick Open `[ ↗ ]` & Dismiss `[ ✕ ]` actions.
+- **Phone Link Wireless Trackpad & Presentation Remote**: Multi-touch smartphone trackpad with cursor tracking, tap-to-click, 2-finger scroll, tactile click pads, and slide presentation clicker (Next `▶`, Prev `◀`, Start `F5`, Blackout `B`, Exit `Esc`).
 - **Control Center & HUD**: Live battery percentage, weather updates, pomodoro focus timer, and quick tool shortcuts.
 
 ---
