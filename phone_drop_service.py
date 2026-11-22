@@ -1285,10 +1285,10 @@ header {
       </div>
 
       <!-- Fast Typing Strip on Trackpad -->
-      <div style="display:flex; gap:6px; background:rgba(25,25,30,0.85); padding:6px; border-radius:14px; border:0.5px solid var(--ios-border);">
+      <form id="form-trackpad-type" onsubmit="return false;" style="display:flex; gap:6px; background:rgba(25,25,30,0.85); padding:6px; border-radius:14px; border:0.5px solid var(--ios-border);">
         <input id="input-trackpad-type" type="text" placeholder="Type on PC directly..." style="flex:1; background:transparent; border:none; color:#fff; font-size:13px; padding:4px 8px; outline:none;" autocomplete="off">
-        <button id="btn-trackpad-send" style="padding:6px 14px; background:var(--ios-red); border:none; border-radius:10px; color:#fff; font-size:12px; font-weight:700; cursor:pointer;">Type ↵</button>
-      </div>
+        <button type="submit" id="btn-trackpad-send" style="padding:6px 14px; background:var(--ios-red); border:none; border-radius:10px; color:#fff; font-size:12px; font-weight:700; cursor:pointer;">Type ↵</button>
+      </form>
     </div>
 
     <!-- 2. LIVE PC DISPLAY & DIRECT TOUCH CONTROL VIEW -->
@@ -1324,10 +1324,10 @@ header {
         </div>
 
         <!-- Quick Typing & Remote Keys bar directly below screen -->
-        <div style="display:flex; gap:6px; margin-top:8px;">
+        <form id="form-screen-type" onsubmit="return false;" style="display:flex; gap:6px; margin-top:8px;">
           <input id="input-screen-type" type="text" placeholder="Type on PC while watching screen..." style="flex:1; background:rgba(30,30,36,0.9); border:0.5px solid var(--ios-border); border-radius:10px; padding:8px 10px; color:#fff; font-size:12.5px; outline:none;" autocomplete="off">
-          <button id="btn-screen-send" style="padding:8px 14px; background:var(--ios-red); border:none; border-radius:10px; color:#fff; font-size:12px; font-weight:700; cursor:pointer;">Type ↵</button>
-        </div>
+          <button type="submit" id="btn-screen-send" style="padding:8px 14px; background:var(--ios-red); border:none; border-radius:10px; color:#fff; font-size:12px; font-weight:700; cursor:pointer;">Type ↵</button>
+        </form>
 
         <!-- Quick PC Key Action Bar -->
         <div style="display:flex; gap:5px; margin-top:8px; overflow-x:auto; padding-bottom:2px;">
@@ -1354,12 +1354,15 @@ header {
         <!-- Main Text Input Box -->
         <textarea id="input-full-keyboard" placeholder="Type words, paragraphs, or commands here..." style="width:100%; height:90px; background:rgba(20,20,24,0.9); border:0.5px solid var(--ios-border); border-radius:14px; color:#fff; font-size:14px; padding:10px; outline:none; resize:none; font-family:var(--font-stack);" autocomplete="off"></textarea>
         
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px;">
           <label style="display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ios-gray-text); cursor:pointer;">
             <input type="checkbox" id="check-live-type" style="accent-color:var(--ios-red);">
-            <span>Type live keystrokes</span>
+            <span>Live Keystrokes</span>
           </label>
-          <button id="btn-full-keyboard-send" style="padding:9px 20px; background:var(--ios-red); border:none; border-radius:12px; color:#fff; font-size:13px; font-weight:700; cursor:pointer;">Send to PC ↵</button>
+          <div style="display:flex; gap:6px;">
+            <button id="btn-full-keyboard-paste" style="padding:9px 14px; background:rgba(45,45,52,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer;">📥 Paste</button>
+            <button id="btn-full-keyboard-send" style="padding:9px 18px; background:var(--ios-red); border:none; border-radius:12px; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer;">Type ↵</button>
+          </div>
         </div>
       </div>
 
@@ -2135,13 +2138,19 @@ function sendKey(key) {
   }).catch(() => {});
 }
 
-function sendType(text) {
+function sendType(text, mode = "auto") {
   if (!text) return;
   fetch("/api/remote/type", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({text: text})
-  }).catch(() => {});
+    body: JSON.stringify({text: text, mode: mode})
+  }).then(r => r.json()).then(data => {
+    if (data && data.success) {
+      showToast(mode === "paste" ? "Pasted on PC" : "Typed on PC");
+    }
+  }).catch(() => {
+    showToast("Wi-Fi Error");
+  });
 }
 
 // ─── Remote PC Keyboard & Typing Listeners ───
@@ -2160,18 +2169,28 @@ document.querySelectorAll(".pc-key-btn").forEach(btn => {
 // Quick typing on Live Screen
 const inputScreenType = document.getElementById("input-screen-type");
 const btnScreenSend = document.getElementById("btn-screen-send");
-if (btnScreenSend && inputScreenType) {
-  const doScreenSend = () => {
-    const val = inputScreenType.value;
-    if (val) {
-      sendType(val);
-      showToast("Typed on PC");
-      inputScreenType.value = "";
-    }
-  };
-  btnScreenSend.addEventListener("click", doScreenSend);
+const formScreenType = document.getElementById("form-screen-type");
+
+const doScreenSend = () => {
+  if (!inputScreenType) return;
+  const val = inputScreenType.value;
+  if (val) {
+    sendType(val, "auto");
+    inputScreenType.value = "";
+  }
+};
+
+if (formScreenType) {
+  formScreenType.addEventListener("submit", (e) => {
+    e.preventDefault();
+    doScreenSend();
+  });
+}
+if (btnScreenSend) btnScreenSend.addEventListener("click", doScreenSend);
+if (inputScreenType) {
   inputScreenType.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" || e.keyCode === 13) {
+      e.preventDefault();
       doScreenSend();
     }
   });
@@ -2180,18 +2199,28 @@ if (btnScreenSend && inputScreenType) {
 // Quick typing on Trackpad
 const inputTrackpadType = document.getElementById("input-trackpad-type");
 const btnTrackpadSend = document.getElementById("btn-trackpad-send");
-if (btnTrackpadSend && inputTrackpadType) {
-  const doTrackpadSend = () => {
-    const val = inputTrackpadType.value;
-    if (val) {
-      sendType(val);
-      showToast("Typed on PC");
-      inputTrackpadType.value = "";
-    }
-  };
-  btnTrackpadSend.addEventListener("click", doTrackpadSend);
+const formTrackpadType = document.getElementById("form-trackpad-type");
+
+const doTrackpadSend = () => {
+  if (!inputTrackpadType) return;
+  const val = inputTrackpadType.value;
+  if (val) {
+    sendType(val, "auto");
+    inputTrackpadType.value = "";
+  }
+};
+
+if (formTrackpadType) {
+  formTrackpadType.addEventListener("submit", (e) => {
+    e.preventDefault();
+    doTrackpadSend();
+  });
+}
+if (btnTrackpadSend) btnTrackpadSend.addEventListener("click", doTrackpadSend);
+if (inputTrackpadType) {
   inputTrackpadType.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" || e.keyCode === 13) {
+      e.preventDefault();
       doTrackpadSend();
     }
   });
@@ -2200,6 +2229,7 @@ if (btnTrackpadSend && inputTrackpadType) {
 // Dedicated Full Keyboard View
 const inputFullKeyboard = document.getElementById("input-full-keyboard");
 const btnFullKeyboardSend = document.getElementById("btn-full-keyboard-send");
+const btnFullKeyboardPaste = document.getElementById("btn-full-keyboard-paste");
 const checkLiveType = document.getElementById("check-live-type");
 let lastLiveText = "";
 
@@ -2207,8 +2237,18 @@ if (btnFullKeyboardSend && inputFullKeyboard) {
   btnFullKeyboardSend.addEventListener("click", () => {
     const val = inputFullKeyboard.value;
     if (val) {
-      sendType(val);
-      showToast("Text Sent to PC");
+      sendType(val, "auto");
+      inputFullKeyboard.value = "";
+      lastLiveText = "";
+    }
+  });
+}
+
+if (btnFullKeyboardPaste && inputFullKeyboard) {
+  btnFullKeyboardPaste.addEventListener("click", () => {
+    const val = inputFullKeyboard.value;
+    if (val) {
+      sendType(val, "paste");
       inputFullKeyboard.value = "";
       lastLiveText = "";
     }
@@ -2221,7 +2261,7 @@ if (inputFullKeyboard) {
       const cur = inputFullKeyboard.value;
       if (cur.length > lastLiveText.length && cur.startsWith(lastLiveText)) {
         const added = cur.slice(lastLiveText.length);
-        sendType(added);
+        sendType(added, "auto");
       } else if (cur.length < lastLiveText.length) {
         const diff = lastLiveText.length - cur.length;
         for (let i = 0; i < diff; i++) {
@@ -2685,8 +2725,9 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             body = self.rfile.read(content_length).decode("utf-8")
             data = json.loads(body)
             text = data.get("text", "")
+            mode = data.get("mode", "auto")
             if text:
-                self.server.service.handle_remote_type(text)
+                self.server.service.handle_remote_type(text, mode)
             self._send_json({"success": True})
             return
 
@@ -2697,6 +2738,51 @@ class PhoneDropServer(ThreadingHTTPServer):
     def __init__(self, server_address, RequestHandlerClass, service: 'PhoneDropService'):
         super().__init__(server_address, RequestHandlerClass)
         self.service = service
+
+
+def set_win32_clipboard(text: str) -> bool:
+    """Thread-safe Win32 clipboard setter using native Windows GlobalAlloc and OpenClipboard."""
+    try:
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        CF_UNICODETEXT = 13
+        GMEM_MOVEABLE = 0x0002
+
+        kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+        kernel32.GlobalAlloc.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalUnlock.restype = ctypes.c_int
+        user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+        user32.SetClipboardData.restype = ctypes.c_void_p
+
+        # Retry up to 5 times if another application has clipboard open
+        for _ in range(5):
+            if user32.OpenClipboard(None):
+                break
+            time.sleep(0.01)
+        else:
+            return False
+
+        try:
+            user32.EmptyClipboard()
+            data = (text + '\0').encode('utf-16-le')
+            h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(data))
+            if not h_mem:
+                return False
+            ptr = kernel32.GlobalLock(h_mem)
+            if not ptr:
+                return False
+            ctypes.memmove(ptr, data, len(data))
+            kernel32.GlobalUnlock(h_mem)
+            user32.SetClipboardData(CF_UNICODETEXT, h_mem)
+            return True
+        finally:
+            user32.CloseClipboard()
+    except Exception as e:
+        print(f"[PhoneDropService] Error setting clipboard: {e}")
+        return False
 
 
 # ─── Phone Drop Service Core ──────────────────────────────────────────────────
@@ -2898,39 +2984,80 @@ class PhoneDropService:
             Image.new("RGB", (320, 180), color="#111115").save(buf, format="JPEG")
             return buf.getvalue(), 1920, 1080
 
-    def handle_remote_type(self, text: str):
-        """Type arbitrary Unicode text strings directly into the active Windows application."""
+    def handle_remote_type(self, text: str, mode: str = "auto"):
+        """Types text directly into the focused Windows application using hardware keybd_event & clipboard paste."""
         if not text:
             return
         try:
             self._attach_desktop()
             user32 = ctypes.windll.user32
-            INPUT_KEYBOARD = 1
-            KEYEVENTF_UNICODE = 0x0004
             KEYEVENTF_KEYUP = 0x0002
 
+            # Check if any characters cannot be mapped to the current keyboard layout
+            has_unmappable = any(user32.VkKeyScanW(ord(c)) == -1 for c in text if c not in ("\r", "\n", "\t", "\b", " "))
+
+            # Fast Unicode Clipboard Paste (Ctrl+V) for paragraphs, emojis, or explicit paste mode
+            if mode == "paste" or (len(text) > 30 and has_unmappable) or (has_unmappable and len(text) > 1):
+                if set_win32_clipboard(text):
+                    time.sleep(0.015)
+                    user32.keybd_event(0x11, 0, 0, 0)  # Ctrl down
+                    user32.keybd_event(0x56, 0, 0, 0)  # 'V' down
+                    time.sleep(0.02)
+                    user32.keybd_event(0x56, 0, KEYEVENTF_KEYUP, 0)
+                    user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
+                    return
+
+            # Character-by-character hardware keyboard injection (keybd_event + VkKeyScanW)
             for ch in text:
-                if ch in ("\n", "\r"):
+                if ch in ("\r", "\n"):
                     user32.keybd_event(0x0D, 0, 0, 0)
-                    time.sleep(0.008)
+                    time.sleep(0.005)
                     user32.keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0)
                 elif ch == "\t":
                     user32.keybd_event(0x09, 0, 0, 0)
-                    time.sleep(0.008)
+                    time.sleep(0.005)
                     user32.keybd_event(0x09, 0, KEYEVENTF_KEYUP, 0)
                 elif ch == "\b":
                     user32.keybd_event(0x08, 0, 0, 0)
-                    time.sleep(0.008)
+                    time.sleep(0.005)
                     user32.keybd_event(0x08, 0, KEYEVENTF_KEYUP, 0)
+                elif ch == " ":
+                    user32.keybd_event(0x20, 0, 0, 0)
+                    time.sleep(0.005)
+                    user32.keybd_event(0x20, 0, KEYEVENTF_KEYUP, 0)
                 else:
-                    code = ord(ch)
-                    inp_down = _INPUT(type=INPUT_KEYBOARD)
-                    inp_down.u.ki = _KEYBDINPUT(wVk=0, wScan=code, dwFlags=KEYEVENTF_UNICODE, time=0, dwExtraInfo=None)
-                    inp_up = _INPUT(type=INPUT_KEYBOARD)
-                    inp_up.u.ki = _KEYBDINPUT(wVk=0, wScan=code, dwFlags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, time=0, dwExtraInfo=None)
-                    arr = (_INPUT * 2)(inp_down, inp_up)
-                    user32.SendInput(2, ctypes.byref(arr), ctypes.sizeof(_INPUT))
-                time.sleep(0.004)
+                    vk_res = user32.VkKeyScanW(ord(ch))
+                    if vk_res != -1:
+                        vk = vk_res & 0xFF
+                        shift = bool((vk_res >> 8) & 1)
+                        ctrl = bool((vk_res >> 8) & 2)
+                        alt = bool((vk_res >> 8) & 4)
+                        if shift:
+                            user32.keybd_event(0x10, 0, 0, 0)
+                        if ctrl:
+                            user32.keybd_event(0x11, 0, 0, 0)
+                        if alt:
+                            user32.keybd_event(0x12, 0, 0, 0)
+                        time.sleep(0.002)
+                        user32.keybd_event(vk, 0, 0, 0)
+                        time.sleep(0.005)
+                        user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+                        time.sleep(0.002)
+                        if alt:
+                            user32.keybd_event(0x12, 0, KEYEVENTF_KEYUP, 0)
+                        if ctrl:
+                            user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
+                        if shift:
+                            user32.keybd_event(0x10, 0, KEYEVENTF_KEYUP, 0)
+                    else:
+                        # Fallback for individual emoji / unmappable character
+                        if set_win32_clipboard(ch):
+                            user32.keybd_event(0x11, 0, 0, 0)
+                            user32.keybd_event(0x56, 0, 0, 0)
+                            time.sleep(0.015)
+                            user32.keybd_event(0x56, 0, KEYEVENTF_KEYUP, 0)
+                            user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
+                time.sleep(0.005)
         except Exception as e:
             print(f"[PhoneDropService] Error in handle_remote_type: {e}")
 
