@@ -1392,6 +1392,112 @@ header {
   gap: 14px;
 }
 
+/* ════════════ QUICK APPS LAUNCHER DOCK ════════════ */
+.quick-apps-card {
+  background: rgba(22, 22, 28, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 10px;
+  margin-bottom: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.quick-apps-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.quick-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.quick-app-btn {
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(45, 45, 54, 0.9) 0%, rgba(28, 28, 34, 0.96) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+  padding: 2px 0;
+}
+
+.quick-app-btn:active {
+  transform: scale(0.92);
+  background: rgba(0, 122, 255, 0.25);
+  border-color: rgba(0, 122, 255, 0.5);
+}
+
+.quick-app-btn .app-icon {
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.quick-app-btn .app-name {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90%;
+}
+
+.quick-launch-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: rgba(12, 12, 16, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 4px 6px;
+}
+
+.quick-launch-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 11.5px;
+  padding: 5px 8px;
+  outline: none;
+  font-family: var(--font-stack);
+}
+
+.quick-launch-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.quick-launch-submit {
+  padding: 6px 12px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(0, 122, 255, 0.8), rgba(0, 122, 255, 1));
+  border: none;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.35);
+  transition: transform 0.1s ease;
+}
+
+.quick-launch-submit:active {
+  transform: scale(0.94);
+}
+
 /* ════════════ UNIVERSAL RATIO ADAPTATION ════════════ */
 @media (min-width: 768px) {
   .main-content {
@@ -1406,6 +1512,19 @@ header {
     bottom: 18px;
     box-shadow: 0 20px 48px rgba(0, 0, 0, 0.75);
     border: 1px solid rgba(255, 255, 255, 0.16);
+  }
+  .quick-apps-grid {
+    grid-template-columns: repeat(10, 1fr);
+    gap: 8px;
+  }
+  .quick-app-btn {
+    height: 52px;
+  }
+  .quick-app-btn .app-icon {
+    font-size: 18px;
+  }
+  .quick-app-btn .app-name {
+    font-size: 10.5px;
   }
 }
 
@@ -1860,6 +1979,66 @@ header {
       <button id="mode-display" class="mode-tab-btn">Live Screen</button>
       <button id="mode-keyboard" class="mode-tab-btn">Keyboard</button>
       <button id="mode-present" class="mode-tab-btn">Present</button>
+    </div>
+
+    <!-- Quick Desktop App Launcher -->
+    <div class="quick-apps-card" id="quick-apps-drawer">
+      <div class="quick-apps-header">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:12px;">🚀</span>
+          <span style="font-size:11.5px; font-weight:700; color:#fff;">Quick App Launcher</span>
+        </div>
+        <span style="font-size:10.5px; color:rgba(255,255,255,0.45);">Tap to launch on PC</span>
+      </div>
+
+      <div class="quick-apps-grid">
+        <button class="quick-app-btn" data-app="chrome">
+          <span class="app-icon">🌐</span>
+          <span class="app-name">Chrome</span>
+        </button>
+        <button class="quick-app-btn" data-app="explorer">
+          <span class="app-icon">📁</span>
+          <span class="app-name">Files</span>
+        </button>
+        <button class="quick-app-btn" data-app="notepad">
+          <span class="app-icon">📝</span>
+          <span class="app-name">Notepad</span>
+        </button>
+        <button class="quick-app-btn" data-app="vscode">
+          <span class="app-icon">⚡</span>
+          <span class="app-name">VS Code</span>
+        </button>
+        <button class="quick-app-btn" data-app="terminal">
+          <span class="app-icon">💻</span>
+          <span class="app-name">Terminal</span>
+        </button>
+        <button class="quick-app-btn" data-app="taskmgr">
+          <span class="app-icon">📊</span>
+          <span class="app-name">Task Mgr</span>
+        </button>
+        <button class="quick-app-btn" data-app="calc">
+          <span class="app-icon">🧮</span>
+          <span class="app-name">Calc</span>
+        </button>
+        <button class="quick-app-btn" data-app="settings">
+          <span class="app-icon">⚙️</span>
+          <span class="app-name">Settings</span>
+        </button>
+        <button class="quick-app-btn" data-app="youtube">
+          <span class="app-icon">▶️</span>
+          <span class="app-name">YouTube</span>
+        </button>
+        <button class="quick-app-btn" data-app="spotify">
+          <span class="app-icon">🎵</span>
+          <span class="app-name">Spotify</span>
+        </button>
+      </div>
+
+      <!-- Custom Command / URL / App Launch Bar -->
+      <form id="form-quick-launch" class="quick-launch-bar" onsubmit="return false;">
+        <input id="input-quick-launch" class="quick-launch-input" type="text" placeholder="Launch any app, cmd, or URL (e.g. steam, figma, calc)..." autocomplete="off">
+        <button type="submit" id="btn-quick-launch" class="quick-launch-submit">Launch 🚀</button>
+      </form>
     </div>
 
     <!-- 1. TRACKPAD VIEW -->
@@ -3363,6 +3542,48 @@ document.querySelectorAll(".pc-key-btn[data-key], .present-btn[data-key]").forEa
   });
 });
 
+// Quick Desktop App Launcher Client
+function launchApp(appTarget) {
+  if (!appTarget) return;
+  fetch("/api/remote/launch", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({app: appTarget})
+  }).then(r => r.json()).then(data => {
+    if (data.success) {
+      showToast("Launched: " + appTarget.toUpperCase());
+    } else {
+      showToast("App request sent: " + appTarget);
+    }
+  }).catch(() => {
+    showToast("Launch command sent");
+  });
+}
+
+document.querySelectorAll(".quick-app-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const app = btn.dataset.app;
+    if (app) {
+      launchApp(app);
+      btn.style.transform = "scale(0.90)";
+      setTimeout(() => { btn.style.transform = "none"; }, 120);
+    }
+  });
+});
+
+const formQuickLaunch = document.getElementById("form-quick-launch");
+const inputQuickLaunch = document.getElementById("input-quick-launch");
+if (formQuickLaunch && inputQuickLaunch) {
+  formQuickLaunch.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const val = inputQuickLaunch.value.trim();
+    if (val) {
+      launchApp(val);
+      inputQuickLaunch.value = "";
+    }
+  });
+}
+
 // Initial Call & 1s Polling
 pollStatus();
 fetchLyrics();
@@ -3605,6 +3826,14 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             if text:
                 self.server.service.handle_remote_type(text, mode)
             self._send_json({"success": True})
+            return
+
+        elif path == "/api/remote/launch":
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            app = data.get("app", "")
+            success = self.server.service.handle_remote_launch(app) if app else False
+            self._send_json({"success": success})
             return
 
         self.send_error(404, "Not Found")
@@ -4194,6 +4423,53 @@ class PhoneDropService:
                 user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
         except Exception as e:
             print(f"[PhoneDropService] Error in handle_remote_key: {e}")
+
+    def handle_remote_launch(self, app_id: str) -> bool:
+        """Launches desktop applications, system utilities, or URLs with 0ms latency."""
+        try:
+            self._attach_desktop()
+            app_lower = app_id.strip().lower()
+
+            app_map = {
+                "chrome": "chrome",
+                "browser": "https://google.com",
+                "youtube": "https://youtube.com",
+                "notepad": "notepad.exe",
+                "explorer": "explorer.exe",
+                "files": "explorer.exe",
+                "vscode": "code",
+                "code": "code",
+                "terminal": "wt.exe",
+                "powershell": "powershell.exe",
+                "cmd": "cmd.exe",
+                "taskmgr": "taskmgr.exe",
+                "calc": "calc.exe",
+                "calculator": "calc.exe",
+                "settings": "ms-settings:",
+                "snipping": "ms-screenclip:",
+                "spotify": "spotify:",
+            }
+
+            target = app_map.get(app_lower, app_id.strip())
+
+            # 1. URLs or Windows protocol handlers
+            if target.startswith("http://") or target.startswith("https://") or target.startswith("ms-"):
+                os.startfile(target)
+                return True
+
+            # 2. Direct executable / protocol launch
+            try:
+                os.startfile(target)
+                return True
+            except Exception:
+                pass
+
+            # 3. Fallback to shell execution
+            subprocess.Popen(target, shell=True)
+            return True
+        except Exception as e:
+            print(f"[PhoneDropService] Error in handle_remote_launch ({app_id}): {e}")
+            return False
 
     def get_cover_bytes(self) -> Optional[Tuple[bytes, str]]:
         if self.cb_get_cover_bytes:
