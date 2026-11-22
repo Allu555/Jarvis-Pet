@@ -922,16 +922,18 @@ header {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
-  background: rgba(30, 30, 36, 0.88);
-  border: 0.5px solid var(--ios-border);
+  background: rgba(22, 22, 28, 0.92);
+  backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   padding: 4px;
   max-width: 480px;
   margin: 0 auto 14px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
 }
 
 .mode-tab-btn {
-  padding: 8px 0;
+  padding: 9px 0;
   border-radius: 999px;
   font-size: 11.5px;
   font-weight: 700;
@@ -940,14 +942,15 @@ header {
   color: var(--ios-gray-text);
   cursor: pointer;
   text-align: center;
-  transition: all 0.18s ease;
+  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
   white-space: nowrap;
+  user-select: none;
 }
 
 .mode-tab-btn.active {
-  background: var(--ios-red);
+  background: linear-gradient(135deg, #fa2d48, #d81c34);
   color: #ffffff;
-  box-shadow: 0 2px 10px rgba(250, 45, 72, 0.45);
+  box-shadow: 0 4px 14px rgba(250, 45, 72, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.3);
 }
 
 .remote-type-bar {
@@ -960,36 +963,40 @@ header {
 .remote-type-input {
   flex: 1;
   min-width: 0;
-  height: 40px;
-  background: rgba(28, 28, 34, 0.92);
-  border: 0.5px solid var(--ios-border);
-  border-radius: 12px;
-  padding: 0 12px;
+  height: 42px;
+  background: rgba(22, 22, 28, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 13px;
+  padding: 0 14px;
   color: #ffffff;
-  font-size: 13px;
+  font-size: 13.5px;
   outline: none;
-  transition: border-color 0.16s ease;
+  box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.4);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .remote-type-input:focus {
   border-color: var(--ios-red);
+  box-shadow: 0 0 12px rgba(250, 45, 72, 0.35), inset 0 1.5px 3px rgba(0, 0, 0, 0.4);
 }
 
 .remote-btn-type {
-  height: 40px;
-  padding: 0 15px;
-  background: var(--ios-red);
-  border: none;
-  border-radius: 12px;
+  height: 42px;
+  padding: 0 16px;
+  background: linear-gradient(135deg, #fa2d48, #d81c34);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 13px;
   color: #ffffff;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  box-shadow: 0 4px 14px rgba(250, 45, 72, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.28);
   transition: transform 0.12s ease, opacity 0.12s ease;
+  user-select: none;
 }
 
 .remote-btn-type:active {
@@ -998,25 +1005,56 @@ header {
 }
 
 .remote-btn-paste {
-  height: 40px;
-  padding: 0 13px;
-  background: rgba(45, 45, 54, 0.92);
-  border: 0.5px solid var(--ios-border);
-  border-radius: 12px;
+  height: 42px;
+  padding: 0 14px;
+  background: linear-gradient(180deg, rgba(50, 50, 60, 0.9) 0%, rgba(32, 32, 40, 0.96) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 13px;
   color: #ffffff;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   transition: transform 0.12s ease, background 0.12s ease;
+  user-select: none;
 }
 
 .remote-btn-paste:active {
   transform: scale(0.95);
-  background: rgba(60, 60, 72, 0.95);
+  background: rgba(65, 65, 78, 0.95);
+}
+
+/* 3D Physical Chiclet Keycaps */
+.pc-key-btn {
+  height: 38px;
+  padding: 0 4px;
+  background: linear-gradient(180deg, rgba(46, 46, 56, 0.9) 0%, rgba(26, 26, 32, 0.96) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.65);
+  border-radius: 11px;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 3px 8px rgba(0, 0, 0, 0.35);
+  transition: all 0.1s ease;
+  user-select: none;
+}
+
+.pc-key-btn:active {
+  transform: translateY(2px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.65);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  background: rgba(35, 35, 42, 0.95);
 }
 
 .pc-keys-grid {
@@ -1026,28 +1064,6 @@ header {
   margin-top: 10px;
 }
 
-.pc-key-btn {
-  height: 38px;
-  padding: 0 4px;
-  background: rgba(36, 36, 42, 0.92);
-  border: 0.5px solid var(--ios-border);
-  border-radius: 10px;
-  color: #ffffff;
-  font-size: 11.5px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.12s ease, background 0.12s ease;
-}
-
-.pc-key-btn:active {
-  transform: scale(0.94);
-  background: rgba(55, 55, 65, 0.95);
-}
-
 .trackpad-action-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1055,11 +1071,156 @@ header {
   margin-bottom: 12px;
 }
 
-.click-pads-grid {
+/* Tactile 3-Button Click Pads */
+.click-pads-grid-3 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.click-pad-btn {
+  height: 44px;
+  border-radius: 13px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+.click-pad-btn.primary {
+  background: linear-gradient(180deg, rgba(0, 122, 255, 0.4) 0%, rgba(0, 122, 255, 0.18) 100%);
+  border: 1px solid rgba(0, 122, 255, 0.55);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 122, 255, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.click-pad-btn.secondary {
+  background: linear-gradient(180deg, rgba(48, 48, 58, 0.9) 0%, rgba(28, 28, 36, 0.96) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.click-pad-btn.accent {
+  background: linear-gradient(180deg, rgba(250, 45, 72, 0.32) 0%, rgba(250, 45, 72, 0.14) 100%);
+  border: 1px solid rgba(250, 45, 72, 0.48);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(250, 45, 72, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.click-pad-btn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+/* Dedicated Tactile PC Scroll Bar */
+.pc-scrollbar-track {
+  width: 44px;
+  background: rgba(20, 20, 26, 0.88);
+  backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 4px;
+  user-select: none;
+  touch-action: none;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.pc-scrollbar-track.compact {
+  width: 38px;
+  border-radius: 14px;
+  padding: 4px 3px;
+}
+
+.scrollbar-btn {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(45, 45, 54, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+.scrollbar-btn.compact {
+  height: 30px;
+  font-size: 11px;
+}
+
+.scrollbar-btn:active {
+  background: var(--ios-red);
+  transform: scale(0.92);
+}
+
+.scrollbar-gutter {
+  flex: 1;
+  width: 100%;
+  margin: 6px 0;
+  background: rgba(10, 10, 14, 0.7);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
+  cursor: ns-resize;
+  display: flex;
+  justify-content: center;
+}
+
+.scrollbar-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 82%;
+  height: 48px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(70, 70, 84, 0.95) 0%, rgba(40, 40, 50, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  font-weight: 700;
+  transition: top 0.08s ease-out;
+  pointer-events: none;
+}
+
+.scrollbar-thumb.compact {
+  height: 40px;
+  font-size: 10px;
+}
+
+.live-screen-keypad {
+  margin-top: 10px;
+}
+
+.keypad-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.keypad-row .pc-key-btn {
+  flex: 1;
+  min-width: 0;
 }
 
 @media (min-width: 768px) {
@@ -1082,9 +1243,6 @@ header {
   }
   #trackpad-surface {
     height: 360px !important;
-  }
-  .pc-keys-grid {
-    grid-template-columns: repeat(8, 1fr);
   }
 }
 
@@ -1435,24 +1593,44 @@ header {
       </div>
 
       <div class="ios-card" style="padding:12px; margin-bottom:12px;">
-        <div id="trackpad-surface" style="width:100%; height:260px; background:radial-gradient(circle at 50% 50%, rgba(45,45,54,0.65), rgba(16,16,20,0.96)); border-radius:18px; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; align-items:center; justify-content:center; touch-action:none; user-select:none; position:relative; overflow:hidden;">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-            <line x1="8" y1="21" x2="16" y2="21"></line>
-            <line x1="12" y1="17" x2="12" y2="21"></line>
-          </svg>
-          <span style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.5); margin-top:8px;">Swipe: Move • Tap: Click • 2-Finger: Scroll</span>
-          <span style="font-size:10.5px; color:rgba(255,255,255,0.32); margin-top:3px;">Double-tap & drag to select • Pinch to zoom PC</span>
+        <div style="display:flex; gap:10px; align-items:stretch; width:100%;">
+          <!-- High-Precision Trackpad Surface -->
+          <div id="trackpad-surface" style="flex:1; height:270px; background:radial-gradient(circle at 50% 50%, rgba(45,45,54,0.65), rgba(16,16,20,0.96)); border-radius:18px; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; align-items:center; justify-content:center; touch-action:none; user-select:none; position:relative; overflow:hidden;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            <span style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.5); margin-top:8px;">Swipe: Move • Tap: Click • 2-Finger: Scroll</span>
+            <span style="font-size:10.5px; color:rgba(255,255,255,0.32); margin-top:3px;">Double-tap & drag to select • Pinch to zoom PC</span>
+          </div>
+
+          <!-- Dedicated Tactile PC Scroll Bar Strip -->
+          <div class="pc-scrollbar-track" id="trackpad-scrollbar">
+            <button class="scrollbar-btn" id="btn-scroll-up" title="Scroll Up">▲</button>
+            <div class="scrollbar-gutter" id="trackpad-scroll-gutter">
+              <div class="scrollbar-thumb" id="trackpad-scroll-thumb">
+                <span class="scrollbar-thumb-icon">⇅</span>
+              </div>
+            </div>
+            <button class="scrollbar-btn" id="btn-scroll-down" title="Scroll Down">▼</button>
+          </div>
         </div>
       </div>
 
-      <!-- Physical Click Pads -->
-      <div class="click-pads-grid">
-        <button id="btn-mouse-left" style="height:48px; background:rgba(42,42,50,0.95); border:1px solid rgba(255,255,255,0.14); border-radius:14px; color:#ffffff; font-size:13px; font-weight:700; cursor:pointer;">
-          Left Click
+      <!-- Tactile 3-Button Click Pads -->
+      <div class="click-pads-grid-3">
+        <button class="click-pad-btn primary" id="btn-mouse-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/><path d="M6 9h6"/></svg>
+          <span>Left Click</span>
         </button>
-        <button id="btn-mouse-right" style="height:48px; background:rgba(30,30,36,0.95); border:0.5px solid var(--ios-border); border-radius:14px; color:var(--ios-gray-text); font-size:13px; font-weight:700; cursor:pointer;">
-          Right Click
+        <button class="click-pad-btn accent" id="btn-mouse-double">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/></svg>
+          <span>2x Click</span>
+        </button>
+        <button class="click-pad-btn secondary" id="btn-mouse-right">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/><path d="M12 9h6"/></svg>
+          <span>Right Click</span>
         </button>
       </div>
 
@@ -1487,13 +1665,42 @@ header {
           </div>
         </div>
 
-        <!-- Live Viewport Window -->
-        <div id="screen-viewport" style="width:100%; height:280px; background:#000; border-radius:14px; overflow:hidden; position:relative; border:1px solid rgba(255,255,255,0.12); touch-action:none; user-select:none; display:flex; align-items:center; justify-content:center; transition:height 0.25s ease;">
-          <img id="live-screen-img" src="" style="width:100%; height:100%; object-fit:contain; display:block; transform-origin:center center; transition:transform 0.12s ease-out; pointer-events:none;" alt="Live PC View">
-          <div id="screen-loading-overlay" style="position:absolute; inset:0; background:rgba(10,10,14,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
-            <div style="width:24px; height:24px; border:2.5px solid rgba(255,255,255,0.2); border-top-color:var(--ios-red); border-radius:50%; animation:spin 0.8s linear infinite;"></div>
-            <span style="font-size:11px; color:rgba(255,255,255,0.6);">Loading live PC display…</span>
+        <!-- Live Viewport Window with Integrated PC Scroll Bar -->
+        <div style="display:flex; gap:8px; align-items:stretch; width:100%; margin-bottom:10px;">
+          <div id="screen-viewport" style="flex:1; height:280px; background:#000; border-radius:14px; overflow:hidden; position:relative; border:1px solid rgba(255,255,255,0.12); touch-action:none; user-select:none; display:flex; align-items:center; justify-content:center; transition:height 0.25s ease;">
+            <img id="live-screen-img" src="" style="width:100%; height:100%; object-fit:contain; display:block; transform-origin:center center; transition:transform 0.12s ease-out; pointer-events:none;" alt="Live PC View">
+            <div id="screen-loading-overlay" style="position:absolute; inset:0; background:rgba(10,10,14,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
+              <div style="width:24px; height:24px; border:2.5px solid rgba(255,255,255,0.2); border-top-color:var(--ios-red); border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+              <span style="font-size:11px; color:rgba(255,255,255,0.6);">Loading live PC display…</span>
+            </div>
           </div>
+
+          <!-- Live Screen Dedicated PC Scroll Bar Strip -->
+          <div class="pc-scrollbar-track compact" id="screen-scrollbar">
+            <button class="scrollbar-btn compact" id="btn-screen-scroll-up" title="Scroll Up">▲</button>
+            <div class="scrollbar-gutter" id="screen-scroll-gutter">
+              <div class="scrollbar-thumb compact" id="screen-scroll-thumb">
+                <span class="scrollbar-thumb-icon">⇅</span>
+              </div>
+            </div>
+            <button class="scrollbar-btn compact" id="btn-screen-scroll-down" title="Scroll Down">▼</button>
+          </div>
+        </div>
+
+        <!-- Tactile Mouse Click Pads for Live Screen -->
+        <div class="click-pads-grid-3">
+          <button class="click-pad-btn primary" id="btn-screen-left-click">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/><path d="M6 9h6"/></svg>
+            <span>Left Click</span>
+          </button>
+          <button class="click-pad-btn accent" id="btn-screen-double-click">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/></svg>
+            <span>2x Click</span>
+          </button>
+          <button class="click-pad-btn secondary" id="btn-screen-right-click">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/><path d="M12 9h6"/></svg>
+            <span>Right Click</span>
+          </button>
         </div>
 
         <!-- Quick Typing & Paste bar directly below screen -->
@@ -1503,18 +1710,41 @@ header {
           <button type="submit" id="btn-screen-send" class="remote-btn-type">⌨ Type ↵</button>
         </form>
 
-        <!-- Quick PC Key Action Bar -->
-        <div class="pc-keys-grid">
-          <button class="pc-key-btn" data-key="enter">↵ Enter</button>
-          <button class="pc-key-btn" data-key="backspace">⌫ Back</button>
-          <button class="pc-key-btn" data-key="tab">⇥ Tab</button>
-          <button class="pc-key-btn" data-key="space">␣ Space</button>
-          <button class="pc-key-btn" data-key="esc" style="color:#ff453a;">⎋ Esc</button>
-          <button class="pc-key-btn" data-key="win" style="color:#007aff;">⊞ Win</button>
+        <!-- Full Live Screen Remote Keypad -->
+        <div class="live-screen-keypad">
+          <!-- Row 1: System & Execution Keys -->
+          <div class="keypad-row">
+            <button class="pc-key-btn" data-key="esc" style="color:#ff453a;">⎋ Esc</button>
+            <button class="pc-key-btn" data-key="tab">⇥ Tab</button>
+            <button class="pc-key-btn" data-key="win" style="color:#007aff;">⊞ Win</button>
+            <button class="pc-key-btn" data-key="backspace">⌫ Back</button>
+            <button class="pc-key-btn" data-key="space" style="flex:1.2;">␣ Space</button>
+            <button class="pc-key-btn" data-key="enter" style="flex:1.2; background:linear-gradient(135deg, rgba(250,45,72,0.7), rgba(250,45,72,0.95)); border-color:var(--ios-red);">↵ Enter</button>
+          </div>
+
+          <!-- Row 2: Directional Arrows & Page Scrolling Keys -->
+          <div class="keypad-row" style="margin-top:6px;">
+            <button class="pc-key-btn" data-key="up" style="font-size:12.5px; font-weight:800;">▲ Up</button>
+            <button class="pc-key-btn" data-key="left" style="font-size:12.5px; font-weight:800;">◀ Left</button>
+            <button class="pc-key-btn" data-key="down" style="font-size:12.5px; font-weight:800;">▼ Down</button>
+            <button class="pc-key-btn" data-key="right" style="font-size:12.5px; font-weight:800;">▶ Right</button>
+            <button class="pc-key-btn" data-key="pgup" style="color:#30d158;">⇞ PgUp</button>
+            <button class="pc-key-btn" data-key="pgdn" style="color:#30d158;">⇟ PgDn</button>
+          </div>
+
+          <!-- Row 3: Editing, Clipboard & Jump Keys -->
+          <div class="keypad-row" style="margin-top:6px;">
+            <button class="pc-key-btn clip-quick-btn" data-key="copy">📋 Copy</button>
+            <button class="pc-key-btn clip-quick-btn" data-key="paste">📥 Paste</button>
+            <button class="pc-key-btn clip-quick-btn" data-key="selectall">🔲 All</button>
+            <button class="pc-key-btn" data-key="ctrlz" style="color:#ff9f0a;">↶ Undo</button>
+            <button class="pc-key-btn" data-key="home">⏮ Home</button>
+            <button class="pc-key-btn" data-key="end">⏭ End</button>
+          </div>
         </div>
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:11px; color:var(--ios-gray-text);">
-          <span>Tap screen to click PC • Pinch to zoom</span>
+          <span>Tap screen to click • Drag scroll bar to scroll PC</span>
           <button id="btn-screen-refresh" style="background:transparent; border:none; color:var(--ios-blue); font-size:11px; font-weight:700; cursor:pointer;">Reconnect ↻</button>
         </div>
       </div>
@@ -2643,30 +2873,147 @@ if (trackpad) {
   });
 }
 
-const btnMouseLeft = document.getElementById("btn-mouse-left");
-const btnMouseRight = document.getElementById("btn-mouse-right");
-if (btnMouseLeft) {
-  btnMouseLeft.addEventListener("click", () => {
-    sendMouse({action: "click", btn: "left"});
-    btnMouseLeft.style.transform = "scale(0.96)";
-    setTimeout(() => { btnMouseLeft.style.transform = "none"; }, 100);
-  });
-}
-if (btnMouseRight) {
-  btnMouseRight.addEventListener("click", () => {
-    sendMouse({action: "click", btn: "right"});
-    btnMouseRight.style.transform = "scale(0.96)";
-    setTimeout(() => { btnMouseRight.style.transform = "none"; }, 100);
-  });
+function setupScrollBar(upBtnId, downBtnId, gutterId, thumbId) {
+  const upBtn = document.getElementById(upBtnId);
+  const downBtn = document.getElementById(downBtnId);
+  const gutter = document.getElementById(gutterId);
+  const thumb = document.getElementById(thumbId);
+  if (!gutter || !thumb) return;
+
+  let scrollInterval = null;
+  const startContinuousScroll = (direction) => {
+    sendMouse({action: "scroll", dy: direction > 0 ? 1 : -1});
+    if (scrollInterval) clearInterval(scrollInterval);
+    scrollInterval = setInterval(() => {
+      sendMouse({action: "scroll", dy: direction > 0 ? 1 : -1});
+    }, 90);
+  };
+  const stopContinuousScroll = () => {
+    if (scrollInterval) {
+      clearInterval(scrollInterval);
+      scrollInterval = null;
+    }
+  };
+
+  if (upBtn) {
+    const pressUp = (e) => {
+      e.preventDefault();
+      upBtn.style.transform = "scale(0.88)";
+      thumb.style.transform = "translateY(-6px)";
+      startContinuousScroll(1);
+    };
+    const releaseUp = (e) => {
+      upBtn.style.transform = "none";
+      thumb.style.transform = "none";
+      stopContinuousScroll();
+    };
+    upBtn.addEventListener("mousedown", pressUp);
+    upBtn.addEventListener("touchstart", pressUp, {passive: false});
+    window.addEventListener("mouseup", releaseUp);
+    window.addEventListener("touchend", releaseUp);
+    window.addEventListener("touchcancel", releaseUp);
+  }
+
+  if (downBtn) {
+    const pressDown = (e) => {
+      e.preventDefault();
+      downBtn.style.transform = "scale(0.88)";
+      thumb.style.transform = "translateY(6px)";
+      startContinuousScroll(-1);
+    };
+    const releaseDown = (e) => {
+      downBtn.style.transform = "none";
+      thumb.style.transform = "none";
+      stopContinuousScroll();
+    };
+    downBtn.addEventListener("mousedown", pressDown);
+    downBtn.addEventListener("touchstart", pressDown, {passive: false});
+    window.addEventListener("mouseup", releaseDown);
+    window.addEventListener("touchend", releaseDown);
+    window.addEventListener("touchcancel", releaseDown);
+  }
+
+  // Draggable Thumb & Gutter interaction
+  let isDragging = false;
+  let startY = 0;
+  let lastY = 0;
+  let accumulatedDelta = 0;
+
+  const onPointerDown = (e) => {
+    isDragging = true;
+    startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+    lastY = startY;
+    accumulatedDelta = 0;
+    thumb.classList.add("dragging");
+    try { gutter.setPointerCapture(e.pointerId); } catch(err){}
+  };
+
+  const onPointerMove = (e) => {
+    if (!isDragging) return;
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+    const step = clientY - lastY;
+    lastY = clientY;
+    accumulatedDelta += step;
+
+    // Visual drag deflection
+    const maxOffset = 22;
+    const visualOffset = Math.max(-maxOffset, Math.min(maxOffset, accumulatedDelta * 0.45));
+    thumb.style.transform = `translateY(${visualOffset}px)`;
+
+    // When delta exceeds threshold, send scroll event to Windows
+    const SCROLL_THRESHOLD = 8;
+    if (Math.abs(accumulatedDelta) >= SCROLL_THRESHOLD) {
+      const direction = accumulatedDelta > 0 ? -1 : 1; // Dragging down scrolls content down (negative wheel delta)
+      const notches = Math.max(1, Math.round(Math.abs(accumulatedDelta) / SCROLL_THRESHOLD));
+      sendMouse({action: "scroll", dy: direction * notches});
+      accumulatedDelta = 0;
+    }
+  };
+
+  const onPointerUp = (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    thumb.classList.remove("dragging");
+    thumb.style.transform = "none";
+    accumulatedDelta = 0;
+    try { gutter.releasePointerCapture(e.pointerId); } catch(err){}
+  };
+
+  gutter.addEventListener("pointerdown", onPointerDown);
+  gutter.addEventListener("pointermove", onPointerMove);
+  gutter.addEventListener("pointerup", onPointerUp);
+  gutter.addEventListener("pointercancel", onPointerUp);
 }
 
-document.querySelectorAll(".present-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
+setupScrollBar("btn-scroll-up", "btn-scroll-down", "trackpad-scroll-gutter", "trackpad-scroll-thumb");
+setupScrollBar("btn-screen-scroll-up", "btn-screen-scroll-down", "screen-scroll-gutter", "screen-scroll-thumb");
+
+const bindClickPad = (btnId, action, btnType) => {
+  const el = document.getElementById(btnId);
+  if (!el) return;
+  el.addEventListener("click", () => {
+    sendMouse({action: action, btn: btnType || "left"});
+    el.style.transform = "scale(0.92)";
+    setTimeout(() => { el.style.transform = "none"; }, 100);
+  });
+};
+
+bindClickPad("btn-mouse-left", "click", "left");
+bindClickPad("btn-mouse-double", "double_click", "left");
+bindClickPad("btn-mouse-right", "click", "right");
+
+bindClickPad("btn-screen-left-click", "click", "left");
+bindClickPad("btn-screen-double-click", "double_click", "left");
+bindClickPad("btn-screen-right-click", "click", "right");
+
+document.querySelectorAll(".pc-key-btn[data-key], .present-btn[data-key]").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
     const k = btn.dataset.key;
     if (k) {
       sendKey(k);
-      btn.style.transform = "scale(0.94)";
-      setTimeout(() => { btn.style.transform = "none"; }, 120);
+      btn.style.transform = "scale(0.92)";
+      setTimeout(() => { btn.style.transform = "none"; }, 110);
     }
   });
 });
@@ -3341,6 +3688,14 @@ class PhoneDropService:
                     user32.mouse_event(0x0002, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTDOWN
                     time.sleep(0.02)
                     user32.mouse_event(0x0004, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTUP
+            elif action == "double_click":
+                user32.mouse_event(0x0002, 0, 0, 0, 0)
+                time.sleep(0.02)
+                user32.mouse_event(0x0004, 0, 0, 0, 0)
+                time.sleep(0.04)
+                user32.mouse_event(0x0002, 0, 0, 0, 0)
+                time.sleep(0.02)
+                user32.mouse_event(0x0004, 0, 0, 0, 0)
             elif action == "down":
                 user32.mouse_event(0x0002, 0, 0, 0, 0)  # Left button down (Text selection / Drag)
             elif action == "up":
@@ -3354,8 +3709,12 @@ class PhoneDropService:
                 time.sleep(0.01)
                 user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)  # VK_CONTROL up
             elif action == "scroll":
-                wheel_delta = int(dy * 120)
-                user32.mouse_event(0x0800, 0, 0, wheel_delta, 0)
+                if abs(dy) >= 60:
+                    wheel_delta = int(dy)
+                else:
+                    wheel_delta = int(round(dy * 120))
+                if wheel_delta != 0:
+                    user32.mouse_event(0x0800, 0, 0, wheel_delta, 0)
         except Exception as e:
             print(f"[PhoneDropService] Error in handle_remote_mouse: {e}")
 
@@ -3425,6 +3784,10 @@ class PhoneDropService:
                 "down": 0x28,
                 "left": 0x25,
                 "right": 0x27,
+                "pgup": 0x21,
+                "pageup": 0x21,
+                "pgdn": 0x22,
+                "pagedown": 0x22,
                 "del": 0x2E,
                 "delete": 0x2E,
                 "home": 0x24,
