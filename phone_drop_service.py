@@ -23,6 +23,8 @@ import threading
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from typing import Optional, Callable, Dict, Any, List, Tuple
+import subprocess
+import shutil
 
 import qrcode
 from PIL import Image, ImageDraw, ImageGrab
@@ -1412,8 +1414,8 @@ header {
 
 .quick-apps-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   margin-bottom: 8px;
 }
 
@@ -1499,6 +1501,88 @@ header {
 }
 
 /* ════════════ UNIVERSAL RATIO ADAPTATION ════════════ */
+/* Distinct System Badges for Window & Tab Controls */
+.pc-key-btn.btn-win-min {
+  color: #ffd60a;
+  border-color: rgba(255, 214, 10, 0.35);
+  background: linear-gradient(180deg, rgba(255, 214, 10, 0.12) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+.pc-key-btn.btn-win-max {
+  color: #30d158;
+  border-color: rgba(48, 209, 88, 0.35);
+  background: linear-gradient(180deg, rgba(48, 209, 88, 0.12) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+.pc-key-btn.btn-win-close {
+  color: #ff453a;
+  border-color: rgba(255, 69, 58, 0.4);
+  background: linear-gradient(180deg, rgba(255, 69, 58, 0.15) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+.pc-key-btn.btn-win-alttab {
+  color: #bf5af2;
+  border-color: rgba(191, 90, 242, 0.35);
+  background: linear-gradient(180deg, rgba(191, 90, 242, 0.12) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+.pc-key-btn.btn-tab-new {
+  color: #64d2ff;
+  border-color: rgba(100, 210, 255, 0.35);
+  background: linear-gradient(180deg, rgba(100, 210, 255, 0.12) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+.pc-key-btn.btn-tab-close {
+  color: #ff9f0a;
+  border-color: rgba(255, 159, 10, 0.35);
+  background: linear-gradient(180deg, rgba(255, 159, 10, 0.12) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+/* Responsive Viewport & Native 16:9 Aspect Ratio */
+#screen-viewport {
+  flex: 1;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  touch-action: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  transition: all 0.25s ease;
+}
+
+#live-screen-img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  display: block;
+}
+
+.remote-display-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.remote-display-screen-col,
+.remote-display-controls-col {
+  width: 100%;
+}
+
+.music-layout-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ════════════ UNIVERSAL RATIO ADAPTATION ════════════ */
 @media (min-width: 768px) {
   .main-content {
     max-width: 860px;
@@ -1514,7 +1598,7 @@ header {
     border: 1px solid rgba(255, 255, 255, 0.16);
   }
   .quick-apps-grid {
-    grid-template-columns: repeat(10, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 8px;
   }
   .quick-app-btn {
@@ -1525,6 +1609,24 @@ header {
   }
   .quick-app-btn .app-name {
     font-size: 10.5px;
+  }
+}
+
+@media (min-width: 992px) {
+  .main-content {
+    max-width: 1240px;
+    padding: 24px 36px 120px;
+  }
+  /* 2-Column Command Console for Live Screen */
+  .remote-display-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(360px, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .remote-display-screen-col {
+    position: sticky;
+    top: 20px;
   }
 }
 
@@ -1992,45 +2094,29 @@ header {
       </div>
 
       <div class="quick-apps-grid">
+        <button class="quick-app-btn" data-app="brave">
+          <span class="app-icon">🦁</span>
+          <span class="app-name">Brave</span>
+        </button>
         <button class="quick-app-btn" data-app="chrome">
           <span class="app-icon">🌐</span>
           <span class="app-name">Chrome</span>
         </button>
-        <button class="quick-app-btn" data-app="explorer">
-          <span class="app-icon">📁</span>
-          <span class="app-name">Files</span>
-        </button>
-        <button class="quick-app-btn" data-app="notepad">
-          <span class="app-icon">📝</span>
-          <span class="app-name">Notepad</span>
-        </button>
-        <button class="quick-app-btn" data-app="vscode">
-          <span class="app-icon">⚡</span>
-          <span class="app-name">VS Code</span>
-        </button>
-        <button class="quick-app-btn" data-app="terminal">
-          <span class="app-icon">💻</span>
-          <span class="app-name">Terminal</span>
-        </button>
-        <button class="quick-app-btn" data-app="taskmgr">
-          <span class="app-icon">📊</span>
-          <span class="app-name">Task Mgr</span>
-        </button>
-        <button class="quick-app-btn" data-app="calc">
-          <span class="app-icon">🧮</span>
-          <span class="app-name">Calc</span>
-        </button>
-        <button class="quick-app-btn" data-app="settings">
-          <span class="app-icon">⚙️</span>
-          <span class="app-name">Settings</span>
+        <button class="quick-app-btn" data-app="spotify">
+          <span class="app-icon">🎵</span>
+          <span class="app-name">Spotify</span>
         </button>
         <button class="quick-app-btn" data-app="youtube">
           <span class="app-icon">▶️</span>
           <span class="app-name">YouTube</span>
         </button>
-        <button class="quick-app-btn" data-app="spotify">
-          <span class="app-icon">🎵</span>
-          <span class="app-name">Spotify</span>
+        <button class="quick-app-btn" data-app="vscode">
+          <span class="app-icon">⚡</span>
+          <span class="app-name">VS Code</span>
+        </button>
+        <button class="quick-app-btn" data-app="notepad">
+          <span class="app-icon">📝</span>
+          <span class="app-name">Notepad</span>
         </button>
       </div>
 
@@ -3551,7 +3637,7 @@ function launchApp(appTarget) {
     body: JSON.stringify({app: appTarget})
   }).then(r => r.json()).then(data => {
     if (data.success) {
-      showToast("Launched: " + appTarget.toUpperCase());
+      showToast("Launching " + appTarget + "...");
     } else {
       showToast("App request sent: " + appTarget);
     }
@@ -4424,48 +4510,131 @@ class PhoneDropService:
         except Exception as e:
             print(f"[PhoneDropService] Error in handle_remote_key: {e}")
 
+    def _find_browser_exe(self, preferred: str = "brave") -> Optional[str]:
+        """Locates installed browser executables (Brave, Chrome, Edge) across standard Windows paths."""
+        order = ["brave", "chrome", "edge"] if preferred == "brave" else ["chrome", "brave", "edge"]
+        for b in order:
+            b_low = b.lower()
+            paths = []
+            if b_low == "brave":
+                paths = [
+                    r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+                    r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
+                    os.path.expandvars(r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe"),
+                ]
+            elif b_low == "chrome":
+                paths = [
+                    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                    os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+                ]
+            elif b_low == "edge":
+                paths = [
+                    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+                ]
+            for p in paths:
+                if os.path.exists(p):
+                    return p
+            which = shutil.which(f"{b_low}.exe") or shutil.which(b_low)
+            if which:
+                return which
+        return None
+
     def handle_remote_launch(self, app_id: str) -> bool:
-        """Launches desktop applications, system utilities, or URLs with 0ms latency."""
+        """Launches desktop applications, browsers, web apps, or URLs with 0ms latency."""
         try:
             self._attach_desktop()
-            app_lower = app_id.strip().lower()
+            app_raw = app_id.strip()
+            app_lower = app_raw.lower()
 
-            app_map = {
-                "chrome": "chrome",
-                "browser": "https://google.com",
-                "youtube": "https://youtube.com",
-                "notepad": "notepad.exe",
-                "explorer": "explorer.exe",
-                "files": "explorer.exe",
-                "vscode": "code",
-                "code": "code",
-                "terminal": "wt.exe",
-                "powershell": "powershell.exe",
-                "cmd": "cmd.exe",
-                "taskmgr": "taskmgr.exe",
-                "calc": "calc.exe",
-                "calculator": "calc.exe",
-                "settings": "ms-settings:",
-                "snipping": "ms-screenclip:",
-                "spotify": "spotify:",
-            }
+            brave_exe = self._find_browser_exe("brave")
+            chrome_exe = self._find_browser_exe("chrome")
 
-            target = app_map.get(app_lower, app_id.strip())
-
-            # 1. URLs or Windows protocol handlers
-            if target.startswith("http://") or target.startswith("https://") or target.startswith("ms-"):
-                os.startfile(target)
+            # 1. Spotify Web (User explicitly uses https://open.spotify.com on Brave browser)
+            if app_lower == "spotify":
+                spotify_url = "https://open.spotify.com"
+                if brave_exe:
+                    subprocess.Popen([brave_exe, spotify_url])
+                    return True
+                if chrome_exe:
+                    subprocess.Popen([chrome_exe, spotify_url])
+                    return True
+                os.startfile(spotify_url)
                 return True
 
-            # 2. Direct executable / protocol launch
+            # 2. Brave Browser
+            if app_lower in ("brave", "brave-browser"):
+                if brave_exe:
+                    subprocess.Popen([brave_exe])
+                    return True
+                os.startfile("https://search.brave.com")
+                return True
+
+            # 3. Google Chrome
+            if app_lower in ("chrome", "google-chrome"):
+                if chrome_exe:
+                    subprocess.Popen([chrome_exe])
+                    return True
+                try:
+                    os.startfile("chrome.exe")
+                    return True
+                except Exception:
+                    subprocess.Popen("start chrome", shell=True)
+                    return True
+
+            # 4. YouTube
+            if app_lower == "youtube":
+                yt_url = "https://www.youtube.com"
+                if brave_exe:
+                    subprocess.Popen([brave_exe, yt_url])
+                    return True
+                if chrome_exe:
+                    subprocess.Popen([chrome_exe, yt_url])
+                    return True
+                os.startfile(yt_url)
+                return True
+
+            # 5. VS Code
+            if app_lower in ("vscode", "code"):
+                code_bin = shutil.which("code.cmd") or shutil.which("code")
+                if code_bin:
+                    subprocess.Popen([code_bin])
+                    return True
+                user_code = os.path.expandvars(r"%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe")
+                if os.path.exists(user_code):
+                    subprocess.Popen([user_code])
+                    return True
+                subprocess.Popen("code", shell=True)
+                return True
+
+            # 6. Notepad
+            if app_lower == "notepad":
+                os.startfile("notepad.exe")
+                return True
+
+            # 7. Web URLs (http://, https://, or www.)
+            if app_raw.startswith("http://") or app_raw.startswith("https://") or app_raw.startswith("www."):
+                target_url = app_raw if (app_raw.startswith("http://") or app_raw.startswith("https://")) else f"https://{app_raw}"
+                if brave_exe:
+                    subprocess.Popen([brave_exe, target_url])
+                    return True
+                os.startfile(target_url)
+                return True
+
+            # 8. Protocol handlers (ms-settings:, etc.)
+            if app_raw.startswith("ms-"):
+                os.startfile(app_raw)
+                return True
+
+            # 9. Direct executable attempt
             try:
-                os.startfile(target)
+                os.startfile(app_raw)
                 return True
             except Exception:
                 pass
 
-            # 3. Fallback to shell execution
-            subprocess.Popen(target, shell=True)
+            subprocess.Popen(app_raw, shell=True)
             return True
         except Exception as e:
             print(f"[PhoneDropService] Error in handle_remote_launch ({app_id}): {e}")
