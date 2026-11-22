@@ -5992,6 +5992,10 @@ class OriginIsland(QWidget):
 
         cur_song = None
         if self._last_media_info:
+            lyrics_lines = []
+            for t, text in getattr(self, "_lyrics_lines", []):
+                lyrics_lines.append({"sec": float(t), "text": str(text)})
+
             cur_song = {
                 "title": self._last_media_info.title,
                 "artist": self._last_media_info.artist,
@@ -6000,8 +6004,9 @@ class OriginIsland(QWidget):
                 "pos_sec": round(float(getattr(self, "_playback_pos_sec", 0.0)), 2),
                 "dur_sec": round(float(getattr(self, "_playback_dur_sec", 0.0)), 2),
                 "has_cover": bool(self._last_media_info.thumbnail_bytes or ALBUM_ART_PATH.exists()),
-                "has_lyrics": bool(self._lyrics_lines and len(self._lyrics_lines) > 0),
-                "active_lyric_idx": int(getattr(self, "_lyrics_active_idx", 0))
+                "has_lyrics": bool(lyrics_lines),
+                "active_lyric_idx": int(getattr(self, "_lyrics_active_idx", 0)),
+                "lines": lyrics_lines,
             }
 
         shelf_list = []

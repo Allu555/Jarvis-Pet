@@ -2630,7 +2630,10 @@ function evaluateCurrentLyric() {
   highlightLyric(targetIdx);
 }
 
+let isFetchingLyrics = false;
 async function fetchLyrics() {
+  if (isFetchingLyrics) return;
+  isFetchingLyrics = true;
   try {
     const res = await fetch("/api/media/lyrics");
     if (!res.ok) return;
@@ -2640,9 +2643,13 @@ async function fetchLyrics() {
         currentSongTitle = data.title;
         lyricsList = data.lines;
         renderLyrics(lyricsList);
+        evaluateCurrentLyric();
       }
     }
-  } catch (e) {}
+  } catch (e) {
+  } finally {
+    isFetchingLyrics = false;
+  }
 }
 
 // ══════════ JARVIS AI CONTROLLER ══════════
@@ -2786,8 +2793,11 @@ async function sendCommand(command, query = "") {
 // ══════════ POLLING LOOP ══════════
 let lastSongId = "";
 let lastReply = "";
+let isFetchingStatus = false;
 
 async function pollStatus() {
+  if (isFetchingStatus) return;
+  isFetchingStatus = true;
   try {
     const res = await fetch("/api/status");
     if (!res.ok) return;
@@ -2807,21 +2817,38 @@ async function pollStatus() {
       const songId = `${song.title}:${song.artist}`;
       if (songId !== lastSongId) {
         lastSongId = songId;
+        lyricsList = [];
+        currentSongTitle = "";
         const newCover = "/api/media/cover?t=" + Date.now();
         trackCover.src = newCover;
         const coverRefl = document.getElementById("cover-reflection");
         if (coverRefl) coverRefl.src = newCover;
-        fetchLyrics();
+        if (lyricsContainer) {
+          lyricsContainer.innerHTML = '<div class="lyrics-placeholder" id="lyrics-loading">Connecting to music stream...</div>';
+        }
       }
 
-      // If lyrics are not yet loaded, keep retrying
-      if (lyricsList.length === 0) {
+      // 1. Direct lyrics from bundled status packet (0ms latency, zero second request)
+      if (song.lines && song.lines.length > 0) {
+        if (lyricsList.length !== song.lines.length || song.title !== currentSongTitle) {
+          currentSongTitle = song.title;
+          lyricsList = song.lines;
+          renderLyrics(lyricsList);
+          evaluateCurrentLyric();
+        }
+      } else if (lyricsList.length === 0) {
+        // Fallback to /api/media/lyrics if not yet bundled
         fetchLyrics();
       }
     } else {
       trackName.innerText = "No Music Playing";
       trackArtist.innerText = "Desktop Idle";
       setPlayState(false);
+      lastSongId = "";
+      lyricsList = [];
+      if (lyricsContainer) {
+        lyricsContainer.innerHTML = '<div class="lyrics-placeholder" id="lyrics-loading">Connecting to music stream...</div>';
+      }
     }
 
     if (data.volume !== undefined && !isDraggingVol) {
@@ -2841,7 +2868,10 @@ async function pollStatus() {
     if (data.shelf_files && Array.isArray(data.shelf_files)) {
       renderShelf(data.shelf_files);
     }
-  } catch (e) {}
+  } catch (e) {
+  } finally {
+    isFetchingStatus = false;
+  }
 }
 
 function renderShelf(files) {
@@ -3549,10 +3579,31 @@ document.querySelectorAll(".pc-key-btn[data-key], .present-btn[data-key]").forEa
   });
 });
 
-// Initial Call & 1s Polling
-pollStatus();
+// Adaptive Live Sync: 400ms when playing/music tab active, 1000ms idle
+let pollTimer = null;
+function scheduleNextPoll() {
+  const isMusicActive = isPlaying || (document.getElementById("tab-music") && document.getElementById("tab-music").classList.contains("active"));
+  const interval = isMusicActive ? 400 : 1000;
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => {
+    await pollStatus();
+    scheduleNextPoll();
+  }, interval);
+}
+
+// Initial Fast Start
+pollStatus().then(scheduleNextPoll);
 fetchLyrics();
-setInterval(pollStatus, 1000);
+
+// Instant Re-sync on Tab Switch, Phone Unlock, and Window Focus
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    pollStatus().then(scheduleNextPoll);
+  }
+});
+window.addEventListener("focus", () => {
+  pollStatus().then(scheduleNextPoll);
+});
 
 // Ultra-smooth 100ms real-time lyrics & progress sync loop
 setInterval(() => {
