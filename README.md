@@ -29,7 +29,7 @@ Designed with an ultra-lightweight architecture: **~60 MB RAM**, **< 1% idle CPU
 Floating interactive top-notch overlay inspired by modern mobile dynamic islands:
 
 <p align="center">
-  <img src="docs/images/origin_island_notch.png" width="100%" alt="Origin Island Flush Notch">
+  <img src="docs/images/origin_island_top_notch.png" width="100%" alt="Origin Island Flush Notch">
 </p>
 
 #### 🎛️ Multi-Feature Island Suite
