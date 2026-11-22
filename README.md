@@ -1,5 +1,10 @@
 # Desktop Pet & JARVIS AI Companion 🛸🐾
 
+[![CI & Code Quality](https://github.com/Allu555/Jarvis-Pet/actions/workflows/ci.yml/badge.svg)](https://github.com/Allu555/Jarvis-Pet/actions/workflows/ci.yml)
+[![Platform: Windows 10 / 11](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg)](https://microsoft.com/windows)
+[![Python: 3.10 | 3.11](https://img.shields.io/badge/Python-3.10%20%7C%203.11-3776AB.svg)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An ultra-lightweight, high-performance desktop companion for Windows featuring **autonomous pixel pets**, an interactive **Dynamic Origin Island**, and **JARVIS** — an intelligent voice, vision, and system automation agent.
 
 Designed with an ultra-lightweight architecture: **~60 MB RAM**, **< 1% idle CPU**, and a **100% in-memory zero-disk lyrics engine**.

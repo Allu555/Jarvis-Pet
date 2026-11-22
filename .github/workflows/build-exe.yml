@@ -1,0 +1,47 @@
+name: Build Standalone Windows Executable
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Package Windows EXE (PyInstaller)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies & PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build Standalone Executable
+        run: |
+          pyinstaller --noconfirm --onedir --windowed `
+            --name "DesktopPet" `
+            --icon "assets/desktop_pet.ico" `
+            --add-data "assets;assets" `
+            --add-data "settings.json;." `
+            main.py
+
+      - name: Archive Build Artifact
+        run: |
+          Compress-Archive -Path dist/DesktopPet/* -DestinationPath dist/DesktopPet-Windows.zip
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DesktopPet-Windows-Build
+          path: dist/DesktopPet-Windows.zip
+          retention-days: 14
