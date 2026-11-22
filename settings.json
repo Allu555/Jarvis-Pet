@@ -24,5 +24,5 @@
   "enable_edge_glow": true,
   "eq_style": "sunset_fire",
   "eq_mode": "pill",
-  "compact_show_lyrics": false
+  "compact_show_lyrics": true
 }

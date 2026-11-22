@@ -30,6 +30,27 @@ from PIL import Image, ImageDraw, ImageGrab
 class _POINT(ctypes.Structure):
     _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
 
+
+class _KEYBDINPUT(ctypes.Structure):
+    _fields_ = [
+        ("wVk", ctypes.c_ushort),
+        ("wScan", ctypes.c_ushort),
+        ("dwFlags", ctypes.c_ulong),
+        ("time", ctypes.c_ulong),
+        ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
+    ]
+
+
+class _INPUT_UNION(ctypes.Union):
+    _fields_ = [("ki", _KEYBDINPUT)]
+
+
+class _INPUT(ctypes.Structure):
+    _fields_ = [
+        ("type", ctypes.c_ulong),
+        ("u", _INPUT_UNION),
+    ]
+
 # Default directory where files from phone are saved
 DOWNLOADS_DIR = Path.home() / "Downloads" / "PhoneDrop"
 DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1211,14 +1232,15 @@ header {
     </div>
   </section>
 
-  <!-- ══════════ TAB 5: WIRELESS TRACKPAD & LIVE PC DISPLAY ══════════ -->
+  <!-- ══════════ TAB 5: WIRELESS TRACKPAD, LIVE DISPLAY & REMOTE KEYBOARD ══════════ -->
   <section id="tab-remote" class="view-section">
-    <!-- Mode Switcher (Trackpad, Live Display, Presentation) -->
+    <!-- Mode Switcher (Trackpad, Live Display, Keyboard, Presentation) -->
     <div style="display:flex; justify-content:center; margin-bottom:12px;">
       <div style="display:inline-flex; background:rgba(35,35,40,0.85); border-radius:999px; padding:3px; border:0.5px solid var(--ios-border);">
-        <button id="mode-trackpad" class="mode-tab-btn" style="padding:6px 14px; border-radius:999px; font-size:11.5px; font-weight:700; border:none; background:var(--ios-red); color:#fff; cursor:pointer;">Trackpad</button>
-        <button id="mode-display" class="mode-tab-btn" style="padding:6px 14px; border-radius:999px; font-size:11.5px; font-weight:700; border:none; background:transparent; color:var(--ios-gray-text); cursor:pointer;">Live Screen</button>
-        <button id="mode-present" class="mode-tab-btn" style="padding:6px 14px; border-radius:999px; font-size:11.5px; font-weight:700; border:none; background:transparent; color:var(--ios-gray-text); cursor:pointer;">Presentation</button>
+        <button id="mode-trackpad" class="mode-tab-btn" style="padding:6px 12px; border-radius:999px; font-size:11px; font-weight:700; border:none; background:var(--ios-red); color:#fff; cursor:pointer;">Trackpad</button>
+        <button id="mode-display" class="mode-tab-btn" style="padding:6px 12px; border-radius:999px; font-size:11px; font-weight:700; border:none; background:transparent; color:var(--ios-gray-text); cursor:pointer;">Live Screen</button>
+        <button id="mode-keyboard" class="mode-tab-btn" style="padding:6px 12px; border-radius:999px; font-size:11px; font-weight:700; border:none; background:transparent; color:var(--ios-gray-text); cursor:pointer;">Keyboard</button>
+        <button id="mode-present" class="mode-tab-btn" style="padding:6px 12px; border-radius:999px; font-size:11px; font-weight:700; border:none; background:transparent; color:var(--ios-gray-text); cursor:pointer;">Present</button>
       </div>
     </div>
 
@@ -1226,22 +1248,22 @@ header {
     <div id="view-trackpad-content">
       <!-- Quick Clipboard & Text Selection Strip -->
       <div style="display:flex; gap:6px; margin-bottom:10px;">
-        <button class="clip-quick-btn" data-key="copy" style="flex:1; padding:8px 6px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
+        <button class="clip-quick-btn" data-key="copy" style="flex:1; padding:8px 4px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:11.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
           📋 Copy
         </button>
-        <button class="clip-quick-btn" data-key="paste" style="flex:1; padding:8px 6px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
+        <button class="clip-quick-btn" data-key="paste" style="flex:1; padding:8px 4px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:11.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
           📥 Paste
         </button>
-        <button class="clip-quick-btn" data-key="selectall" style="flex:1; padding:8px 6px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
+        <button class="clip-quick-btn" data-key="selectall" style="flex:1; padding:8px 4px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:11.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
           🔲 All
         </button>
-        <button id="btn-drag-lock" style="flex:1; padding:8px 6px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#ff9f0a; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
+        <button id="btn-drag-lock" style="flex:1; padding:8px 4px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#ff9f0a; font-size:11.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
           ✋ Select
         </button>
       </div>
 
       <div class="ios-card" style="padding:12px; margin-bottom:10px;">
-        <div id="trackpad-surface" style="width:100%; height:250px; background:radial-gradient(circle at 50% 50%, rgba(45,45,52,0.6), rgba(18,18,22,0.95)); border-radius:18px; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; align-items:center; justify-content:center; touch-action:none; user-select:none; position:relative; overflow:hidden;">
+        <div id="trackpad-surface" style="width:100%; height:240px; background:radial-gradient(circle at 50% 50%, rgba(45,45,52,0.6), rgba(18,18,22,0.95)); border-radius:18px; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; align-items:center; justify-content:center; touch-action:none; user-select:none; position:relative; overflow:hidden;">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="3" width="20" height="14" rx="2"></rect>
             <line x1="8" y1="21" x2="16" y2="21"></line>
@@ -1254,42 +1276,67 @@ header {
 
       <!-- Physical Click Pads -->
       <div style="display:flex; gap:10px; margin-bottom:12px;">
-        <button id="btn-mouse-left" style="flex:1; height:54px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:16px; color:#fff; font-size:13.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+        <button id="btn-mouse-left" style="flex:1; height:50px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:16px; color:#fff; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;">
           Left Click
         </button>
-        <button id="btn-mouse-right" style="flex:1; height:54px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:16px; color:var(--ios-gray-text); font-size:13.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+        <button id="btn-mouse-right" style="flex:1; height:50px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:16px; color:var(--ios-gray-text); font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;">
           Right Click
         </button>
+      </div>
+
+      <!-- Fast Typing Strip on Trackpad -->
+      <div style="display:flex; gap:6px; background:rgba(25,25,30,0.85); padding:6px; border-radius:14px; border:0.5px solid var(--ios-border);">
+        <input id="input-trackpad-type" type="text" placeholder="Type on PC directly..." style="flex:1; background:transparent; border:none; color:#fff; font-size:13px; padding:4px 8px; outline:none;" autocomplete="off">
+        <button id="btn-trackpad-send" style="padding:6px 14px; background:var(--ios-red); border:none; border-radius:10px; color:#fff; font-size:12px; font-weight:700; cursor:pointer;">Type ↵</button>
       </div>
     </div>
 
     <!-- 2. LIVE PC DISPLAY & DIRECT TOUCH CONTROL VIEW -->
     <div id="view-display-content" style="display:none;">
       <div class="ios-card" style="padding:10px; margin-bottom:12px;">
-        <!-- Display Header with Zoom Controls -->
+        <!-- Display Header with Zoom & Fullscreen Controls -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <div style="display:flex; align-items:center; gap:6px;">
             <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#30d158; box-shadow:0 0 8px #30d158;"></span>
-            <span style="font-size:11.5px; font-weight:700; color:#fff;">Live PC Stream</span>
+            <span style="font-size:11.5px; font-weight:700; color:#fff;">Live 1080p Screen</span>
           </div>
 
-          <!-- Quick Zoom Buttons -->
-          <div style="display:flex; gap:4px; align-items:center; background:rgba(255,255,255,0.06); padding:2px 4px; border-radius:8px;">
-            <span style="font-size:10px; color:var(--ios-gray-text); font-weight:700; margin-right:2px;">ZOOM</span>
-            <button class="screen-zoom-btn" data-zoom="1.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:var(--ios-red); color:#fff; cursor:pointer;">1x</button>
-            <button class="screen-zoom-btn" data-zoom="1.5" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">1.5x</button>
-            <button class="screen-zoom-btn" data-zoom="2.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">2x</button>
-            <button class="screen-zoom-btn" data-zoom="3.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">3x</button>
+          <div style="display:flex; gap:4px; align-items:center;">
+            <!-- Quick Zoom Buttons -->
+            <div style="display:flex; gap:3px; align-items:center; background:rgba(255,255,255,0.06); padding:2px 4px; border-radius:8px;">
+              <button class="screen-zoom-btn" data-zoom="1.0" style="padding:3px 6px; border-radius:6px; font-size:10px; font-weight:700; border:none; background:var(--ios-red); color:#fff; cursor:pointer;">1x</button>
+              <button class="screen-zoom-btn" data-zoom="1.5" style="padding:3px 6px; border-radius:6px; font-size:10px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">1.5x</button>
+              <button class="screen-zoom-btn" data-zoom="2.0" style="padding:3px 6px; border-radius:6px; font-size:10px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">2x</button>
+              <button class="screen-zoom-btn" data-zoom="3.0" style="padding:3px 6px; border-radius:6px; font-size:10px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">3x</button>
+            </div>
+            <!-- Expand / Compact Viewport -->
+            <button id="btn-viewport-expand" style="padding:4px 8px; border-radius:8px; font-size:10.5px; font-weight:700; border:0.5px solid var(--ios-border); background:rgba(40,40,48,0.85); color:#007aff; cursor:pointer;">⛶ Expand</button>
           </div>
         </div>
 
         <!-- Live Viewport Window -->
-        <div id="screen-viewport" style="width:100%; height:270px; background:#000; border-radius:14px; overflow:hidden; position:relative; border:1px solid rgba(255,255,255,0.1); touch-action:none; user-select:none; display:flex; align-items:center; justify-content:center;">
-          <img id="live-screen-img" src="" style="width:100%; height:100%; object-fit:contain; display:block; transform-origin:center center; transition:transform 0.15s ease-out; pointer-events:none;" alt="Live PC View">
+        <div id="screen-viewport" style="width:100%; height:270px; background:#000; border-radius:14px; overflow:hidden; position:relative; border:1px solid rgba(255,255,255,0.1); touch-action:none; user-select:none; display:flex; align-items:center; justify-content:center; transition:height 0.25s ease;">
+          <img id="live-screen-img" src="" style="width:100%; height:100%; object-fit:contain; display:block; transform-origin:center center; transition:transform 0.12s ease-out; pointer-events:none;" alt="Live PC View">
           <div id="screen-loading-overlay" style="position:absolute; inset:0; background:rgba(10,10,14,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
             <div style="width:24px; height:24px; border:2.5px solid rgba(255,255,255,0.2); border-top-color:var(--ios-red); border-radius:50%; animation:spin 0.8s linear infinite;"></div>
             <span style="font-size:11px; color:rgba(255,255,255,0.6);">Loading live PC display…</span>
           </div>
+        </div>
+
+        <!-- Quick Typing & Remote Keys bar directly below screen -->
+        <div style="display:flex; gap:6px; margin-top:8px;">
+          <input id="input-screen-type" type="text" placeholder="Type on PC while watching screen..." style="flex:1; background:rgba(30,30,36,0.9); border:0.5px solid var(--ios-border); border-radius:10px; padding:8px 10px; color:#fff; font-size:12.5px; outline:none;" autocomplete="off">
+          <button id="btn-screen-send" style="padding:8px 14px; background:var(--ios-red); border:none; border-radius:10px; color:#fff; font-size:12px; font-weight:700; cursor:pointer;">Type ↵</button>
+        </div>
+
+        <!-- Quick PC Key Action Bar -->
+        <div style="display:flex; gap:5px; margin-top:8px; overflow-x:auto; padding-bottom:2px;">
+          <button class="pc-key-btn" data-key="enter" style="padding:6px 10px; background:rgba(40,40,48,0.9); border:0.5px solid var(--ios-border); border-radius:8px; color:#fff; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;">↵ Enter</button>
+          <button class="pc-key-btn" data-key="backspace" style="padding:6px 10px; background:rgba(40,40,48,0.9); border:0.5px solid var(--ios-border); border-radius:8px; color:#fff; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;">⌫ Backspace</button>
+          <button class="pc-key-btn" data-key="tab" style="padding:6px 10px; background:rgba(40,40,48,0.9); border:0.5px solid var(--ios-border); border-radius:8px; color:#fff; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;">⇥ Tab</button>
+          <button class="pc-key-btn" data-key="space" style="padding:6px 10px; background:rgba(40,40,48,0.9); border:0.5px solid var(--ios-border); border-radius:8px; color:#fff; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;">␣ Space</button>
+          <button class="pc-key-btn" data-key="esc" style="padding:6px 10px; background:rgba(40,40,48,0.9); border:0.5px solid var(--ios-border); border-radius:8px; color:#ff453a; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;">Esc</button>
+          <button class="pc-key-btn" data-key="win" style="padding:6px 10px; background:rgba(40,40,48,0.9); border:0.5px solid var(--ios-border); border-radius:8px; color:#007aff; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;">⊞ Win</button>
         </div>
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11px; color:var(--ios-gray-text);">
@@ -1299,7 +1346,55 @@ header {
       </div>
     </div>
 
-    <!-- PRESENTATION CLICKER VIEW -->
+    <!-- 3. DEDICATED FULL KEYBOARD VIEW -->
+    <div id="view-keyboard-content" style="display:none;">
+      <div class="ios-card" style="padding:14px; margin-bottom:12px;">
+        <div style="font-size:11.5px; font-weight:700; color:var(--ios-gray-text); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.6px;">Remote PC Keyboard</div>
+        
+        <!-- Main Text Input Box -->
+        <textarea id="input-full-keyboard" placeholder="Type words, paragraphs, or commands here..." style="width:100%; height:90px; background:rgba(20,20,24,0.9); border:0.5px solid var(--ios-border); border-radius:14px; color:#fff; font-size:14px; padding:10px; outline:none; resize:none; font-family:var(--font-stack);" autocomplete="off"></textarea>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ios-gray-text); cursor:pointer;">
+            <input type="checkbox" id="check-live-type" style="accent-color:var(--ios-red);">
+            <span>Type live keystrokes</span>
+          </label>
+          <button id="btn-full-keyboard-send" style="padding:9px 20px; background:var(--ios-red); border:none; border-radius:12px; color:#fff; font-size:13px; font-weight:700; cursor:pointer;">Send to PC ↵</button>
+        </div>
+      </div>
+
+      <!-- Full PC Modifier Keys Pad -->
+      <div class="ios-card" style="padding:14px; margin-bottom:12px;">
+        <div style="font-size:11.5px; font-weight:700; color:var(--ios-gray-text); margin-bottom:10px; text-transform:uppercase; letter-spacing:0.6px;">System & Editing Keys</div>
+        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:12px;">
+          <button class="pc-key-btn" data-key="esc" style="padding:11px 4px; background:rgba(36,36,42,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#ff453a; font-size:12px; font-weight:700; cursor:pointer;">⎋ Esc</button>
+          <button class="pc-key-btn" data-key="tab" style="padding:11px 4px; background:rgba(36,36,42,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12px; font-weight:700; cursor:pointer;">⇥ Tab</button>
+          <button class="pc-key-btn" data-key="win" style="padding:11px 4px; background:rgba(36,36,42,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#007aff; font-size:12px; font-weight:700; cursor:pointer;">⊞ Win</button>
+          <button class="pc-key-btn" data-key="backspace" style="padding:11px 4px; background:rgba(36,36,42,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12px; font-weight:700; cursor:pointer;">⌫ Back</button>
+          
+          <button class="pc-key-btn" data-key="ctrlz" style="padding:11px 4px; background:rgba(36,36,42,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#ff9f0a; font-size:12px; font-weight:700; cursor:pointer;">↶ Undo</button>
+          <button class="pc-key-btn" data-key="copy" style="padding:11px 4px; background:rgba(36,36,42,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12px; font-weight:700; cursor:pointer;">📋 Copy</button>
+          <button class="pc-key-btn" data-key="paste" style="padding:11px 4px; background:rgba(36,36,42,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12px; font-weight:700; cursor:pointer;">📥 Paste</button>
+          <button class="pc-key-btn" data-key="alttab" style="padding:11px 4px; background:rgba(36,36,42,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#5856d6; font-size:12px; font-weight:700; cursor:pointer;">⇥ Alt+Tab</button>
+        </div>
+
+        <div style="font-size:11.5px; font-weight:700; color:var(--ios-gray-text); margin-bottom:10px; text-transform:uppercase; letter-spacing:0.6px;">Arrow Navigation</div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+          <button class="pc-key-btn" data-key="up" style="width:72px; padding:10px 0; background:rgba(42,42,50,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:14px; font-weight:800; cursor:pointer;">▲</button>
+          <div style="display:flex; gap:8px;">
+            <button class="pc-key-btn" data-key="left" style="width:72px; padding:10px 0; background:rgba(42,42,50,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:14px; font-weight:800; cursor:pointer;">◀</button>
+            <button class="pc-key-btn" data-key="down" style="width:72px; padding:10px 0; background:rgba(42,42,50,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:14px; font-weight:800; cursor:pointer;">▼</button>
+            <button class="pc-key-btn" data-key="right" style="width:72px; padding:10px 0; background:rgba(42,42,50,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:14px; font-weight:800; cursor:pointer;">▶</button>
+          </div>
+          <div style="display:flex; gap:8px; width:100%; margin-top:4px;">
+            <button class="pc-key-btn" data-key="space" style="flex:2; padding:10px 0; background:rgba(36,36,42,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12px; font-weight:700; cursor:pointer;">␣ Space</button>
+            <button class="pc-key-btn" data-key="enter" style="flex:1; padding:10px 0; background:linear-gradient(135deg, rgba(255,45,85,0.7), rgba(255,45,85,0.95)); border:none; border-radius:12px; color:#fff; font-size:12.5px; font-weight:800; cursor:pointer;">↵ Enter</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. PRESENTATION CLICKER VIEW -->
     <div id="view-present-content" style="display:none;">
       <div class="ios-card" style="padding:16px; margin-bottom:14px;">
         <div style="font-size:11.5px; font-weight:700; color:var(--ios-gray-text); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.6px;">Slide Navigation</div>
@@ -1322,6 +1417,20 @@ header {
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <button class="present-btn" data-key="f5" style="padding:14px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:14px; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
             <span>▶ Start (F5)</span>
+          </button>
+          <button class="present-btn" data-key="esc" style="padding:14px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:14px; color:#ff453a; font-size:12.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span>✕ Exit (Esc)</span>
+          </button>
+          <button class="present-btn" data-key="b" style="padding:14px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:14px; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span>⬛ Blackout (B)</span>
+          </button>
+          <button class="present-btn" data-key="space" style="padding:14px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:14px; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span>␣ Advance (Space)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
           </button>
           <button class="present-btn" data-key="esc" style="padding:14px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:14px; color:#ff453a; font-size:12.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
             <span>✕ Exit (Esc)</span>
@@ -1822,25 +1931,29 @@ function renderShelf(files) {
   });
 }
 
-// ══════════ WIRELESS TRACKPAD, LIVE PC DISPLAY & REMOTE ══════════
+// ══════════ WIRELESS TRACKPAD, LIVE PC DISPLAY & REMOTE KEYBOARD ══════════
 const btnModeTrackpad = document.getElementById("mode-trackpad");
 const btnModeDisplay = document.getElementById("mode-display");
+const btnModeKeyboard = document.getElementById("mode-keyboard");
 const btnModePresent = document.getElementById("mode-present");
 const viewTrackpadContent = document.getElementById("view-trackpad-content");
 const viewDisplayContent = document.getElementById("view-display-content");
+const viewKeyboardContent = document.getElementById("view-keyboard-content");
 const viewPresentContent = document.getElementById("view-present-content");
 
 const liveScreenImg = document.getElementById("live-screen-img");
 const screenLoadingOverlay = document.getElementById("screen-loading-overlay");
 const screenViewport = document.getElementById("screen-viewport");
+const btnViewportExpand = document.getElementById("btn-viewport-expand");
 
 let isLiveDisplayActive = false;
+let isViewportExpanded = false;
 let currentScreenZoom = 1.0;
 let panOffsetX = 0, panOffsetY = 0;
 
 function setRemoteMode(mode) {
-  const allBtns = [btnModeTrackpad, btnModeDisplay, btnModePresent];
-  const allViews = [viewTrackpadContent, viewDisplayContent, viewPresentContent];
+  const allBtns = [btnModeTrackpad, btnModeDisplay, btnModeKeyboard, btnModePresent];
+  const allViews = [viewTrackpadContent, viewDisplayContent, viewKeyboardContent, viewPresentContent];
 
   allBtns.forEach(b => {
     if (b) {
@@ -1866,6 +1979,13 @@ function setRemoteMode(mode) {
     }
     if (viewDisplayContent) viewDisplayContent.style.display = "block";
     startLiveStream();
+  } else if (mode === "keyboard") {
+    if (btnModeKeyboard) {
+      btnModeKeyboard.style.background = "var(--ios-red)";
+      btnModeKeyboard.style.color = "#fff";
+    }
+    if (viewKeyboardContent) viewKeyboardContent.style.display = "block";
+    stopLiveStream();
   } else if (mode === "present") {
     if (btnModePresent) {
       btnModePresent.style.background = "var(--ios-red)";
@@ -1878,7 +1998,23 @@ function setRemoteMode(mode) {
 
 if (btnModeTrackpad) btnModeTrackpad.addEventListener("click", () => setRemoteMode("trackpad"));
 if (btnModeDisplay) btnModeDisplay.addEventListener("click", () => setRemoteMode("display"));
+if (btnModeKeyboard) btnModeKeyboard.addEventListener("click", () => setRemoteMode("keyboard"));
 if (btnModePresent) btnModePresent.addEventListener("click", () => setRemoteMode("present"));
+
+if (btnViewportExpand && screenViewport) {
+  btnViewportExpand.addEventListener("click", () => {
+    isViewportExpanded = !isViewportExpanded;
+    if (isViewportExpanded) {
+      screenViewport.style.height = "70vh";
+      btnViewportExpand.textContent = "⊟ Compact";
+      btnViewportExpand.style.color = "var(--ios-red)";
+    } else {
+      screenViewport.style.height = "270px";
+      btnViewportExpand.textContent = "⛶ Expand";
+      btnViewportExpand.style.color = "#007aff";
+    }
+  });
+}
 
 function startLiveStream() {
   isLiveDisplayActive = true;
@@ -1997,6 +2133,104 @@ function sendKey(key) {
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({key: key})
   }).catch(() => {});
+}
+
+function sendType(text) {
+  if (!text) return;
+  fetch("/api/remote/type", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({text: text})
+  }).catch(() => {});
+}
+
+// ─── Remote PC Keyboard & Typing Listeners ───
+document.querySelectorAll(".pc-key-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const k = btn.dataset.key;
+    if (k) {
+      sendKey(k);
+      showToast(k.toUpperCase());
+      btn.style.transform = "scale(0.92)";
+      setTimeout(() => { btn.style.transform = "none"; }, 120);
+    }
+  });
+});
+
+// Quick typing on Live Screen
+const inputScreenType = document.getElementById("input-screen-type");
+const btnScreenSend = document.getElementById("btn-screen-send");
+if (btnScreenSend && inputScreenType) {
+  const doScreenSend = () => {
+    const val = inputScreenType.value;
+    if (val) {
+      sendType(val);
+      showToast("Typed on PC");
+      inputScreenType.value = "";
+    }
+  };
+  btnScreenSend.addEventListener("click", doScreenSend);
+  inputScreenType.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      doScreenSend();
+    }
+  });
+}
+
+// Quick typing on Trackpad
+const inputTrackpadType = document.getElementById("input-trackpad-type");
+const btnTrackpadSend = document.getElementById("btn-trackpad-send");
+if (btnTrackpadSend && inputTrackpadType) {
+  const doTrackpadSend = () => {
+    const val = inputTrackpadType.value;
+    if (val) {
+      sendType(val);
+      showToast("Typed on PC");
+      inputTrackpadType.value = "";
+    }
+  };
+  btnTrackpadSend.addEventListener("click", doTrackpadSend);
+  inputTrackpadType.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      doTrackpadSend();
+    }
+  });
+}
+
+// Dedicated Full Keyboard View
+const inputFullKeyboard = document.getElementById("input-full-keyboard");
+const btnFullKeyboardSend = document.getElementById("btn-full-keyboard-send");
+const checkLiveType = document.getElementById("check-live-type");
+let lastLiveText = "";
+
+if (btnFullKeyboardSend && inputFullKeyboard) {
+  btnFullKeyboardSend.addEventListener("click", () => {
+    const val = inputFullKeyboard.value;
+    if (val) {
+      sendType(val);
+      showToast("Text Sent to PC");
+      inputFullKeyboard.value = "";
+      lastLiveText = "";
+    }
+  });
+}
+
+if (inputFullKeyboard) {
+  inputFullKeyboard.addEventListener("input", () => {
+    if (checkLiveType && checkLiveType.checked) {
+      const cur = inputFullKeyboard.value;
+      if (cur.length > lastLiveText.length && cur.startsWith(lastLiveText)) {
+        const added = cur.slice(lastLiveText.length);
+        sendType(added);
+      } else if (cur.length < lastLiveText.length) {
+        const diff = lastLiveText.length - cur.length;
+        for (let i = 0; i < diff; i++) {
+          sendKey("backspace");
+        }
+      }
+      lastLiveText = cur;
+    }
+  });
 }
 
 // ─── Clipboard & Text Selection Quick Buttons ───
@@ -2319,18 +2553,18 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             try:
                 while self.server.service.is_running:
-                    frame, orig_w, orig_h = self.server.service.get_screen_bytes(max_width=850, quality=55)
+                    frame, orig_w, orig_h = self.server.service.get_screen_bytes(max_width=1920, quality=72)
                     self.wfile.write(b"--frame\r\n")
                     self.wfile.write(b"Content-Type: image/jpeg\r\n")
                     self.wfile.write(f"Content-Length: {len(frame)}\r\n\r\n".encode("utf-8"))
                     self.wfile.write(frame)
                     self.wfile.write(b"\r\n")
-                    time.sleep(0.065)
+                    time.sleep(0.06)
             except (ConnectionResetError, BrokenPipeError, socket.error):
                 return
 
         elif path == "/api/remote/screen":
-            frame, orig_w, orig_h = self.server.service.get_screen_bytes(max_width=850, quality=55)
+            frame, orig_w, orig_h = self.server.service.get_screen_bytes(max_width=1920, quality=72)
             self.send_response(200)
             self.send_header("Content-Type", "image/jpeg")
             self.send_header("Content-Length", str(len(frame)))
@@ -2444,6 +2678,15 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             data = json.loads(body)
             key = data.get("key", "")
             self.server.service.handle_remote_key(key)
+            self._send_json({"success": True})
+            return
+
+        elif path == "/api/remote/type":
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            text = data.get("text", "")
+            if text:
+                self.server.service.handle_remote_type(text)
             self._send_json({"success": True})
             return
 
@@ -2619,35 +2862,77 @@ class PhoneDropService:
         except Exception:
             pass
 
-    def get_screen_bytes(self, max_width: int = 850, quality: int = 55) -> Tuple[bytes, int, int]:
-        """Captures real-time screen with red cursor overlay for live phone display mirroring."""
+    def get_screen_bytes(self, max_width: int = 1920, quality: int = 75) -> Tuple[bytes, int, int]:
+        """Captures real-time screen with glowing dual-ring cursor overlay for high-definition phone display mirroring."""
         try:
             self._attach_desktop()
             user32 = ctypes.windll.user32
             img = ImageGrab.grab()
             orig_w, orig_h = img.size
 
-            # Draw prominent glowing red cursor
+            # Draw high-visibility target cursor (cyan glow ring + vivid red core + white center)
             pt = _POINT()
             if user32.GetCursorPos(ctypes.byref(pt)):
                 draw = ImageDraw.Draw(img)
                 cx, cy = pt.x, pt.y
-                r = 14
-                draw.ellipse((cx - r - 4, cy - r - 4, cx + r + 4, cy + r + 4), fill=(255, 69, 58, 90))
-                draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(255, 69, 58), outline=(255, 255, 255), width=2)
+                # Outer cyan aura ring
+                r_outer = 16
+                draw.ellipse((cx - r_outer, cy - r_outer, cx + r_outer, cy + r_outer), outline=(0, 240, 255), width=3)
+                # Inner vivid red core
+                r_inner = 8
+                draw.ellipse((cx - r_inner, cy - r_inner, cx + r_inner, cy + r_inner), fill=(255, 45, 85), outline=(255, 255, 255), width=2)
+                # Center white dot
+                draw.ellipse((cx - 2, cy - 2, cx + 2, cy + 2), fill=(255, 255, 255))
 
-            target_w = min(max_width, orig_w)
-            target_h = int(target_w * orig_h / orig_w)
-            resized = img.resize((target_w, target_h), Image.Resampling.BILINEAR)
+            if max_width and orig_w > max_width:
+                target_w = max_width
+                target_h = int(target_w * orig_h / orig_w)
+                img = img.resize((target_w, target_h), Image.Resampling.BILINEAR)
 
             buf = io.BytesIO()
-            resized.save(buf, format="JPEG", quality=quality)
+            img.save(buf, format="JPEG", quality=quality, optimize=False)
             return buf.getvalue(), orig_w, orig_h
         except Exception as e:
             print(f"[PhoneDropService] Error capturing screen: {e}")
             buf = io.BytesIO()
             Image.new("RGB", (320, 180), color="#111115").save(buf, format="JPEG")
             return buf.getvalue(), 1920, 1080
+
+    def handle_remote_type(self, text: str):
+        """Type arbitrary Unicode text strings directly into the active Windows application."""
+        if not text:
+            return
+        try:
+            self._attach_desktop()
+            user32 = ctypes.windll.user32
+            INPUT_KEYBOARD = 1
+            KEYEVENTF_UNICODE = 0x0004
+            KEYEVENTF_KEYUP = 0x0002
+
+            for ch in text:
+                if ch in ("\n", "\r"):
+                    user32.keybd_event(0x0D, 0, 0, 0)
+                    time.sleep(0.008)
+                    user32.keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0)
+                elif ch == "\t":
+                    user32.keybd_event(0x09, 0, 0, 0)
+                    time.sleep(0.008)
+                    user32.keybd_event(0x09, 0, KEYEVENTF_KEYUP, 0)
+                elif ch == "\b":
+                    user32.keybd_event(0x08, 0, 0, 0)
+                    time.sleep(0.008)
+                    user32.keybd_event(0x08, 0, KEYEVENTF_KEYUP, 0)
+                else:
+                    code = ord(ch)
+                    inp_down = _INPUT(type=INPUT_KEYBOARD)
+                    inp_down.u.ki = _KEYBDINPUT(wVk=0, wScan=code, dwFlags=KEYEVENTF_UNICODE, time=0, dwExtraInfo=None)
+                    inp_up = _INPUT(type=INPUT_KEYBOARD)
+                    inp_up.u.ki = _KEYBDINPUT(wVk=0, wScan=code, dwFlags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, time=0, dwExtraInfo=None)
+                    arr = (_INPUT * 2)(inp_down, inp_up)
+                    user32.SendInput(2, ctypes.byref(arr), ctypes.sizeof(_INPUT))
+                time.sleep(0.004)
+        except Exception as e:
+            print(f"[PhoneDropService] Error in handle_remote_type: {e}")
 
     def handle_remote_mouse(self, action: str, dx: float = 0.0, dy: float = 0.0, btn: str = "left", x: float = 0.0, y: float = 0.0):
         """Instant Win32 hardware mouse event injection (move, click, scroll, drag, zoom) with 0ms latency."""
@@ -2702,72 +2987,87 @@ class PhoneDropService:
             print(f"[PhoneDropService] Error in handle_remote_mouse: {e}")
 
     def handle_remote_key(self, key: str):
-        """Instant Win32 virtual keyboard injection for presentation & clipboard shortcuts."""
+        """Instant Win32 virtual keyboard injection for typing, navigation, and clipboard shortcuts."""
         try:
             self._attach_desktop()
             user32 = ctypes.windll.user32
             KEYEVENTF_KEYUP = 0x0002
-            key_lower = key.lower()
+            key_lower = key.lower().strip()
 
             # Clipboard & Editing Shortcuts
-            if key_lower == "copy":
+            if key_lower in ("copy", "ctrlc"):
                 user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
                 user32.keybd_event(0x43, 0, 0, 0)  # 'C'
-                time.sleep(0.015)
+                time.sleep(0.012)
                 user32.keybd_event(0x43, 0, KEYEVENTF_KEYUP, 0)
                 user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
                 return
-            elif key_lower == "paste":
+            elif key_lower in ("paste", "ctrlv"):
                 user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
                 user32.keybd_event(0x56, 0, 0, 0)  # 'V'
-                time.sleep(0.015)
+                time.sleep(0.012)
                 user32.keybd_event(0x56, 0, KEYEVENTF_KEYUP, 0)
                 user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
                 return
-            elif key_lower == "cut":
+            elif key_lower in ("cut", "ctrlx"):
                 user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
                 user32.keybd_event(0x58, 0, 0, 0)  # 'X'
-                time.sleep(0.015)
+                time.sleep(0.012)
                 user32.keybd_event(0x58, 0, KEYEVENTF_KEYUP, 0)
                 user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
                 return
-            elif key_lower == "selectall":
+            elif key_lower in ("selectall", "ctrla"):
                 user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
                 user32.keybd_event(0x41, 0, 0, 0)  # 'A'
-                time.sleep(0.015)
+                time.sleep(0.012)
                 user32.keybd_event(0x41, 0, KEYEVENTF_KEYUP, 0)
                 user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
                 return
-            elif key_lower == "undo":
+            elif key_lower in ("undo", "ctrlz"):
                 user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
                 user32.keybd_event(0x5A, 0, 0, 0)  # 'Z'
-                time.sleep(0.015)
+                time.sleep(0.012)
                 user32.keybd_event(0x5A, 0, KEYEVENTF_KEYUP, 0)
                 user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
                 return
+            elif key_lower in ("alttab", "switch"):
+                user32.keybd_event(0x12, 0, 0, 0)  # Alt
+                user32.keybd_event(0x09, 0, 0, 0)  # Tab
+                time.sleep(0.015)
+                user32.keybd_event(0x09, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x12, 0, KEYEVENTF_KEYUP, 0)
+                return
 
-            # Presentation & Navigation keys
-            vk = 0
-            if key_lower == "next":
-                vk = 0x27  # VK_RIGHT (Next Slide)
-            elif key_lower == "prev":
-                vk = 0x25  # VK_LEFT (Previous Slide)
-            elif key_lower == "f5":
-                vk = 0x74  # VK_F5 (Start Presentation)
-            elif key_lower == "esc":
-                vk = 0x1B  # VK_ESCAPE (Exit Presentation)
-            elif key_lower == "b":
-                vk = 0x42  # 'B' (Black Screen Toggle)
-            elif key_lower == "space":
-                vk = 0x20  # VK_SPACE (Advance Slide)
-            elif key_lower == "volup":
-                vk = 0xAF  # VK_VOLUME_UP
-            elif key_lower == "voldown":
-                vk = 0xAE  # VK_VOLUME_DOWN
+            # Special Keys mapping
+            vk_map = {
+                "enter": 0x0D,
+                "return": 0x0D,
+                "backspace": 0x08,
+                "tab": 0x09,
+                "space": 0x20,
+                "esc": 0x1B,
+                "escape": 0x1B,
+                "win": 0x5B,
+                "up": 0x26,
+                "down": 0x28,
+                "left": 0x25,
+                "right": 0x27,
+                "del": 0x2E,
+                "delete": 0x2E,
+                "home": 0x24,
+                "end": 0x23,
+                "next": 0x27,
+                "prev": 0x25,
+                "f5": 0x74,
+                "b": 0x42,
+                "volup": 0xAF,
+                "voldown": 0xAE,
+            }
 
+            vk = vk_map.get(key_lower, 0)
             if vk:
                 user32.keybd_event(vk, 0, 0, 0)
-                time.sleep(0.015)
+                time.sleep(0.012)
                 user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
         except Exception as e:
             print(f"[PhoneDropService] Error in handle_remote_key: {e}")

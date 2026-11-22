@@ -5274,7 +5274,6 @@ class OriginIsland(QWidget):
                     from tools.wallpaper import pick_and_set_wallpaper
                     path = pick_and_set_wallpaper(self)
                     if path:
-                        import os
                         self._ambient_toast_time = time.monotonic()
                         self._ambient_toast_name = f"Wallpaper: {os.path.basename(path)} 🖼️"
                         self._wake_timer()
