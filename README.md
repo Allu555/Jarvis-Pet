@@ -32,6 +32,14 @@ Floating interactive top-notch overlay inspired by modern mobile dynamic islands
 | :---: | :---: |
 | ![Origin Island Notch](docs/images/origin_island_notch.png) | ![Origin Island Player](docs/images/origin_island_player.png) |
 
+#### 🎛️ Multi-Feature Island Suite
+
+| 🌤️ Live Weather & Clock HUD | ⚙️ Control Center & Quick Toggles |
+| :---: | :---: |
+| ![Origin Island Weather](docs/images/origin_island_weather.png) | ![Origin Island Controls](docs/images/origin_island_controls.png) |
+| **📁 Smart Shelf (File & QR Stash)** | **⚡ Hardware Telemetry & Tools** |
+| ![Origin Island Smart Shelf](docs/images/origin_island_shelf.png) | ![Origin Island Telemetry](docs/images/origin_island_telemetry.png) |
+
 - **Real-Time Media Detection**: Windows SMTC integration for Spotify, YouTube, and media players.
 - **Live WASAPI Audio Visualizer**: 60 FPS real-time audio loopback frequency spectrum with adaptive theme colors.
 - **100% In-Memory Karaoke Lyrics Engine**: Real-time synchronized lyrics via LRCLIB with zero disk writes, keeping the repository clean and lightweight.
@@ -130,6 +138,31 @@ The entire suite is engineered for zero system lag and minimal resource consumpt
 | **Expand Dynamic Island** | Hover or click top notch |
 | **Phone Link QR** | Click Phone icon on Island shelf |
 | **Settings Dialog** | Right-click pet → Settings ⚙️ |
+
+---
+
+## 👥 Contributors & Credits
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="180">
+        <a href="https://github.com/Allu555">
+          <img src="https://github.com/Allu555.png" width="96px;" style="border-radius: 50%;" alt="Alameen Najeeb"/><br /><br />
+          <sub><b>Alameen Najeeb</b></sub><br />
+          <sub>Creator & Lead Architect</sub>
+        </a>
+      </td>
+      <td align="center" width="180">
+        <a href="https://github.com/google-antigravity">
+          <img src="https://avatars.githubusercontent.com/u/242056456?v=4" width="96px;" style="border-radius: 50%;" alt="Google Antigravity"/><br /><br />
+          <sub><b>Google Antigravity</b></sub><br />
+          <sub>AI Autonomous Co-Developer</sub>
+        </a>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ---
 
