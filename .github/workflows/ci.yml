@@ -33,24 +33,35 @@ jobs:
           pip install -r requirements.txt
 
       - name: Validate Python Syntax (All Modules)
+        shell: python
         run: |
-          python -m compileall -q .
-          Write-Host "All Python source files compiled with 100% syntax validity!"
+          import compileall, sys
+          success = compileall.compile_dir(".", quiet=1)
+          if not success:
+              sys.exit("Python syntax compilation failed!")
+          print("All Python modules compiled successfully with 100% syntax validity!")
 
       - name: Verify Core Imports & Subsystems
+        shell: python
         run: |
-          python -c "
-          import PySide6, PIL, qrcode, json
+          import PySide6
+          import PIL
+          import qrcode
+          import json
           from pathlib import Path
-          print('PySide6 Version:', PySide6.__version__)
-          print('Pillow Version:', PIL.__version__)
-          print('QRCode Version:', qrcode.__version__)
 
-          # Validate configuration JSONs
-          settings_file = Path('settings.json')
+          print("PySide6 Version:", PySide6.__version__)
+          print("Pillow Version: ", PIL.__version__)
+
+          # Test QRCode generation
+          test_qr = qrcode.make("https://github.com/Allu555/Jarvis-Pet")
+          print("QRCode Engine:    Verified & Active")
+
+          # Validate configuration JSON
+          settings_file = Path("settings.json")
           if settings_file.exists():
-              with open(settings_file, 'r', encoding='utf-8') as f:
+              with open(settings_file, "r", encoding="utf-8") as f:
                   data = json.load(f)
-              print('settings.json successfully validated! Keys:', len(data))
-          print('All verification checks passed!')
-          "
+              print(f"settings.json:    Valid ({len(data)} configuration keys)")
+
+          print("All verification checks passed successfully!")
