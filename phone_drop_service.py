@@ -21,6 +21,7 @@ import ctypes
 import urllib.parse
 import threading
 import queue
+import collections
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from typing import Optional, Callable, Dict, Any, List, Tuple
@@ -1702,6 +1703,7 @@ header {
 </style>
 </head>
 <body>
+<audio id="pc-audio-stream-player" preload="none" playsinline webkit-playsinline></audio>
 
 <!-- Ambient Backlight -->
 <div class="ambient-backdrop">
@@ -3561,7 +3563,6 @@ setInterval(() => {
   }
 }, 100);
 // ════════════ WIRELESS EARPHONES LIVE PC AUDIO STREAM ════════════
-const audioStreamPlayer = document.getElementById("pc-audio-stream-player");
 const btnToggleAudioStream = document.getElementById("btn-toggle-audio-stream");
 const btnLiveScreenAudio = document.getElementById("btn-live-screen-audio");
 const audioStreamStatus = document.getElementById("audio-stream-status");
@@ -3573,12 +3574,23 @@ const labelLiveAudio = document.getElementById("label-live-audio");
 
 let isLiveAudioActive = false;
 
+function getAudioPlayer() {
+  let p = document.getElementById("pc-audio-stream-player");
+  if (!p) {
+    p = document.createElement("audio");
+    p.id = "pc-audio-stream-player";
+    p.setAttribute("playsinline", "true");
+    p.setAttribute("webkit-playsinline", "true");
+    p.preload = "none";
+    document.body.appendChild(p);
+  }
+  return p;
+}
+
 function updateAudioStreamUI(active) {
   isLiveAudioActive = active;
   if (active) {
-    if (audioStreamStatus) {
-      audioStreamStatus.className = "audio-status-pill online";
-    }
+    if (audioStreamStatus) audioStreamStatus.className = "audio-status-pill online";
     if (audioStatusText) audioStatusText.innerText = "LIVE (PLAYING)";
     if (btnToggleAudioStream) {
       btnToggleAudioStream.className = "audio-stream-btn stop";
@@ -3590,9 +3602,7 @@ function updateAudioStreamUI(active) {
       if (labelLiveAudio) labelLiveAudio.innerText = "Audio: ON";
     }
   } else {
-    if (audioStreamStatus) {
-      audioStreamStatus.className = "audio-status-pill offline";
-    }
+    if (audioStreamStatus) audioStreamStatus.className = "audio-status-pill offline";
     if (audioStatusText) audioStatusText.innerText = "OFFLINE";
     if (btnToggleAudioStream) {
       btnToggleAudioStream.className = "audio-stream-btn start";
@@ -3607,26 +3617,44 @@ function updateAudioStreamUI(active) {
 }
 
 function startAudioStream() {
-  if (!audioStreamPlayer) return;
-  audioStreamPlayer.src = "/api/audio/stream?t=" + Date.now();
+  const p = getAudioPlayer();
+  p.crossOrigin = "anonymous";
+  p.src = "/api/audio/stream?t=" + Date.now();
   if (sliderEarphonesVol) {
-    audioStreamPlayer.volume = parseInt(sliderEarphonesVol.value, 10) / 100;
+    p.volume = parseInt(sliderEarphonesVol.value, 10) / 100;
   }
-  audioStreamPlayer.play().then(() => {
+
+  p.onplaying = () => {
     updateAudioStreamUI(true);
     showToast("🎧 Earphones Active: Streaming PC Audio");
-  }).catch((err) => {
-    console.warn("Audio autoplay blocked:", err);
+  };
+  p.onwaiting = () => {
+    if (audioStatusText) audioStatusText.innerText = "BUFFERING…";
+  };
+  p.onerror = () => {
+    console.warn("Audio stream playback error:", p.error);
     updateAudioStreamUI(false);
-    showToast("Tap again to allow audio playback");
-  });
+    showToast("Audio stream error - Tap to retry");
+  };
+
+  p.load();
+  const playPromise = p.play();
+  if (playPromise !== undefined) {
+    playPromise.then(() => {
+      updateAudioStreamUI(true);
+    }).catch((err) => {
+      console.warn("Audio autoplay blocked:", err);
+      updateAudioStreamUI(false);
+      showToast("Tap again to allow phone audio playback");
+    });
+  }
 }
 
 function stopAudioStream() {
-  if (!audioStreamPlayer) return;
-  audioStreamPlayer.pause();
-  audioStreamPlayer.removeAttribute("src");
-  audioStreamPlayer.load();
+  const p = getAudioPlayer();
+  p.pause();
+  p.removeAttribute("src");
+  p.load();
   updateAudioStreamUI(false);
   showToast("Audio Stream Stopped");
 }
@@ -3650,17 +3678,12 @@ if (btnLiveScreenAudio) {
 if (sliderEarphonesVol) {
   sliderEarphonesVol.addEventListener("input", (e) => {
     const val = parseInt(e.target.value, 10);
-    if (audioStreamPlayer) audioStreamPlayer.volume = val / 100;
+    const p = getAudioPlayer();
+    if (p) p.volume = val / 100;
     if (earphonesVolLabel) earphonesVolLabel.innerText = val + "%";
   });
 }
-
-if (audioStreamPlayer) {
-  audioStreamPlayer.addEventListener("ended", () => updateAudioStreamUI(false));
-  audioStreamPlayer.addEventListener("error", () => updateAudioStreamUI(false));
-}
 </script>
-<audio id="pc-audio-stream-player" preload="none"></audio>
 </body>
 </html>
 """
@@ -3677,6 +3700,7 @@ class AudioStreamBroadcaster:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._header_chunk: bytes = b""
+        self._recent_chunks: collections.deque = collections.deque(maxlen=24)
         self._device_name: str = "Default Speaker"
         self._available = False
         try:
@@ -3705,10 +3729,15 @@ class AudioStreamBroadcaster:
         return self._device_name
 
     def add_listener(self) -> queue.Queue:
-        q: queue.Queue = queue.Queue(maxsize=120)
+        q: queue.Queue = queue.Queue(maxsize=150)
         with self._lock:
             if self._header_chunk:
                 q.put(self._header_chunk)
+            for chunk in self._recent_chunks:
+                try:
+                    q.put_nowait(chunk)
+                except queue.Full:
+                    pass
             self._listeners.append(q)
             if not self._running and self._available:
                 self._running = True
@@ -3727,6 +3756,7 @@ class AudioStreamBroadcaster:
         with self._lock:
             self._running = False
             self._listeners.clear()
+            self._recent_chunks.clear()
 
     def _capture_loop(self):
         try:
@@ -3773,6 +3803,7 @@ class AudioStreamBroadcaster:
                         with self._lock:
                             if not self._header_chunk:
                                 self._header_chunk = encoded
+                            self._recent_chunks.append(encoded)
                             for q in list(self._listeners):
                                 try:
                                     q.put_nowait(encoded)
@@ -3789,6 +3820,7 @@ class AudioStreamBroadcaster:
         finally:
             with self._lock:
                 self._header_chunk = b""
+                self._recent_chunks.clear()
                 self._running = False
 
 
@@ -3799,6 +3831,14 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         pass
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Range, Authorization")
+        self.send_header("Access-Control-Max-Age", "86400")
+        self.end_headers()
 
     def _send_json(self, data: dict, status: int = 200):
         body = json.dumps(data).encode("utf-8")
@@ -3907,6 +3947,7 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
 
             self.send_response(200)
             self.send_header("Content-Type", "audio/mpeg")
+            self.send_header("Accept-Ranges", "none")
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_header("Pragma", "no-cache")
             self.send_header("Expires", "0")
