@@ -20,6 +20,7 @@ import socket
 import ctypes
 import urllib.parse
 import threading
+import queue
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from typing import Optional, Callable, Dict, Any, List, Tuple
@@ -1560,6 +1561,144 @@ header {
   transform: translateX(-50%) translateY(0);
   opacity: 1;
 }
+
+/* ════════════ WIRELESS EARPHONES / LIVE PC AUDIO STREAM ════════════ */
+.wireless-earphones-card {
+  margin-top: 12px;
+  background: rgba(22, 22, 28, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.audio-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.audio-status-pill .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.audio-status-pill.offline {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+}
+.audio-status-pill.offline .status-dot {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.audio-status-pill.online {
+  background: rgba(48, 209, 88, 0.18);
+  color: #30d158;
+  border: 1px solid rgba(48, 209, 88, 0.4);
+}
+.audio-status-pill.online .status-dot {
+  background: #30d158;
+  box-shadow: 0 0 8px #30d158;
+  animation: pulse-dot 1.2s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.audio-stream-btn {
+  flex: 1;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.audio-stream-btn.start {
+  background: linear-gradient(135deg, #fa2d48 0%, #ff526b 100%);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(250, 45, 72, 0.35);
+}
+.audio-stream-btn.start:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(250, 45, 72, 0.2);
+}
+
+.audio-stream-btn.stop {
+  background: rgba(255, 69, 58, 0.2);
+  color: #ff453a;
+  border: 1px solid rgba(255, 69, 58, 0.4);
+}
+.audio-stream-btn.stop:active {
+  transform: scale(0.95);
+}
+
+/* Equalizer Bars */
+.audio-eq-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 24px;
+  padding: 0 8px;
+}
+
+.audio-eq-bars .bar {
+  width: 4px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+  transition: height 0.15s ease, background-color 0.2s ease;
+}
+
+.audio-eq-bars.active .bar {
+  background: var(--ios-red);
+}
+
+.audio-eq-bars.active .bar-1 { animation: eq-bounce 0.6s infinite ease-in-out; }
+.audio-eq-bars.active .bar-2 { animation: eq-bounce 0.8s infinite ease-in-out 0.15s; }
+.audio-eq-bars.active .bar-3 { animation: eq-bounce 0.5s infinite ease-in-out 0.3s; }
+.audio-eq-bars.active .bar-4 { animation: eq-bounce 0.7s infinite ease-in-out 0.45s; }
+
+@keyframes eq-bounce {
+  0%, 100% { height: 5px; }
+  50% { height: 22px; }
+}
+
+.live-screen-audio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 0.5px solid rgba(255, 255, 255, 0.18);
+  background: rgba(40, 40, 48, 0.85);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.live-screen-audio-btn.active {
+  background: rgba(250, 45, 72, 0.25);
+  border-color: var(--ios-red);
+  color: #fff;
+}
 </style>
 </head>
 <body>
@@ -1660,6 +1799,47 @@ header {
               <span style="font-size:12px; letter-spacing:0.4px;">VOLUME</span>
             </div>
             <span class="vol-label" id="vol-pct-text">50%</span>
+          </div>
+        </div>
+
+        <!-- Wireless Earphones Mode / Live PC Audio Streaming -->
+        <div class="wireless-earphones-card">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:18px;">🎧</span>
+              <div>
+                <div style="font-size:12.5px; font-weight:700; color:#fff;">Wireless Earphones Mode</div>
+                <div style="font-size:10px; color:rgba(255,255,255,0.45);">Stream PC Audio to Phone</div>
+              </div>
+            </div>
+            <div id="audio-stream-status" class="audio-status-pill offline">
+              <span class="status-dot"></span>
+              <span id="audio-status-text">OFFLINE</span>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
+            <button id="btn-toggle-audio-stream" class="audio-stream-btn start">
+              <span id="audio-btn-icon">▶</span>
+              <span id="audio-btn-label">Listen to PC</span>
+            </button>
+            <div class="audio-eq-bars" id="audio-eq-bars">
+              <div class="bar bar-1"></div>
+              <div class="bar bar-2"></div>
+              <div class="bar bar-3"></div>
+              <div class="bar bar-4"></div>
+            </div>
+          </div>
+
+          <!-- Earphones Volume Control -->
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12px; color:rgba(255,255,255,0.5);">🔈</span>
+            <input type="range" id="slider-earphones-vol" min="0" max="100" value="80" style="flex:1; accent-color:var(--ios-red);">
+            <span style="font-size:12px; color:rgba(255,255,255,0.5);">🔊</span>
+            <span id="earphones-vol-label" style="font-size:11px; font-weight:700; min-width:32px; color:rgba(255,255,255,0.85); text-align:right;">80%</span>
+          </div>
+          <div style="font-size:9.5px; color:rgba(255,255,255,0.35); margin-top:6px; line-height:1.4;">
+            ⚡ Low-latency live stream of all PC audio (YouTube, Spotify, Movies, Games) directly through phone earphones. Keeps playing in background.
           </div>
         </div>
       </div>
@@ -1955,6 +2135,10 @@ header {
                   <button class="screen-zoom-btn" data-zoom="2.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">2x</button>
                   <button class="screen-zoom-btn" data-zoom="3.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">3x</button>
                 </div>
+                <!-- Live Screen Audio Toggle -->
+                <button id="btn-live-screen-audio" class="live-screen-audio-btn" title="Toggle Live Audio Stream">
+                  <span>🎧</span> <span id="label-live-audio">Audio</span>
+                </button>
                 <!-- Expand / Compact Viewport -->
                 <button id="btn-viewport-expand" style="padding:4px 9px; border-radius:8px; font-size:11px; font-weight:700; border:0.5px solid var(--ios-border); background:rgba(40,40,48,0.85); color:#007aff; cursor:pointer;">⛶ Expand</button>
               </div>
@@ -3376,10 +3560,236 @@ setInterval(() => {
     evaluateCurrentLyric();
   }
 }, 100);
+// ════════════ WIRELESS EARPHONES LIVE PC AUDIO STREAM ════════════
+const audioStreamPlayer = document.getElementById("pc-audio-stream-player");
+const btnToggleAudioStream = document.getElementById("btn-toggle-audio-stream");
+const btnLiveScreenAudio = document.getElementById("btn-live-screen-audio");
+const audioStreamStatus = document.getElementById("audio-stream-status");
+const audioStatusText = document.getElementById("audio-status-text");
+const audioEqBars = document.getElementById("audio-eq-bars");
+const sliderEarphonesVol = document.getElementById("slider-earphones-vol");
+const earphonesVolLabel = document.getElementById("earphones-vol-label");
+const labelLiveAudio = document.getElementById("label-live-audio");
+
+let isLiveAudioActive = false;
+
+function updateAudioStreamUI(active) {
+  isLiveAudioActive = active;
+  if (active) {
+    if (audioStreamStatus) {
+      audioStreamStatus.className = "audio-status-pill online";
+    }
+    if (audioStatusText) audioStatusText.innerText = "LIVE (PLAYING)";
+    if (btnToggleAudioStream) {
+      btnToggleAudioStream.className = "audio-stream-btn stop";
+      btnToggleAudioStream.innerHTML = "<span>⏹</span><span>Stop Listening</span>";
+    }
+    if (audioEqBars) audioEqBars.classList.add("active");
+    if (btnLiveScreenAudio) {
+      btnLiveScreenAudio.classList.add("active");
+      if (labelLiveAudio) labelLiveAudio.innerText = "Audio: ON";
+    }
+  } else {
+    if (audioStreamStatus) {
+      audioStreamStatus.className = "audio-status-pill offline";
+    }
+    if (audioStatusText) audioStatusText.innerText = "OFFLINE";
+    if (btnToggleAudioStream) {
+      btnToggleAudioStream.className = "audio-stream-btn start";
+      btnToggleAudioStream.innerHTML = "<span>▶</span><span>Listen to PC</span>";
+    }
+    if (audioEqBars) audioEqBars.classList.remove("active");
+    if (btnLiveScreenAudio) {
+      btnLiveScreenAudio.classList.remove("active");
+      if (labelLiveAudio) labelLiveAudio.innerText = "Audio";
+    }
+  }
+}
+
+function startAudioStream() {
+  if (!audioStreamPlayer) return;
+  audioStreamPlayer.src = "/api/audio/stream?t=" + Date.now();
+  if (sliderEarphonesVol) {
+    audioStreamPlayer.volume = parseInt(sliderEarphonesVol.value, 10) / 100;
+  }
+  audioStreamPlayer.play().then(() => {
+    updateAudioStreamUI(true);
+    showToast("🎧 Earphones Active: Streaming PC Audio");
+  }).catch((err) => {
+    console.warn("Audio autoplay blocked:", err);
+    updateAudioStreamUI(false);
+    showToast("Tap again to allow audio playback");
+  });
+}
+
+function stopAudioStream() {
+  if (!audioStreamPlayer) return;
+  audioStreamPlayer.pause();
+  audioStreamPlayer.removeAttribute("src");
+  audioStreamPlayer.load();
+  updateAudioStreamUI(false);
+  showToast("Audio Stream Stopped");
+}
+
+function toggleAudioStream() {
+  if (isLiveAudioActive) {
+    stopAudioStream();
+  } else {
+    startAudioStream();
+  }
+}
+
+if (btnToggleAudioStream) {
+  btnToggleAudioStream.addEventListener("click", toggleAudioStream);
+}
+
+if (btnLiveScreenAudio) {
+  btnLiveScreenAudio.addEventListener("click", toggleAudioStream);
+}
+
+if (sliderEarphonesVol) {
+  sliderEarphonesVol.addEventListener("input", (e) => {
+    const val = parseInt(e.target.value, 10);
+    if (audioStreamPlayer) audioStreamPlayer.volume = val / 100;
+    if (earphonesVolLabel) earphonesVolLabel.innerText = val + "%";
+  });
+}
+
+if (audioStreamPlayer) {
+  audioStreamPlayer.addEventListener("ended", () => updateAudioStreamUI(false));
+  audioStreamPlayer.addEventListener("error", () => updateAudioStreamUI(false));
+}
 </script>
+<audio id="pc-audio-stream-player" preload="none"></audio>
 </body>
 </html>
 """
+
+
+# ─── Live PC Audio Stream Broadcaster ─────────────────────────────────────────
+
+class AudioStreamBroadcaster:
+    """Live PC Audio Loopback to MP3 Stream Broadcaster for Wireless Earphones Mode."""
+
+    def __init__(self):
+        self._listeners: List[queue.Queue] = []
+        self._lock = threading.Lock()
+        self._running = False
+        self._thread: Optional[threading.Thread] = None
+        self._header_chunk: bytes = b""
+        self._device_name: str = "Default Speaker"
+        self._available = False
+        try:
+            import soundcard as sc
+            import av
+            import numpy as np
+            self._available = True
+        except ImportError:
+            self._available = False
+
+    @property
+    def is_available(self) -> bool:
+        return self._available
+
+    @property
+    def is_active(self) -> bool:
+        return self._running
+
+    @property
+    def listener_count(self) -> int:
+        with self._lock:
+            return len(self._listeners)
+
+    @property
+    def device_name(self) -> str:
+        return self._device_name
+
+    def add_listener(self) -> queue.Queue:
+        q: queue.Queue = queue.Queue(maxsize=120)
+        with self._lock:
+            if self._header_chunk:
+                q.put(self._header_chunk)
+            self._listeners.append(q)
+            if not self._running and self._available:
+                self._running = True
+                self._thread = threading.Thread(target=self._capture_loop, daemon=True, name="AudioStreamCapture")
+                self._thread.start()
+        return q
+
+    def remove_listener(self, q: queue.Queue):
+        with self._lock:
+            if q in self._listeners:
+                self._listeners.remove(q)
+            if not self._listeners:
+                self._running = False
+
+    def stop(self):
+        with self._lock:
+            self._running = False
+            self._listeners.clear()
+
+    def _capture_loop(self):
+        try:
+            import soundcard as sc
+            import av
+            import numpy as np
+
+            spk = sc.default_speaker()
+            if not spk:
+                return
+            self._device_name = str(spk.name)
+            mic = sc.get_microphone(id=str(spk.name), include_loopback=True)
+            if not mic:
+                return
+
+            class MemoryWriter:
+                def __init__(self):
+                    self.chunks: List[bytes] = []
+                def write(self, d: bytes) -> int:
+                    self.chunks.append(d)
+                    return len(d)
+                def get_and_clear(self) -> bytes:
+                    res = b"".join(self.chunks)
+                    self.chunks.clear()
+                    return res
+
+            writer = MemoryWriter()
+            container = av.open(writer, mode="w", format="mp3")
+            stream = container.add_stream("mp3", rate=44100)
+            stream.bit_rate = 128000
+            stream.channels = 2
+
+            with mic.recorder(samplerate=44100, channels=2) as rec:
+                while self._running:
+                    # 1152 samples (~26.1ms audio per MP3 frame)
+                    data = rec.record(numframes=1152)
+                    planar = np.ascontiguousarray(data.T, dtype=np.float32)
+                    frame = av.AudioFrame.from_ndarray(planar, format="fltp", layout="stereo")
+                    frame.rate = 44100
+                    for p in stream.encode(frame):
+                        container.mux(p)
+                    encoded = writer.get_and_clear()
+                    if encoded:
+                        with self._lock:
+                            if not self._header_chunk:
+                                self._header_chunk = encoded
+                            for q in list(self._listeners):
+                                try:
+                                    q.put_nowait(encoded)
+                                except queue.Full:
+                                    pass
+            try:
+                for p in stream.encode(None):
+                    container.mux(p)
+                container.close()
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"[AudioBroadcaster] Error in loopback audio streaming: {e}")
+        finally:
+            with self._lock:
+                self._header_chunk = b""
+                self._running = False
 
 
 # ─── HTTP Request Handler ─────────────────────────────────────────────────────
@@ -3487,6 +3897,48 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(frame)
+            return
+
+        elif path == "/api/audio/stream":
+            broadcaster = getattr(self.server.service, "audio_broadcaster", None)
+            if not broadcaster or not broadcaster.is_available:
+                self.send_error(503, "Audio streamer unavailable")
+                return
+
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/mpeg")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            q = broadcaster.add_listener()
+            try:
+                while self.server.service.is_running:
+                    try:
+                        chunk = q.get(timeout=2.0)
+                        if chunk:
+                            self.wfile.write(chunk)
+                            self.wfile.flush()
+                    except queue.Empty:
+                        continue
+            except (ConnectionResetError, BrokenPipeError, ConnectionAbortedError, socket.error):
+                return
+            finally:
+                broadcaster.remove_listener(q)
+            return
+
+        elif path == "/api/audio/status":
+            broadcaster = getattr(self.server.service, "audio_broadcaster", None)
+            data = {
+                "available": broadcaster is not None and broadcaster.is_available,
+                "active": broadcaster.is_active if broadcaster else False,
+                "listeners": broadcaster.listener_count if broadcaster else 0,
+                "device": broadcaster.device_name if broadcaster else "None",
+            }
+            self._send_json(data)
             return
 
         elif path.startswith("/api/download/"):
@@ -3691,6 +4143,8 @@ class PhoneDropService:
         self.cb_get_lyrics: Optional[Callable[[], Dict[str, Any]]] = None
         self.cb_jarvis_query: Optional[Callable[[str], None]] = None
 
+        self.audio_broadcaster = AudioStreamBroadcaster()
+
         self._qr_image: Optional[Image.Image] = None
 
     @property
@@ -3727,6 +4181,8 @@ class PhoneDropService:
         print(f"[PhoneDropService] Apple iOS Hub online at {self.url}")
 
     def stop(self):
+        if hasattr(self, "audio_broadcaster") and self.audio_broadcaster:
+            self.audio_broadcaster.stop()
         if self.server:
             self.server.shutdown()
             self.server.server_close()
