@@ -25,7 +25,7 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from typing import Optional, Callable, Dict, Any, List, Tuple
 
 import qrcode
-from PIL import Image
+from PIL import Image, ImageDraw, ImageGrab
 
 class _POINT(ctypes.Structure):
     _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
@@ -1211,37 +1211,91 @@ header {
     </div>
   </section>
 
-  <!-- ══════════ TAB 5: WIRELESS TRACKPAD & PRESENTATION REMOTE ══════════ -->
+  <!-- ══════════ TAB 5: WIRELESS TRACKPAD & LIVE PC DISPLAY ══════════ -->
   <section id="tab-remote" class="view-section">
-    <!-- Mode Switcher -->
-    <div style="display:flex; justify-content:center; margin-bottom:14px;">
-      <div style="display:inline-flex; background:rgba(35,35,40,0.85); border-radius:999px; padding:4px; border:0.5px solid var(--ios-border);">
-        <button id="mode-trackpad" style="padding:6px 20px; border-radius:999px; font-size:12px; font-weight:700; border:none; background:var(--ios-red); color:#fff; cursor:pointer;">Trackpad</button>
-        <button id="mode-present" style="padding:6px 20px; border-radius:999px; font-size:12px; font-weight:700; border:none; background:transparent; color:var(--ios-gray-text); cursor:pointer;">Presentation</button>
+    <!-- Mode Switcher (Trackpad, Live Display, Presentation) -->
+    <div style="display:flex; justify-content:center; margin-bottom:12px;">
+      <div style="display:inline-flex; background:rgba(35,35,40,0.85); border-radius:999px; padding:3px; border:0.5px solid var(--ios-border);">
+        <button id="mode-trackpad" class="mode-tab-btn" style="padding:6px 14px; border-radius:999px; font-size:11.5px; font-weight:700; border:none; background:var(--ios-red); color:#fff; cursor:pointer;">Trackpad</button>
+        <button id="mode-display" class="mode-tab-btn" style="padding:6px 14px; border-radius:999px; font-size:11.5px; font-weight:700; border:none; background:transparent; color:var(--ios-gray-text); cursor:pointer;">Live Screen</button>
+        <button id="mode-present" class="mode-tab-btn" style="padding:6px 14px; border-radius:999px; font-size:11.5px; font-weight:700; border:none; background:transparent; color:var(--ios-gray-text); cursor:pointer;">Presentation</button>
       </div>
     </div>
 
-    <!-- TRACKPAD VIEW -->
+    <!-- 1. TRACKPAD VIEW -->
     <div id="view-trackpad-content">
-      <div class="ios-card" style="padding:12px; margin-bottom:12px;">
-        <div id="trackpad-surface" style="width:100%; height:260px; background:radial-gradient(circle at 50% 50%, rgba(45,45,52,0.6), rgba(18,18,22,0.95)); border-radius:18px; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; align-items:center; justify-content:center; touch-action:none; user-select:none; position:relative; overflow:hidden;">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Quick Clipboard & Text Selection Strip -->
+      <div style="display:flex; gap:6px; margin-bottom:10px;">
+        <button class="clip-quick-btn" data-key="copy" style="flex:1; padding:8px 6px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
+          📋 Copy
+        </button>
+        <button class="clip-quick-btn" data-key="paste" style="flex:1; padding:8px 6px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
+          📥 Paste
+        </button>
+        <button class="clip-quick-btn" data-key="selectall" style="flex:1; padding:8px 6px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#fff; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
+          🔲 All
+        </button>
+        <button id="btn-drag-lock" style="flex:1; padding:8px 6px; background:rgba(32,32,38,0.9); border:0.5px solid var(--ios-border); border-radius:12px; color:#ff9f0a; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px;">
+          ✋ Select
+        </button>
+      </div>
+
+      <div class="ios-card" style="padding:12px; margin-bottom:10px;">
+        <div id="trackpad-surface" style="width:100%; height:250px; background:radial-gradient(circle at 50% 50%, rgba(45,45,52,0.6), rgba(18,18,22,0.95)); border-radius:18px; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; align-items:center; justify-content:center; touch-action:none; user-select:none; position:relative; overflow:hidden;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="3" width="20" height="14" rx="2"></rect>
             <line x1="8" y1="21" x2="16" y2="21"></line>
             <line x1="12" y1="17" x2="12" y2="21"></line>
           </svg>
-          <span style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.4); margin-top:8px;">Drag: Move • Tap: Click • 2-Finger: Scroll</span>
+          <span style="font-size:11.5px; font-weight:600; color:rgba(255,255,255,0.45); margin-top:6px;">Swipe: Move • Tap: Click • 2-Finger: Scroll</span>
+          <span style="font-size:10px; color:rgba(255,255,255,0.28); margin-top:2px;">Double-tap & drag to select • Pinch to zoom PC</span>
         </div>
       </div>
 
       <!-- Physical Click Pads -->
       <div style="display:flex; gap:10px; margin-bottom:12px;">
-        <button id="btn-mouse-left" style="flex:1; height:60px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:16px; color:#fff; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+        <button id="btn-mouse-left" style="flex:1; height:54px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:16px; color:#fff; font-size:13.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;">
           Left Click
         </button>
-        <button id="btn-mouse-right" style="flex:1; height:60px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:16px; color:var(--ios-gray-text); font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+        <button id="btn-mouse-right" style="flex:1; height:54px; background:rgba(32,32,36,0.9); border:0.5px solid var(--ios-border); border-radius:16px; color:var(--ios-gray-text); font-size:13.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;">
           Right Click
         </button>
+      </div>
+    </div>
+
+    <!-- 2. LIVE PC DISPLAY & DIRECT TOUCH CONTROL VIEW -->
+    <div id="view-display-content" style="display:none;">
+      <div class="ios-card" style="padding:10px; margin-bottom:12px;">
+        <!-- Display Header with Zoom Controls -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#30d158; box-shadow:0 0 8px #30d158;"></span>
+            <span style="font-size:11.5px; font-weight:700; color:#fff;">Live PC Stream</span>
+          </div>
+
+          <!-- Quick Zoom Buttons -->
+          <div style="display:flex; gap:4px; align-items:center; background:rgba(255,255,255,0.06); padding:2px 4px; border-radius:8px;">
+            <span style="font-size:10px; color:var(--ios-gray-text); font-weight:700; margin-right:2px;">ZOOM</span>
+            <button class="screen-zoom-btn" data-zoom="1.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:var(--ios-red); color:#fff; cursor:pointer;">1x</button>
+            <button class="screen-zoom-btn" data-zoom="1.5" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">1.5x</button>
+            <button class="screen-zoom-btn" data-zoom="2.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">2x</button>
+            <button class="screen-zoom-btn" data-zoom="3.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">3x</button>
+          </div>
+        </div>
+
+        <!-- Live Viewport Window -->
+        <div id="screen-viewport" style="width:100%; height:270px; background:#000; border-radius:14px; overflow:hidden; position:relative; border:1px solid rgba(255,255,255,0.1); touch-action:none; user-select:none; display:flex; align-items:center; justify-content:center;">
+          <img id="live-screen-img" src="" style="width:100%; height:100%; object-fit:contain; display:block; transform-origin:center center; transition:transform 0.15s ease-out; pointer-events:none;" alt="Live PC View">
+          <div id="screen-loading-overlay" style="position:absolute; inset:0; background:rgba(10,10,14,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
+            <div style="width:24px; height:24px; border:2.5px solid rgba(255,255,255,0.2); border-top-color:var(--ios-red); border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+            <span style="font-size:11px; color:rgba(255,255,255,0.6);">Loading live PC display…</span>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11px; color:var(--ios-gray-text);">
+          <span>Tap screen to click PC • Pinch screen to zoom</span>
+          <button id="btn-screen-refresh" style="background:transparent; border:none; color:var(--ios-blue); font-size:11px; font-weight:700; cursor:pointer;">Reconnect ↻</button>
+        </div>
       </div>
     </div>
 
@@ -1768,29 +1822,164 @@ function renderShelf(files) {
   });
 }
 
-// ══════════ WIRELESS TRACKPAD & PRESENTATION REMOTE ══════════
+// ══════════ WIRELESS TRACKPAD, LIVE PC DISPLAY & REMOTE ══════════
 const btnModeTrackpad = document.getElementById("mode-trackpad");
+const btnModeDisplay = document.getElementById("mode-display");
 const btnModePresent = document.getElementById("mode-present");
 const viewTrackpadContent = document.getElementById("view-trackpad-content");
+const viewDisplayContent = document.getElementById("view-display-content");
 const viewPresentContent = document.getElementById("view-present-content");
 
-if (btnModeTrackpad && btnModePresent) {
-  btnModeTrackpad.addEventListener("click", () => {
-    btnModeTrackpad.style.background = "var(--ios-red)";
-    btnModeTrackpad.style.color = "#fff";
-    btnModePresent.style.background = "transparent";
-    btnModePresent.style.color = "var(--ios-gray-text)";
-    if (viewTrackpadContent) viewTrackpadContent.style.display = "block";
-    if (viewPresentContent) viewPresentContent.style.display = "none";
+const liveScreenImg = document.getElementById("live-screen-img");
+const screenLoadingOverlay = document.getElementById("screen-loading-overlay");
+const screenViewport = document.getElementById("screen-viewport");
+
+let isLiveDisplayActive = false;
+let currentScreenZoom = 1.0;
+let panOffsetX = 0, panOffsetY = 0;
+
+function setRemoteMode(mode) {
+  const allBtns = [btnModeTrackpad, btnModeDisplay, btnModePresent];
+  const allViews = [viewTrackpadContent, viewDisplayContent, viewPresentContent];
+
+  allBtns.forEach(b => {
+    if (b) {
+      b.style.background = "transparent";
+      b.style.color = "var(--ios-gray-text)";
+    }
+  });
+  allViews.forEach(v => {
+    if (v) v.style.display = "none";
   });
 
-  btnModePresent.addEventListener("click", () => {
-    btnModePresent.style.background = "var(--ios-red)";
-    btnModePresent.style.color = "#fff";
-    btnModeTrackpad.style.background = "transparent";
-    btnModeTrackpad.style.color = "var(--ios-gray-text)";
-    if (viewTrackpadContent) viewTrackpadContent.style.display = "none";
+  if (mode === "trackpad") {
+    if (btnModeTrackpad) {
+      btnModeTrackpad.style.background = "var(--ios-red)";
+      btnModeTrackpad.style.color = "#fff";
+    }
+    if (viewTrackpadContent) viewTrackpadContent.style.display = "block";
+    stopLiveStream();
+  } else if (mode === "display") {
+    if (btnModeDisplay) {
+      btnModeDisplay.style.background = "var(--ios-red)";
+      btnModeDisplay.style.color = "#fff";
+    }
+    if (viewDisplayContent) viewDisplayContent.style.display = "block";
+    startLiveStream();
+  } else if (mode === "present") {
+    if (btnModePresent) {
+      btnModePresent.style.background = "var(--ios-red)";
+      btnModePresent.style.color = "#fff";
+    }
     if (viewPresentContent) viewPresentContent.style.display = "block";
+    stopLiveStream();
+  }
+}
+
+if (btnModeTrackpad) btnModeTrackpad.addEventListener("click", () => setRemoteMode("trackpad"));
+if (btnModeDisplay) btnModeDisplay.addEventListener("click", () => setRemoteMode("display"));
+if (btnModePresent) btnModePresent.addEventListener("click", () => setRemoteMode("present"));
+
+function startLiveStream() {
+  isLiveDisplayActive = true;
+  if (liveScreenImg) {
+    if (screenLoadingOverlay) screenLoadingOverlay.style.display = "flex";
+    liveScreenImg.onload = () => {
+      if (screenLoadingOverlay) screenLoadingOverlay.style.display = "none";
+    };
+    liveScreenImg.onerror = () => {
+      if (screenLoadingOverlay) screenLoadingOverlay.style.display = "flex";
+    };
+    liveScreenImg.src = "/api/remote/mjpeg?t=" + Date.now();
+  }
+}
+
+function stopLiveStream() {
+  isLiveDisplayActive = false;
+  if (liveScreenImg) {
+    liveScreenImg.src = "";
+  }
+}
+
+const btnScreenRefresh = document.getElementById("btn-screen-refresh");
+if (btnScreenRefresh) {
+  btnScreenRefresh.addEventListener("click", () => {
+    stopLiveStream();
+    setTimeout(startLiveStream, 150);
+  });
+}
+
+// Zoom Buttons for Live Display View
+document.querySelectorAll(".screen-zoom-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".screen-zoom-btn").forEach(b => {
+      b.style.background = "transparent";
+      b.style.color = "#fff";
+    });
+    btn.style.background = "var(--ios-red)";
+    btn.style.color = "#fff";
+    currentScreenZoom = parseFloat(btn.dataset.zoom) || 1.0;
+    panOffsetX = 0;
+    panOffsetY = 0;
+    applyScreenTransform();
+  });
+});
+
+function applyScreenTransform() {
+  if (liveScreenImg) {
+    liveScreenImg.style.transform = `scale(${currentScreenZoom}) translate(${panOffsetX}px, ${panOffsetY}px)`;
+  }
+}
+
+// Direct Touch Controls on Live PC Screen
+if (screenViewport) {
+  let isScreenTouching = false;
+  let screenTouchStart = 0;
+  let screenMoveDist = 0;
+
+  function dispatchScreenEvent(e, isClick = false) {
+    const rect = screenViewport.getBoundingClientRect();
+    const touch = e.touches ? e.touches[0] : e;
+    if (!touch) return;
+    const normX = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+    const normY = Math.max(0, Math.min(1, (touch.clientY - rect.top) / rect.height));
+
+    // Approximate primary monitor resolution (1920x1080 default, scaled)
+    const targetX = Math.round(normX * 1920);
+    const targetY = Math.round(normY * 1080);
+
+    if (isClick) {
+      sendMouse({action: "abs_click", x: targetX, y: targetY});
+      showToast("Clicked PC Screen");
+    } else {
+      sendMouse({action: "abs_move", x: targetX, y: targetY});
+    }
+  }
+
+  screenViewport.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 1) {
+      isScreenTouching = true;
+      screenTouchStart = Date.now();
+      screenMoveDist = 0;
+    }
+  }, {passive: false});
+
+  screenViewport.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isScreenTouching) {
+      screenMoveDist += 1;
+      dispatchScreenEvent(e, false);
+    }
+  }, {passive: false});
+
+  screenViewport.addEventListener("touchend", (e) => {
+    if (isScreenTouching) {
+      isScreenTouching = false;
+      const elapsed = Date.now() - screenTouchStart;
+      if (screenMoveDist < 8 && elapsed < 320) {
+        dispatchScreenEvent(e.changedTouches ? e.changedTouches[0] : e, true);
+      }
+    }
   });
 }
 
@@ -1810,6 +1999,39 @@ function sendKey(key) {
   }).catch(() => {});
 }
 
+// ─── Clipboard & Text Selection Quick Buttons ───
+document.querySelectorAll(".clip-quick-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const k = btn.dataset.key;
+    if (k) {
+      sendKey(k);
+      showToast(k.toUpperCase());
+      btn.style.transform = "scale(0.94)";
+      setTimeout(() => { btn.style.transform = "none"; }, 120);
+    }
+  });
+});
+
+let isDragLocked = false;
+const btnDragLock = document.getElementById("btn-drag-lock");
+if (btnDragLock) {
+  btnDragLock.addEventListener("click", () => {
+    isDragLocked = !isDragLocked;
+    if (isDragLocked) {
+      sendMouse({action: "down"});
+      btnDragLock.style.background = "#ff9f0a";
+      btnDragLock.style.color = "#000";
+      showToast("Selection Locked (Swipe to select)");
+    } else {
+      sendMouse({action: "up"});
+      btnDragLock.style.background = "rgba(32,32,38,0.9)";
+      btnDragLock.style.color = "#ff9f0a";
+      showToast("Selection Released");
+    }
+  });
+}
+
+// ─── Precision Trackpad Surface with Double-Tap Drag & Pinch Zoom ───
 const trackpad = document.getElementById("trackpad-surface");
 let touchStartX = 0, touchStartY = 0, lastTouchX = 0, lastTouchY = 0;
 let lastScrollY = 0;
@@ -1818,6 +2040,12 @@ let totalMoveDist = 0;
 let accumDx = 0.0;
 let accumDy = 0.0;
 let isSendingMouse = false;
+
+// Double-tap & drag state (Lap pad style copy/selection)
+let lastTapTime = 0;
+let isDoubleTapDragging = false;
+let initialTouchCount = 1;
+let lastPinchDist = 0;
 
 function flushMouseMove() {
   if (isSendingMouse) return;
@@ -1840,15 +2068,28 @@ setInterval(flushMouseMove, 20);
 
 if (trackpad) {
   trackpad.addEventListener("touchstart", (e) => {
-    touchStartTime = Date.now();
+    const now = Date.now();
+    touchStartTime = now;
     totalMoveDist = 0;
+    initialTouchCount = e.touches.length;
+    lastPinchDist = 0;
+
     if (e.touches.length === 1) {
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
       lastTouchX = touchStartX;
       lastTouchY = touchStartY;
+
+      // Double-tap & drag detection (like laptop precision touchpad)
+      if (now - lastTapTime < 320) {
+        isDoubleTapDragging = true;
+        sendMouse({action: "down"});
+        showToast("Drag / Select Active");
+      }
+      lastTapTime = now;
     } else if (e.touches.length === 2) {
       lastScrollY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      lastPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
     }
   }, {passive: false});
 
@@ -1865,24 +2106,47 @@ if (trackpad) {
       accumDx += dx;
       accumDy += dy;
     } else if (e.touches.length === 2) {
-      const curScrollY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      const dy = curScrollY - lastScrollY;
-      lastScrollY = curScrollY;
-      if (Math.abs(dy) > 1.5) {
-        const scrollTicks = dy > 0 ? 1 : -1;
-        sendMouse({action: "scroll", dy: scrollTicks});
+      // 1. Pinch to Zoom gesture
+      const curPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      if (lastPinchDist > 0 && Math.abs(curPinchDist - lastPinchDist) > 16) {
+        const pinchDelta = curPinchDist - lastPinchDist;
+        sendMouse({action: "zoom", dy: pinchDelta > 0 ? 1 : -1});
+        lastPinchDist = curPinchDist;
+      } else {
+        // 2. Parallel vertical scroll
+        const curScrollY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const dy = curScrollY - lastScrollY;
+        lastScrollY = curScrollY;
+        if (Math.abs(dy) > 1.5) {
+          const scrollTicks = dy > 0 ? 1 : -1;
+          sendMouse({action: "scroll", dy: scrollTicks});
+        }
       }
     }
   }, {passive: false});
 
   trackpad.addEventListener("touchend", (e) => {
     const elapsed = Date.now() - touchStartTime;
-    if (totalMoveDist < 14 && elapsed < 320) {
+
+    if (isDoubleTapDragging) {
+      isDoubleTapDragging = false;
+      sendMouse({action: "up"});
+      showToast("Selection Dropped");
+      return;
+    }
+
+    if (initialTouchCount === 2 && totalMoveDist < 16 && elapsed < 320) {
+      // Two-Finger Tap -> Right Click Context Menu (Lap pad style)
+      sendMouse({action: "click", btn: "right"});
+      showToast("Right Click");
+    } else if (e.touches.length === 0 && totalMoveDist < 14 && elapsed < 320) {
+      // Single Finger Tap -> Left Click
       sendMouse({action: "click", btn: "left"});
       showToast("Tap Click");
     }
   });
 
+  // Pointer event support for desktop browsers
   let isPointerActive = false;
   trackpad.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse") {
@@ -2047,6 +2311,37 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             self._send_json(lyrics_data)
             return
 
+        elif path == "/api/remote/mjpeg":
+            self.send_response(200)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            try:
+                while self.server.service.is_running:
+                    frame, orig_w, orig_h = self.server.service.get_screen_bytes(max_width=850, quality=55)
+                    self.wfile.write(b"--frame\r\n")
+                    self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                    self.wfile.write(f"Content-Length: {len(frame)}\r\n\r\n".encode("utf-8"))
+                    self.wfile.write(frame)
+                    self.wfile.write(b"\r\n")
+                    time.sleep(0.065)
+            except (ConnectionResetError, BrokenPipeError, socket.error):
+                return
+
+        elif path == "/api/remote/screen":
+            frame, orig_w, orig_h = self.server.service.get_screen_bytes(max_width=850, quality=55)
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(frame)))
+            self.send_header("X-Screen-Width", str(orig_w))
+            self.send_header("X-Screen-Height", str(orig_h))
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(frame)
+            return
+
         elif path.startswith("/api/download/"):
             filename = urllib.parse.unquote(path[len("/api/download/"):])
             fpath = self.server.service.find_shared_file(filename)
@@ -2137,8 +2432,10 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             action = data.get("action", "move")
             dx = float(data.get("dx", 0.0))
             dy = float(data.get("dy", 0.0))
+            x = float(data.get("x", 0.0))
+            y = float(data.get("y", 0.0))
             btn = data.get("btn", "left")
-            self.server.service.handle_remote_mouse(action, dx, dy, btn)
+            self.server.service.handle_remote_mouse(action, dx, dy, btn, x, y)
             self._send_json({"success": True})
             return
 
@@ -2322,8 +2619,38 @@ class PhoneDropService:
         except Exception:
             pass
 
-    def handle_remote_mouse(self, action: str, dx: float = 0.0, dy: float = 0.0, btn: str = "left"):
-        """Instant Win32 hardware mouse event injection (move, click, scroll) with 0ms latency."""
+    def get_screen_bytes(self, max_width: int = 850, quality: int = 55) -> Tuple[bytes, int, int]:
+        """Captures real-time screen with red cursor overlay for live phone display mirroring."""
+        try:
+            self._attach_desktop()
+            user32 = ctypes.windll.user32
+            img = ImageGrab.grab()
+            orig_w, orig_h = img.size
+
+            # Draw prominent glowing red cursor
+            pt = _POINT()
+            if user32.GetCursorPos(ctypes.byref(pt)):
+                draw = ImageDraw.Draw(img)
+                cx, cy = pt.x, pt.y
+                r = 14
+                draw.ellipse((cx - r - 4, cy - r - 4, cx + r + 4, cy + r + 4), fill=(255, 69, 58, 90))
+                draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(255, 69, 58), outline=(255, 255, 255), width=2)
+
+            target_w = min(max_width, orig_w)
+            target_h = int(target_w * orig_h / orig_w)
+            resized = img.resize((target_w, target_h), Image.Resampling.BILINEAR)
+
+            buf = io.BytesIO()
+            resized.save(buf, format="JPEG", quality=quality)
+            return buf.getvalue(), orig_w, orig_h
+        except Exception as e:
+            print(f"[PhoneDropService] Error capturing screen: {e}")
+            buf = io.BytesIO()
+            Image.new("RGB", (320, 180), color="#111115").save(buf, format="JPEG")
+            return buf.getvalue(), 1920, 1080
+
+    def handle_remote_mouse(self, action: str, dx: float = 0.0, dy: float = 0.0, btn: str = "left", x: float = 0.0, y: float = 0.0):
+        """Instant Win32 hardware mouse event injection (move, click, scroll, drag, zoom) with 0ms latency."""
         try:
             self._attach_desktop()
             user32 = ctypes.windll.user32
@@ -2338,6 +2665,17 @@ class PhoneDropService:
                 idy = int(round(dy))
                 if idx != 0 or idy != 0:
                     user32.mouse_event(0x0001, idx, idy, 0, 0)
+            elif action == "abs_move":
+                user32.SetCursorPos(int(x), int(y))
+                user32.mouse_event(0x0001, 0, 0, 0, 0)
+            elif action == "abs_click":
+                user32.SetCursorPos(int(x), int(y))
+                if btn == "right":
+                    user32.mouse_event(0x0008, 0, 0, 0, 0)
+                    user32.mouse_event(0x0010, 0, 0, 0, 0)
+                else:
+                    user32.mouse_event(0x0002, 0, 0, 0, 0)
+                    user32.mouse_event(0x0004, 0, 0, 0, 0)
             elif action == "click":
                 if btn == "right":
                     user32.mouse_event(0x0008, 0, 0, 0, 0)  # MOUSEEVENTF_RIGHTDOWN
@@ -2345,6 +2683,18 @@ class PhoneDropService:
                 else:
                     user32.mouse_event(0x0002, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTDOWN
                     user32.mouse_event(0x0004, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTUP
+            elif action == "down":
+                user32.mouse_event(0x0002, 0, 0, 0, 0)  # Left button down (Text selection / Drag)
+            elif action == "up":
+                user32.mouse_event(0x0004, 0, 0, 0, 0)  # Left button up (Release)
+            elif action == "zoom":
+                # Ctrl + Wheel (Windows native precision zoom)
+                KEYEVENTF_KEYUP = 0x0002
+                user32.keybd_event(0x11, 0, 0, 0)  # VK_CONTROL down
+                wheel_delta = 120 if dy > 0 else -120
+                user32.mouse_event(0x0800, 0, 0, wheel_delta, 0)
+                time.sleep(0.01)
+                user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)  # VK_CONTROL up
             elif action == "scroll":
                 wheel_delta = int(dy * 120)
                 user32.mouse_event(0x0800, 0, 0, wheel_delta, 0)
@@ -2352,13 +2702,52 @@ class PhoneDropService:
             print(f"[PhoneDropService] Error in handle_remote_mouse: {e}")
 
     def handle_remote_key(self, key: str):
-        """Instant Win32 virtual keyboard injection for presentation clicker / shortcuts."""
+        """Instant Win32 virtual keyboard injection for presentation & clipboard shortcuts."""
         try:
             self._attach_desktop()
             user32 = ctypes.windll.user32
             KEYEVENTF_KEYUP = 0x0002
-            vk = 0
             key_lower = key.lower()
+
+            # Clipboard & Editing Shortcuts
+            if key_lower == "copy":
+                user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
+                user32.keybd_event(0x43, 0, 0, 0)  # 'C'
+                time.sleep(0.015)
+                user32.keybd_event(0x43, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
+                return
+            elif key_lower == "paste":
+                user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
+                user32.keybd_event(0x56, 0, 0, 0)  # 'V'
+                time.sleep(0.015)
+                user32.keybd_event(0x56, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
+                return
+            elif key_lower == "cut":
+                user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
+                user32.keybd_event(0x58, 0, 0, 0)  # 'X'
+                time.sleep(0.015)
+                user32.keybd_event(0x58, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
+                return
+            elif key_lower == "selectall":
+                user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
+                user32.keybd_event(0x41, 0, 0, 0)  # 'A'
+                time.sleep(0.015)
+                user32.keybd_event(0x41, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
+                return
+            elif key_lower == "undo":
+                user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
+                user32.keybd_event(0x5A, 0, 0, 0)  # 'Z'
+                time.sleep(0.015)
+                user32.keybd_event(0x5A, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
+                return
+
+            # Presentation & Navigation keys
+            vk = 0
             if key_lower == "next":
                 vk = 0x27  # VK_RIGHT (Next Slide)
             elif key_lower == "prev":
