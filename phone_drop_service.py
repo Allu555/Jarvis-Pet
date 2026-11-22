@@ -1208,6 +1208,77 @@ header {
   font-size: 10px;
 }
 
+/* Mini Precision Touchpad for Live Screen */
+.mini-touchpad-card {
+  margin-top: 10px;
+  background: rgba(22, 22, 28, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 8px 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.mini-touchpad-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding: 0 4px;
+}
+
+.live-dot-pulse {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #30d158;
+  box-shadow: 0 0 8px #30d158;
+  animation: pulse-dot 1.8s infinite;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.screen-mini-trackpad {
+  width: 100%;
+  height: 115px;
+  background: radial-gradient(circle at 50% 50%, rgba(45, 45, 54, 0.72), rgba(16, 16, 22, 0.98));
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+  cursor: crosshair;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.screen-mini-trackpad.active-touch {
+  border-color: rgba(0, 122, 255, 0.55);
+  box-shadow: inset 0 0 18px rgba(0, 122, 255, 0.2);
+}
+
+.mini-trackpad-reticle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
+}
+
+.screen-mini-trackpad.active-touch .mini-trackpad-reticle {
+  opacity: 0.35;
+}
+
 .live-screen-keypad {
   margin-top: 10px;
 }
@@ -1243,6 +1314,9 @@ header {
   }
   #trackpad-surface {
     height: 360px !important;
+  }
+  .screen-mini-trackpad {
+    height: 145px !important;
   }
 }
 
@@ -1684,6 +1758,30 @@ header {
               </div>
             </div>
             <button class="scrollbar-btn compact" id="btn-screen-scroll-down" title="Scroll Down">▼</button>
+          </div>
+        </div>
+
+        <!-- Live Precision Touchpad Strip (Steer mouse while watching screen above) -->
+        <div class="mini-touchpad-card" id="screen-mini-trackpad-card">
+          <div class="mini-touchpad-header">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="live-dot-pulse"></span>
+              <span style="font-size:11.5px; font-weight:700; color:#fff;">Live Touchpad</span>
+            </div>
+            <span style="font-size:10.5px; color:rgba(255,255,255,0.45);">Swipe to steer • Tap to click • 2-finger scroll</span>
+          </div>
+          <div id="screen-mini-trackpad" class="screen-mini-trackpad">
+            <div class="mini-trackpad-reticle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.38)" stroke-width="1.8">
+                <circle cx="12" cy="12" r="9"/>
+                <line x1="12" y1="3" x2="12" y2="7"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+                <line x1="3" y1="12" x2="7" y2="12"/>
+                <line x1="17" y1="12" x2="21" y2="12"/>
+                <circle cx="12" cy="12" r="2.5" fill="rgba(255,255,255,0.45)"/>
+              </svg>
+              <span style="font-size:10.5px; color:rgba(255,255,255,0.45); font-weight:600; margin-top:3px;">Steer PC Cursor</span>
+            </div>
           </div>
         </div>
 
@@ -2751,8 +2849,11 @@ function flushMouseMove() {
 }
 setInterval(flushMouseMove, 20);
 
-if (trackpad) {
-  trackpad.addEventListener("touchstart", (e) => {
+function attachTouchpad(padElement, sensitivity = 2.2) {
+  if (!padElement) return;
+
+  padElement.addEventListener("touchstart", (e) => {
+    padElement.classList.add("active-touch");
     const now = Date.now();
     touchStartTime = now;
     totalMoveDist = 0;
@@ -2778,13 +2879,13 @@ if (trackpad) {
     }
   }, {passive: false});
 
-  trackpad.addEventListener("touchmove", (e) => {
+  padElement.addEventListener("touchmove", (e) => {
     e.preventDefault();
     if (e.touches.length === 1) {
       const curX = e.touches[0].clientX;
       const curY = e.touches[0].clientY;
-      const dx = (curX - lastTouchX) * 2.2;
-      const dy = (curY - lastTouchY) * 2.2;
+      const dx = (curX - lastTouchX) * sensitivity;
+      const dy = (curY - lastTouchY) * sensitivity;
       lastTouchX = curX;
       lastTouchY = curY;
       totalMoveDist += Math.abs(dx) + Math.abs(dy);
@@ -2810,7 +2911,8 @@ if (trackpad) {
     }
   }, {passive: false});
 
-  trackpad.addEventListener("touchend", (e) => {
+  padElement.addEventListener("touchend", (e) => {
+    padElement.classList.remove("active-touch");
     const elapsed = Date.now() - touchStartTime;
 
     if (isDoubleTapDragging) {
@@ -2831,18 +2933,19 @@ if (trackpad) {
     }
   });
 
-  // Pointer event support for desktop browsers
+  // Pointer event support for desktop / mouse testing
   let isPointerActive = false;
-  trackpad.addEventListener("pointerdown", (e) => {
+  padElement.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse") {
       isPointerActive = true;
+      padElement.classList.add("active-touch");
       touchStartTime = Date.now();
       totalMoveDist = 0;
       touchStartX = e.clientX;
       touchStartY = e.clientY;
       lastTouchX = e.clientX;
       lastTouchY = e.clientY;
-      try { trackpad.setPointerCapture(e.pointerId); } catch(err){}
+      try { padElement.setPointerCapture(e.pointerId); } catch(err){}
     }
   });
 
@@ -2850,8 +2953,8 @@ if (trackpad) {
     if (isPointerActive && e.pointerType === "mouse") {
       const curX = e.clientX;
       const curY = e.clientY;
-      const dx = (curX - lastTouchX) * 2.0;
-      const dy = (curY - lastTouchY) * 2.0;
+      const dx = (curX - lastTouchX) * sensitivity;
+      const dy = (curY - lastTouchY) * sensitivity;
       lastTouchX = curX;
       lastTouchY = curY;
       totalMoveDist += Math.abs(dx) + Math.abs(dy);
@@ -2863,15 +2966,19 @@ if (trackpad) {
   window.addEventListener("pointerup", (e) => {
     if (isPointerActive && e.pointerType === "mouse") {
       isPointerActive = false;
+      padElement.classList.remove("active-touch");
       const elapsed = Date.now() - touchStartTime;
       if (totalMoveDist < 14 && elapsed < 320) {
         sendMouse({action: "click", btn: "left"});
         showToast("Tap Click");
       }
-      try { trackpad.releasePointerCapture(e.pointerId); } catch(err){}
+      try { padElement.releasePointerCapture(e.pointerId); } catch(err){}
     }
   });
 }
+
+attachTouchpad(document.getElementById("trackpad-surface"), 2.2);
+attachTouchpad(document.getElementById("screen-mini-trackpad"), 2.2);
 
 function setupScrollBar(upBtnId, downBtnId, gutterId, thumbId) {
   const upBtn = document.getElementById(upBtnId);
