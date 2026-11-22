@@ -1279,55 +1279,259 @@ header {
   opacity: 0.35;
 }
 
+/* Perfectly Aligned 6-Column Mathematical Keypad Grid */
 .live-screen-keypad {
   margin-top: 10px;
-}
-
-.keypad-row {
   display: flex;
+  flex-direction: column;
   gap: 6px;
   width: 100%;
 }
 
-.keypad-row .pc-key-btn {
-  flex: 1;
-  min-width: 0;
+.pc-keys-grid-6 {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  width: 100%;
 }
 
+.pc-keys-grid-6 .pc-key-btn {
+  height: 38px;
+  padding: 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Distinct System Badges for Window & Tab Controls */
+.pc-key-btn.btn-win-min {
+  color: #ffd60a;
+  border-color: rgba(255, 214, 10, 0.35);
+  background: linear-gradient(180deg, rgba(255, 214, 10, 0.12) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+.pc-key-btn.btn-win-max {
+  color: #30d158;
+  border-color: rgba(48, 209, 88, 0.35);
+  background: linear-gradient(180deg, rgba(48, 209, 88, 0.12) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+.pc-key-btn.btn-win-close {
+  color: #ff453a;
+  border-color: rgba(255, 69, 58, 0.4);
+  background: linear-gradient(180deg, rgba(255, 69, 58, 0.15) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+.pc-key-btn.btn-win-alttab {
+  color: #bf5af2;
+  border-color: rgba(191, 90, 242, 0.35);
+  background: linear-gradient(180deg, rgba(191, 90, 242, 0.12) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+.pc-key-btn.btn-tab-new {
+  color: #64d2ff;
+  border-color: rgba(100, 210, 255, 0.35);
+  background: linear-gradient(180deg, rgba(100, 210, 255, 0.12) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+.pc-key-btn.btn-tab-close {
+  color: #ff9f0a;
+  border-color: rgba(255, 159, 10, 0.35);
+  background: linear-gradient(180deg, rgba(255, 159, 10, 0.12) 0%, rgba(32, 32, 38, 0.95) 100%);
+}
+
+/* Responsive Viewport & Native 16:9 Aspect Ratio */
+#screen-viewport {
+  flex: 1;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  touch-action: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  transition: all 0.25s ease;
+}
+
+#live-screen-img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  display: block;
+}
+
+.remote-display-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.remote-display-screen-col,
+.remote-display-controls-col {
+  width: 100%;
+}
+
+.music-layout-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ════════════ UNIVERSAL RATIO ADAPTATION ════════════ */
 @media (min-width: 768px) {
   .main-content {
-    max-width: 960px;
-    padding: 24px 32px;
+    max-width: 860px;
+    padding: 20px 24px 110px;
   }
   .ios-tab-bar {
-    max-width: 620px;
+    max-width: 600px;
     left: 50%;
     transform: translateX(-50%);
     border-radius: 28px;
-    bottom: 20px;
+    bottom: 18px;
     box-shadow: 0 20px 48px rgba(0, 0, 0, 0.75);
     border: 1px solid rgba(255, 255, 255, 0.16);
   }
+}
+
+@media (min-width: 992px) {
+  .main-content {
+    max-width: 1240px;
+    padding: 24px 36px 120px;
+  }
+  /* 2-Column Command Console for Live Screen */
+  .remote-display-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(360px, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .remote-display-screen-col {
+    position: sticky;
+    top: 20px;
+  }
   #screen-viewport {
-    height: 480px !important;
-    max-height: 65vh;
+    aspect-ratio: 16 / 9 !important;
+    height: auto !important;
+    max-height: calc(100vh - 200px);
   }
   #trackpad-surface {
-    height: 360px !important;
+    height: 380px !important;
+    aspect-ratio: 16 / 10;
   }
   .screen-mini-trackpad {
-    height: 145px !important;
+    height: 125px !important;
+  }
+  /* 2-Column Side-by-Side for Music */
+  .music-layout-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.25fr;
+    gap: 20px;
+    align-items: start;
+  }
+  .now-playing-box {
+    position: sticky;
+    top: 20px;
+  }
+  .lyrics-card {
+    min-height: 520px;
+    max-height: calc(100vh - 180px);
   }
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1400px) {
   .main-content {
-    max-width: 1140px;
-    padding: 28px 40px;
+    max-width: 1400px;
+    padding: 28px 48px 120px;
+  }
+  .remote-display-layout {
+    grid-template-columns: minmax(0, 1.6fr) minmax(400px, 1fr);
+    gap: 24px;
+  }
+}
+
+@media (max-width: 600px) {
+  .main-content {
+    padding: 10px 8px 96px;
+  }
+  .ios-card {
+    padding: 10px 8px;
+    border-radius: 16px;
   }
   #screen-viewport {
-    height: 560px !important;
-    max-height: 70vh;
+    aspect-ratio: 16 / 9 !important;
+    height: auto !important;
+  }
+  .pc-scrollbar-track.compact {
+    width: 34px;
+  }
+  .scrollbar-btn.compact {
+    height: 28px;
+  }
+  .scrollbar-thumb.compact {
+    height: 34px;
+  }
+  .click-pads-grid-3 {
+    gap: 5px;
+  }
+  .click-pad-btn {
+    height: 38px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  .pc-keys-grid-6 {
+    gap: 4px;
+  }
+  .pc-keys-grid-6 .pc-key-btn {
+    height: 36px;
+    font-size: 10px;
+    padding: 0 1px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .main-content {
+    padding: 8px 14px 68px;
+    max-width: 100%;
+  }
+  .remote-display-layout {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+  #screen-viewport {
+    aspect-ratio: 16 / 9 !important;
+    max-height: calc(100vh - 90px);
+  }
+  .screen-mini-trackpad {
+    height: 85px;
+  }
+  .click-pad-btn {
+    height: 34px;
+  }
+  .pc-keys-grid-6 .pc-key-btn {
+    height: 32px;
+    font-size: 9.5px;
+  }
+  .ios-tab-bar {
+    height: 48px;
+    bottom: 4px;
   }
 }
 
@@ -1392,81 +1596,83 @@ header {
 
   <!-- ══════════ TAB 1: NOW PLAYING & SYNCED LYRICS ══════════ -->
   <section id="tab-music" class="view-section active">
-    <div class="ios-card now-playing-box">
-      <div class="cover-wrapper">
-        <img id="cover-reflection" class="cover-reflection" src="/api/media/cover" alt="" onerror="this.style.opacity='0'">
-        <img id="track-cover" class="cover-art" src="/api/media/cover" alt="Album Artwork" onerror="this.src='/api/media/cover'">
-      </div>
-
-      <div class="track-name" id="track-name">No Music Playing</div>
-      <div class="artist-name" id="track-artist">Desktop Idle</div>
-
-      <!-- Scrubber -->
-      <div class="scrub-container">
-        <div class="scrub-track" id="scrub-track">
-          <div class="scrub-progress" id="scrub-progress"></div>
+    <div class="music-layout-grid">
+      <div class="ios-card now-playing-box">
+        <div class="cover-wrapper">
+          <img id="cover-reflection" class="cover-reflection" src="/api/media/cover" alt="" onerror="this.style.opacity='0'">
+          <img id="track-cover" class="cover-art" src="/api/media/cover" alt="Album Artwork" onerror="this.src='/api/media/cover'">
         </div>
-        <div class="scrub-labels">
-          <span id="label-pos">0:00</span>
-          <span id="label-dur">0:00</span>
-        </div>
-      </div>
 
-      <!-- Controls Hub -->
-      <div class="controls-hub">
-        <!-- Previous -->
-        <button class="ctrl-btn" id="ctrl-prev" title="Previous Track">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="19 20 9 12 19 4 19 20"></polygon>
-            <rect x="5" y="4" width="3" height="16" rx="1"></rect>
-          </svg>
-        </button>
+        <div class="track-name" id="track-name">No Music Playing</div>
+        <div class="artist-name" id="track-artist">Desktop Idle</div>
 
-        <!-- Play / Pause -->
-        <button class="ctrl-btn play-circle" id="ctrl-playpause" title="Play/Pause">
-          <svg id="glyph-play" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="6 4 20 12 6 20 6 4"></polygon>
-          </svg>
-          <svg id="glyph-pause" style="display:none;" width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
-            <rect x="6" y="4" width="4" height="16" rx="1.5"></rect>
-            <rect x="14" y="4" width="4" height="16" rx="1.5"></rect>
-          </svg>
-        </button>
-
-        <!-- Next / Skip -->
-        <button class="ctrl-btn" id="ctrl-next" title="Next Track">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="5 4 15 12 5 20 5 4"></polygon>
-            <rect x="16" y="4" width="3" height="16" rx="1"></rect>
-          </svg>
-        </button>
-      </div>
-
-      <!-- Apple Control Center Liquid Glass Volume Capsule -->
-      <div class="ios-volume-capsule" id="vol-capsule">
-        <div class="ios-volume-fill" id="vol-fill"></div>
-        <div class="ios-volume-content">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-            </svg>
-            <span style="font-size:12px; letter-spacing:0.4px;">VOLUME</span>
+        <!-- Scrubber -->
+        <div class="scrub-container">
+          <div class="scrub-track" id="scrub-track">
+            <div class="scrub-progress" id="scrub-progress"></div>
           </div>
-          <span class="vol-label" id="vol-pct-text">50%</span>
+          <div class="scrub-labels">
+            <span id="label-pos">0:00</span>
+            <span id="label-dur">0:00</span>
+          </div>
+        </div>
+
+        <!-- Controls Hub -->
+        <div class="controls-hub">
+          <!-- Previous -->
+          <button class="ctrl-btn" id="ctrl-prev" title="Previous Track">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="19 20 9 12 19 4 19 20"></polygon>
+              <rect x="5" y="4" width="3" height="16" rx="1"></rect>
+            </svg>
+          </button>
+
+          <!-- Play / Pause -->
+          <button class="ctrl-btn play-circle" id="ctrl-playpause" title="Play/Pause">
+            <svg id="glyph-play" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="6 4 20 12 6 20 6 4"></polygon>
+            </svg>
+            <svg id="glyph-pause" style="display:none;" width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1.5"></rect>
+              <rect x="14" y="4" width="4" height="16" rx="1.5"></rect>
+            </svg>
+          </button>
+
+          <!-- Next / Skip -->
+          <button class="ctrl-btn" id="ctrl-next" title="Next Track">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 4 15 12 5 20 5 4"></polygon>
+              <rect x="16" y="4" width="3" height="16" rx="1"></rect>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Apple Control Center Liquid Glass Volume Capsule -->
+        <div class="ios-volume-capsule" id="vol-capsule">
+          <div class="ios-volume-fill" id="vol-fill"></div>
+          <div class="ios-volume-content">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+              </svg>
+              <span style="font-size:12px; letter-spacing:0.4px;">VOLUME</span>
+            </div>
+            <span class="vol-label" id="vol-pct-text">50%</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Apple Music Real-Time Synced Lyrics -->
-    <div class="ios-card lyrics-card">
-      <div class="card-header">
-        <span>Synchronized Lyrics</span>
-        <span style="color:var(--ios-red); font-size:11px; font-weight:700;">LIVE</span>
-      </div>
-      <div class="lyrics-container" id="lyrics-container">
-        <div class="lyrics-placeholder" id="lyrics-loading">Connecting to music stream...</div>
+      <!-- Apple Music Real-Time Synced Lyrics -->
+      <div class="ios-card lyrics-card">
+        <div class="card-header">
+          <span>Synchronized Lyrics</span>
+          <span style="color:var(--ios-red); font-size:11px; font-weight:700;">LIVE</span>
+        </div>
+        <div class="lyrics-container" id="lyrics-container">
+          <div class="lyrics-placeholder" id="lyrics-loading">Connecting to music stream...</div>
+        </div>
       </div>
     </div>
   </section>
@@ -1658,12 +1864,14 @@ header {
 
     <!-- 1. TRACKPAD VIEW -->
     <div id="view-trackpad-content">
-      <!-- Quick Clipboard & Selection Strip -->
-      <div class="trackpad-action-grid">
-        <button class="pc-key-btn clip-quick-btn" data-key="copy">📋 Copy</button>
-        <button class="pc-key-btn clip-quick-btn" data-key="paste">📥 Paste</button>
-        <button class="pc-key-btn clip-quick-btn" data-key="selectall">🔲 All</button>
-        <button class="pc-key-btn" id="btn-drag-lock" style="color:#ff9f0a;">✋ Select</button>
+      <!-- Window & Tab Quick Control Strip -->
+      <div class="pc-keys-grid-6" style="margin-bottom:8px;">
+        <button class="pc-key-btn btn-win-min" data-key="minimize" title="Minimize Window">🗕 Min</button>
+        <button class="pc-key-btn btn-win-max" data-key="maximize" title="Maximize Window">🗖 Max</button>
+        <button class="pc-key-btn btn-win-close" data-key="close" title="Close Window">✕ Close</button>
+        <button class="pc-key-btn btn-win-alttab" data-key="alttab" title="Switch App">⇋ AltTab</button>
+        <button class="pc-key-btn btn-tab-new" data-key="newtab" title="New Tab">＋ NewTab</button>
+        <button class="pc-key-btn btn-tab-close" data-key="closetab" title="Close Tab">⌧ ClsTab</button>
       </div>
 
       <div class="ios-card" style="padding:12px; margin-bottom:12px;">
@@ -1708,6 +1916,16 @@ header {
         </button>
       </div>
 
+      <!-- Quick Clipboard & Selection Strip -->
+      <div class="pc-keys-grid-6" style="margin-top:8px; margin-bottom:8px;">
+        <button class="pc-key-btn clip-quick-btn" data-key="copy">📋 Copy</button>
+        <button class="pc-key-btn clip-quick-btn" data-key="paste">📥 Paste</button>
+        <button class="pc-key-btn clip-quick-btn" data-key="selectall">🔲 All</button>
+        <button class="pc-key-btn" id="btn-drag-lock" style="color:#ff9f0a;">✋ Select</button>
+        <button class="pc-key-btn" data-key="ctrlz" style="color:#ff9f0a;">↶ Undo</button>
+        <button class="pc-key-btn" data-key="win" style="color:#007aff;">⊞ Win</button>
+      </div>
+
       <!-- Fast Typing & Paste Strip on Trackpad -->
       <form id="form-trackpad-type" class="remote-type-bar" onsubmit="return false;">
         <input id="input-trackpad-type" class="remote-type-input" type="text" placeholder="Type on PC directly..." autocomplete="off">
@@ -1719,131 +1937,149 @@ header {
     <!-- 2. LIVE PC DISPLAY & DIRECT TOUCH CONTROL VIEW -->
     <div id="view-display-content" style="display:none;">
       <div class="ios-card" style="padding:12px; margin-bottom:12px;">
-        <!-- Display Header with Zoom & Fullscreen Controls -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#30d158; box-shadow:0 0 8px #30d158;"></span>
-            <span style="font-size:12px; font-weight:700; color:#fff;">Live 1080p Screen</span>
-          </div>
+        <div class="remote-display-layout">
+          <!-- Column 1: Live PC Stream Viewport (Native 16:9 Aspect Ratio) -->
+          <div class="remote-display-screen-col">
+            <!-- Display Header with Zoom & Fullscreen Controls -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#30d158; box-shadow:0 0 8px #30d158;"></span>
+                <span style="font-size:12px; font-weight:700; color:#fff;">Live 1080p Screen (16:9)</span>
+              </div>
 
-          <div style="display:flex; gap:6px; align-items:center;">
-            <!-- Quick Zoom Buttons -->
-            <div style="display:flex; gap:3px; align-items:center; background:rgba(255,255,255,0.06); padding:2px 4px; border-radius:8px;">
-              <button class="screen-zoom-btn" data-zoom="1.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:var(--ios-red); color:#fff; cursor:pointer;">1x</button>
-              <button class="screen-zoom-btn" data-zoom="1.5" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">1.5x</button>
-              <button class="screen-zoom-btn" data-zoom="2.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">2x</button>
-              <button class="screen-zoom-btn" data-zoom="3.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">3x</button>
-            </div>
-            <!-- Expand / Compact Viewport -->
-            <button id="btn-viewport-expand" style="padding:4px 9px; border-radius:8px; font-size:11px; font-weight:700; border:0.5px solid var(--ios-border); background:rgba(40,40,48,0.85); color:#007aff; cursor:pointer;">⛶ Expand</button>
-          </div>
-        </div>
-
-        <!-- Live Viewport Window with Integrated PC Scroll Bar -->
-        <div style="display:flex; gap:8px; align-items:stretch; width:100%; margin-bottom:10px;">
-          <div id="screen-viewport" style="flex:1; height:280px; background:#000; border-radius:14px; overflow:hidden; position:relative; border:1px solid rgba(255,255,255,0.12); touch-action:none; user-select:none; display:flex; align-items:center; justify-content:center; transition:height 0.25s ease;">
-            <img id="live-screen-img" src="" style="width:100%; height:100%; object-fit:contain; display:block; transform-origin:center center; transition:transform 0.12s ease-out; pointer-events:none;" alt="Live PC View">
-            <div id="screen-loading-overlay" style="position:absolute; inset:0; background:rgba(10,10,14,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
-              <div style="width:24px; height:24px; border:2.5px solid rgba(255,255,255,0.2); border-top-color:var(--ios-red); border-radius:50%; animation:spin 0.8s linear infinite;"></div>
-              <span style="font-size:11px; color:rgba(255,255,255,0.6);">Loading live PC display…</span>
-            </div>
-          </div>
-
-          <!-- Live Screen Dedicated PC Scroll Bar Strip -->
-          <div class="pc-scrollbar-track compact" id="screen-scrollbar">
-            <button class="scrollbar-btn compact" id="btn-screen-scroll-up" title="Scroll Up">▲</button>
-            <div class="scrollbar-gutter" id="screen-scroll-gutter">
-              <div class="scrollbar-thumb compact" id="screen-scroll-thumb">
-                <span class="scrollbar-thumb-icon">⇅</span>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <!-- Quick Zoom Buttons -->
+                <div style="display:flex; gap:3px; align-items:center; background:rgba(255,255,255,0.06); padding:2px 4px; border-radius:8px;">
+                  <button class="screen-zoom-btn" data-zoom="1.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:var(--ios-red); color:#fff; cursor:pointer;">1x</button>
+                  <button class="screen-zoom-btn" data-zoom="1.5" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">1.5x</button>
+                  <button class="screen-zoom-btn" data-zoom="2.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">2x</button>
+                  <button class="screen-zoom-btn" data-zoom="3.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">3x</button>
+                </div>
+                <!-- Expand / Compact Viewport -->
+                <button id="btn-viewport-expand" style="padding:4px 9px; border-radius:8px; font-size:11px; font-weight:700; border:0.5px solid var(--ios-border); background:rgba(40,40,48,0.85); color:#007aff; cursor:pointer;">⛶ Expand</button>
               </div>
             </div>
-            <button class="scrollbar-btn compact" id="btn-screen-scroll-down" title="Scroll Down">▼</button>
-          </div>
-        </div>
 
-        <!-- Live Precision Touchpad Strip (Steer mouse while watching screen above) -->
-        <div class="mini-touchpad-card" id="screen-mini-trackpad-card">
-          <div class="mini-touchpad-header">
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span class="live-dot-pulse"></span>
-              <span style="font-size:11.5px; font-weight:700; color:#fff;">Live Touchpad</span>
+            <!-- Live Viewport Window with Integrated PC Scroll Bar -->
+            <div style="display:flex; gap:8px; align-items:stretch; width:100%;">
+              <div id="screen-viewport">
+                <img id="live-screen-img" src="" style="width:100%; height:100%; object-fit:contain; display:block; transform-origin:center center; transition:transform 0.12s ease-out; pointer-events:none;" alt="Live PC View">
+                <div id="screen-loading-overlay" style="position:absolute; inset:0; background:rgba(10,10,14,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
+                  <div style="width:24px; height:24px; border:2.5px solid rgba(255,255,255,0.2); border-top-color:var(--ios-red); border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+                  <span style="font-size:11px; color:rgba(255,255,255,0.6);">Loading live PC display…</span>
+                </div>
+              </div>
+
+              <!-- Live Screen Dedicated PC Scroll Bar Strip -->
+              <div class="pc-scrollbar-track compact" id="screen-scrollbar">
+                <button class="scrollbar-btn compact" id="btn-screen-scroll-up" title="Scroll Up">▲</button>
+                <div class="scrollbar-gutter" id="screen-scroll-gutter">
+                  <div class="scrollbar-thumb compact" id="screen-scroll-thumb">
+                    <span class="scrollbar-thumb-icon">⇅</span>
+                  </div>
+                </div>
+                <button class="scrollbar-btn compact" id="btn-screen-scroll-down" title="Scroll Down">▼</button>
+              </div>
             </div>
-            <span style="font-size:10.5px; color:rgba(255,255,255,0.45);">Swipe to steer • Tap to click • 2-finger scroll</span>
-          </div>
-          <div id="screen-mini-trackpad" class="screen-mini-trackpad">
-            <div class="mini-trackpad-reticle">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.38)" stroke-width="1.8">
-                <circle cx="12" cy="12" r="9"/>
-                <line x1="12" y1="3" x2="12" y2="7"/>
-                <line x1="12" y1="17" x2="12" y2="21"/>
-                <line x1="3" y1="12" x2="7" y2="12"/>
-                <line x1="17" y1="12" x2="21" y2="12"/>
-                <circle cx="12" cy="12" r="2.5" fill="rgba(255,255,255,0.45)"/>
-              </svg>
-              <span style="font-size:10.5px; color:rgba(255,255,255,0.45); font-weight:600; margin-top:3px;">Steer PC Cursor</span>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11px; color:var(--ios-gray-text);">
+              <span>Tap screen to direct-click • 16:9 PC View</span>
+              <button id="btn-screen-refresh" style="background:transparent; border:none; color:var(--ios-blue); font-size:11px; font-weight:700; cursor:pointer;">Reconnect ↻</button>
             </div>
           </div>
-        </div>
 
-        <!-- Tactile Mouse Click Pads for Live Screen -->
-        <div class="click-pads-grid-3">
-          <button class="click-pad-btn primary" id="btn-screen-left-click">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/><path d="M6 9h6"/></svg>
-            <span>Left Click</span>
-          </button>
-          <button class="click-pad-btn accent" id="btn-screen-double-click">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/></svg>
-            <span>2x Click</span>
-          </button>
-          <button class="click-pad-btn secondary" id="btn-screen-right-click">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/><path d="M12 9h6"/></svg>
-            <span>Right Click</span>
-          </button>
-        </div>
+          <!-- Column 2: Controls Hub (Live Touchpad, Click Pads, Type Bar, Keypad) -->
+          <div class="remote-display-controls-col">
+            <!-- Live Precision Touchpad Strip (Steer mouse while watching screen above) -->
+            <div class="mini-touchpad-card" id="screen-mini-trackpad-card">
+              <div class="mini-touchpad-header">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span class="live-dot-pulse"></span>
+                  <span style="font-size:11.5px; font-weight:700; color:#fff;">Live Touchpad</span>
+                </div>
+                <span style="font-size:10.5px; color:rgba(255,255,255,0.45);">Swipe to steer • Tap to click • 2-finger scroll</span>
+              </div>
+              <div id="screen-mini-trackpad" class="screen-mini-trackpad">
+                <div class="mini-trackpad-reticle">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.38)" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="9"/>
+                    <line x1="12" y1="3" x2="12" y2="7"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                    <line x1="3" y1="12" x2="7" y2="12"/>
+                    <line x1="17" y1="12" x2="21" y2="12"/>
+                    <circle cx="12" cy="12" r="2.5" fill="rgba(255,255,255,0.45)"/>
+                  </svg>
+                  <span style="font-size:10.5px; color:rgba(255,255,255,0.45); font-weight:600; margin-top:3px;">Steer PC Cursor</span>
+                </div>
+              </div>
+            </div>
 
-        <!-- Quick Typing & Paste bar directly below screen -->
-        <form id="form-screen-type" class="remote-type-bar" onsubmit="return false;">
-          <input id="input-screen-type" class="remote-type-input" type="text" placeholder="Type on PC while watching screen..." autocomplete="off">
-          <button type="button" id="btn-screen-paste" class="remote-btn-paste">📥 Paste</button>
-          <button type="submit" id="btn-screen-send" class="remote-btn-type">⌨ Type ↵</button>
-        </form>
+            <!-- Tactile Mouse Click Pads for Live Screen -->
+            <div class="click-pads-grid-3">
+              <button class="click-pad-btn primary" id="btn-screen-left-click">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/><path d="M6 9h6"/></svg>
+                <span>Left Click</span>
+              </button>
+              <button class="click-pad-btn accent" id="btn-screen-double-click">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/></svg>
+                <span>2x Click</span>
+              </button>
+              <button class="click-pad-btn secondary" id="btn-screen-right-click">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6"/><path d="M12 9h6"/></svg>
+                <span>Right Click</span>
+              </button>
+            </div>
 
-        <!-- Full Live Screen Remote Keypad -->
-        <div class="live-screen-keypad">
-          <!-- Row 1: System & Execution Keys -->
-          <div class="keypad-row">
-            <button class="pc-key-btn" data-key="esc" style="color:#ff453a;">⎋ Esc</button>
-            <button class="pc-key-btn" data-key="tab">⇥ Tab</button>
-            <button class="pc-key-btn" data-key="win" style="color:#007aff;">⊞ Win</button>
-            <button class="pc-key-btn" data-key="backspace">⌫ Back</button>
-            <button class="pc-key-btn" data-key="space" style="flex:1.2;">␣ Space</button>
-            <button class="pc-key-btn" data-key="enter" style="flex:1.2; background:linear-gradient(135deg, rgba(250,45,72,0.7), rgba(250,45,72,0.95)); border-color:var(--ios-red);">↵ Enter</button>
+            <!-- Quick Typing & Paste bar directly below screen -->
+            <form id="form-screen-type" class="remote-type-bar" onsubmit="return false;">
+              <input id="input-screen-type" class="remote-type-input" type="text" placeholder="Type on PC while watching screen..." autocomplete="off">
+              <button type="button" id="btn-screen-paste" class="remote-btn-paste">📥 Paste</button>
+              <button type="submit" id="btn-screen-send" class="remote-btn-type">⌨ Type ↵</button>
+            </form>
+
+            <!-- Unified Remote Keypad & Window Control Hub (4 Perfectly Aligned 6-Column Rows) -->
+            <div class="live-screen-keypad">
+              <!-- Row 1: Window & Tab Management -->
+              <div class="pc-keys-grid-6">
+                <button class="pc-key-btn btn-win-min" data-key="minimize" title="Minimize Window (Win+Down)">🗕 Min</button>
+                <button class="pc-key-btn btn-win-max" data-key="maximize" title="Maximize Window (Win+Up)">🗖 Max</button>
+                <button class="pc-key-btn btn-win-close" data-key="close" title="Close Window (Alt+F4)">✕ Close</button>
+                <button class="pc-key-btn btn-win-alttab" data-key="alttab" title="Switch App (Alt+Tab)">⇋ AltTab</button>
+                <button class="pc-key-btn btn-tab-new" data-key="newtab" title="New Tab (Ctrl+T)">＋ NewTab</button>
+                <button class="pc-key-btn btn-tab-close" data-key="closetab" title="Close Tab (Ctrl+W)">⌧ ClsTab</button>
+              </div>
+
+              <!-- Row 2: System & Core Execution -->
+              <div class="pc-keys-grid-6">
+                <button class="pc-key-btn" data-key="esc" style="color:#ff453a;">⎋ Esc</button>
+                <button class="pc-key-btn" data-key="tab">⇥ Tab</button>
+                <button class="pc-key-btn" data-key="win" style="color:#007aff;">⊞ Win</button>
+                <button class="pc-key-btn" data-key="backspace">⌫ Back</button>
+                <button class="pc-key-btn" data-key="space">␣ Space</button>
+                <button class="pc-key-btn" data-key="enter" style="background:linear-gradient(135deg, rgba(250,45,72,0.7), rgba(250,45,72,0.95)); border-color:var(--ios-red); color:#fff;">↵ Enter</button>
+              </div>
+
+              <!-- Row 3: Directional & Page Navigation -->
+              <div class="pc-keys-grid-6">
+                <button class="pc-key-btn" data-key="left">◀ Left</button>
+                <button class="pc-key-btn" data-key="up">▲ Up</button>
+                <button class="pc-key-btn" data-key="down">▼ Down</button>
+                <button class="pc-key-btn" data-key="right">▶ Right</button>
+                <button class="pc-key-btn" data-key="pgup" style="color:#30d158;">⇞ PgUp</button>
+                <button class="pc-key-btn" data-key="pgdn" style="color:#30d158;">⇟ PgDn</button>
+              </div>
+
+              <!-- Row 4: Clipboard & Jump Actions -->
+              <div class="pc-keys-grid-6">
+                <button class="pc-key-btn clip-quick-btn" data-key="copy">📋 Copy</button>
+                <button class="pc-key-btn clip-quick-btn" data-key="paste">📥 Paste</button>
+                <button class="pc-key-btn clip-quick-btn" data-key="selectall">🔲 All</button>
+                <button class="pc-key-btn" data-key="ctrlz" style="color:#ff9f0a;">↶ Undo</button>
+                <button class="pc-key-btn" data-key="home">⏮ Home</button>
+                <button class="pc-key-btn" data-key="end">⏭ End</button>
+              </div>
+            </div>
           </div>
-
-          <!-- Row 2: Directional Arrows & Page Scrolling Keys -->
-          <div class="keypad-row" style="margin-top:6px;">
-            <button class="pc-key-btn" data-key="up" style="font-size:12.5px; font-weight:800;">▲ Up</button>
-            <button class="pc-key-btn" data-key="left" style="font-size:12.5px; font-weight:800;">◀ Left</button>
-            <button class="pc-key-btn" data-key="down" style="font-size:12.5px; font-weight:800;">▼ Down</button>
-            <button class="pc-key-btn" data-key="right" style="font-size:12.5px; font-weight:800;">▶ Right</button>
-            <button class="pc-key-btn" data-key="pgup" style="color:#30d158;">⇞ PgUp</button>
-            <button class="pc-key-btn" data-key="pgdn" style="color:#30d158;">⇟ PgDn</button>
-          </div>
-
-          <!-- Row 3: Editing, Clipboard & Jump Keys -->
-          <div class="keypad-row" style="margin-top:6px;">
-            <button class="pc-key-btn clip-quick-btn" data-key="copy">📋 Copy</button>
-            <button class="pc-key-btn clip-quick-btn" data-key="paste">📥 Paste</button>
-            <button class="pc-key-btn clip-quick-btn" data-key="selectall">🔲 All</button>
-            <button class="pc-key-btn" data-key="ctrlz" style="color:#ff9f0a;">↶ Undo</button>
-            <button class="pc-key-btn" data-key="home">⏮ Home</button>
-            <button class="pc-key-btn" data-key="end">⏭ End</button>
-          </div>
-        </div>
-
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:11px; color:var(--ios-gray-text);">
-          <span>Tap screen to click • Drag scroll bar to scroll PC</span>
-          <button id="btn-screen-refresh" style="background:transparent; border:none; color:var(--ios-blue); font-size:11px; font-weight:700; cursor:pointer;">Reconnect ↻</button>
         </div>
       </div>
     </div>
@@ -2506,11 +2742,13 @@ if (btnViewportExpand && screenViewport) {
   btnViewportExpand.addEventListener("click", () => {
     isViewportExpanded = !isViewportExpanded;
     if (isViewportExpanded) {
-      screenViewport.style.height = "70vh";
-      btnViewportExpand.textContent = "⊟ Compact";
+      screenViewport.style.aspectRatio = "unset";
+      screenViewport.style.height = "75vh";
+      btnViewportExpand.textContent = "⊟ 16:9 Fit";
       btnViewportExpand.style.color = "var(--ios-red)";
     } else {
-      screenViewport.style.height = "";
+      screenViewport.style.aspectRatio = "16 / 9";
+      screenViewport.style.height = "auto";
       btnViewportExpand.textContent = "⛶ Expand";
       btnViewportExpand.style.color = "#007aff";
     }
@@ -3875,6 +4113,48 @@ class PhoneDropService:
                 time.sleep(0.015)
                 user32.keybd_event(0x09, 0, KEYEVENTF_KEYUP, 0)
                 user32.keybd_event(0x12, 0, KEYEVENTF_KEYUP, 0)
+                return
+            elif key_lower in ("minimize", "min"):
+                user32.keybd_event(0x5B, 0, 0, 0)  # Win
+                user32.keybd_event(0x28, 0, 0, 0)  # Down
+                time.sleep(0.015)
+                user32.keybd_event(0x28, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x5B, 0, KEYEVENTF_KEYUP, 0)
+                return
+            elif key_lower in ("maximize", "max"):
+                user32.keybd_event(0x5B, 0, 0, 0)  # Win
+                user32.keybd_event(0x26, 0, 0, 0)  # Up
+                time.sleep(0.015)
+                user32.keybd_event(0x26, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x5B, 0, KEYEVENTF_KEYUP, 0)
+                return
+            elif key_lower in ("close", "closewindow", "altf4"):
+                user32.keybd_event(0x12, 0, 0, 0)  # Alt
+                user32.keybd_event(0x73, 0, 0, 0)  # F4
+                time.sleep(0.015)
+                user32.keybd_event(0x73, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x12, 0, KEYEVENTF_KEYUP, 0)
+                return
+            elif key_lower in ("newtab", "addtab"):
+                user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
+                user32.keybd_event(0x54, 0, 0, 0)  # 'T'
+                time.sleep(0.015)
+                user32.keybd_event(0x54, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
+                return
+            elif key_lower in ("closetab", "ctrlw"):
+                user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
+                user32.keybd_event(0x57, 0, 0, 0)  # 'W'
+                time.sleep(0.015)
+                user32.keybd_event(0x57, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
+                return
+            elif key_lower in ("tabswitch", "nexttab", "ctrltab"):
+                user32.keybd_event(0x11, 0, 0, 0)  # Ctrl
+                user32.keybd_event(0x09, 0, 0, 0)  # Tab
+                time.sleep(0.015)
+                user32.keybd_event(0x09, 0, KEYEVENTF_KEYUP, 0)
+                user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
                 return
 
             # Special Keys mapping
