@@ -27,6 +27,9 @@ from typing import Optional, Callable, Dict, Any, List, Tuple
 import qrcode
 from PIL import Image
 
+class _POINT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
 # Default directory where files from phone are saved
 DOWNLOADS_DIR = Path.home() / "Downloads" / "PhoneDrop"
 DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1811,13 +1814,34 @@ const trackpad = document.getElementById("trackpad-surface");
 let touchStartX = 0, touchStartY = 0, lastTouchX = 0, lastTouchY = 0;
 let lastScrollY = 0;
 let touchStartTime = 0;
-let isMoving = false;
-const moveThreshold = 5;
+let totalMoveDist = 0;
+let accumDx = 0.0;
+let accumDy = 0.0;
+let isSendingMouse = false;
+
+function flushMouseMove() {
+  if (isSendingMouse) return;
+  if (Math.abs(accumDx) >= 0.5 || Math.abs(accumDy) >= 0.5) {
+    const toSendX = accumDx;
+    const toSendY = accumDy;
+    accumDx = 0.0;
+    accumDy = 0.0;
+    isSendingMouse = true;
+    fetch("/api/remote/mouse", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action: "move", dx: toSendX, dy: toSendY})
+    }).catch(() => {}).finally(() => {
+      isSendingMouse = false;
+    });
+  }
+}
+setInterval(flushMouseMove, 20);
 
 if (trackpad) {
   trackpad.addEventListener("touchstart", (e) => {
     touchStartTime = Date.now();
-    isMoving = false;
+    totalMoveDist = 0;
     if (e.touches.length === 1) {
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
@@ -1833,28 +1857,69 @@ if (trackpad) {
     if (e.touches.length === 1) {
       const curX = e.touches[0].clientX;
       const curY = e.touches[0].clientY;
-      const dx = (curX - lastTouchX) * 1.6;
-      const dy = (curY - lastTouchY) * 1.6;
+      const dx = (curX - lastTouchX) * 2.2;
+      const dy = (curY - lastTouchY) * 2.2;
       lastTouchX = curX;
       lastTouchY = curY;
-      if (Math.abs(curX - touchStartX) > moveThreshold || Math.abs(curY - touchStartY) > moveThreshold) {
-        isMoving = true;
-      }
-      sendMouse({action: "move", dx: dx, dy: dy});
+      totalMoveDist += Math.abs(dx) + Math.abs(dy);
+      accumDx += dx;
+      accumDy += dy;
     } else if (e.touches.length === 2) {
       const curScrollY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       const dy = curScrollY - lastScrollY;
       lastScrollY = curScrollY;
-      const scrollTicks = dy > 0 ? 1 : -1;
-      sendMouse({action: "scroll", dy: scrollTicks});
+      if (Math.abs(dy) > 1.5) {
+        const scrollTicks = dy > 0 ? 1 : -1;
+        sendMouse({action: "scroll", dy: scrollTicks});
+      }
     }
   }, {passive: false});
 
   trackpad.addEventListener("touchend", (e) => {
     const elapsed = Date.now() - touchStartTime;
-    if (!isMoving && elapsed < 260) {
+    if (totalMoveDist < 14 && elapsed < 320) {
       sendMouse({action: "click", btn: "left"});
       showToast("Tap Click");
+    }
+  });
+
+  let isPointerActive = false;
+  trackpad.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse") {
+      isPointerActive = true;
+      touchStartTime = Date.now();
+      totalMoveDist = 0;
+      touchStartX = e.clientX;
+      touchStartY = e.clientY;
+      lastTouchX = e.clientX;
+      lastTouchY = e.clientY;
+      try { trackpad.setPointerCapture(e.pointerId); } catch(err){}
+    }
+  });
+
+  window.addEventListener("pointermove", (e) => {
+    if (isPointerActive && e.pointerType === "mouse") {
+      const curX = e.clientX;
+      const curY = e.clientY;
+      const dx = (curX - lastTouchX) * 2.0;
+      const dy = (curY - lastTouchY) * 2.0;
+      lastTouchX = curX;
+      lastTouchY = curY;
+      totalMoveDist += Math.abs(dx) + Math.abs(dy);
+      accumDx += dx;
+      accumDy += dy;
+    }
+  });
+
+  window.addEventListener("pointerup", (e) => {
+    if (isPointerActive && e.pointerType === "mouse") {
+      isPointerActive = false;
+      const elapsed = Date.now() - touchStartTime;
+      if (totalMoveDist < 14 && elapsed < 320) {
+        sendMouse({action: "click", btn: "left"});
+        showToast("Tap Click");
+      }
+      try { trackpad.releasePointerCapture(e.pointerId); } catch(err){}
     }
   });
 }
@@ -2247,13 +2312,32 @@ class PhoneDropService:
             except Exception as e:
                 print(f"[PhoneDropService] Error in cb_jarvis_query: {e}")
 
+    def _attach_desktop(self):
+        """Attaches the worker thread to the active interactive user desktop session."""
+        try:
+            user32 = ctypes.windll.user32
+            h_desk = user32.OpenDesktopW("Default", 0, False, 0x01FF)
+            if h_desk:
+                user32.SetThreadDesktop(h_desk)
+        except Exception:
+            pass
+
     def handle_remote_mouse(self, action: str, dx: float = 0.0, dy: float = 0.0, btn: str = "left"):
         """Instant Win32 hardware mouse event injection (move, click, scroll) with 0ms latency."""
         try:
+            self._attach_desktop()
             user32 = ctypes.windll.user32
             if action == "move":
-                # Relative mouse cursor move
-                user32.mouse_event(0x0001, int(dx), int(dy), 0, 0)
+                pt = _POINT()
+                if user32.GetCursorPos(ctypes.byref(pt)):
+                    new_x = int(pt.x + dx)
+                    new_y = int(pt.y + dy)
+                    user32.SetCursorPos(new_x, new_y)
+                # Also fire relative move event for hover/window updates
+                idx = int(round(dx))
+                idy = int(round(dy))
+                if idx != 0 or idy != 0:
+                    user32.mouse_event(0x0001, idx, idy, 0, 0)
             elif action == "click":
                 if btn == "right":
                     user32.mouse_event(0x0008, 0, 0, 0, 0)  # MOUSEEVENTF_RIGHTDOWN
@@ -2262,7 +2346,6 @@ class PhoneDropService:
                     user32.mouse_event(0x0002, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTDOWN
                     user32.mouse_event(0x0004, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTUP
             elif action == "scroll":
-                # 0x0800 = MOUSEEVENTF_WHEEL (120 units per notch)
                 wheel_delta = int(dy * 120)
                 user32.mouse_event(0x0800, 0, 0, wheel_delta, 0)
         except Exception as e:
@@ -2271,6 +2354,7 @@ class PhoneDropService:
     def handle_remote_key(self, key: str):
         """Instant Win32 virtual keyboard injection for presentation clicker / shortcuts."""
         try:
+            self._attach_desktop()
             user32 = ctypes.windll.user32
             KEYEVENTF_KEYUP = 0x0002
             vk = 0
