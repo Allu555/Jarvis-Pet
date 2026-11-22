@@ -28,17 +28,19 @@ Designed with an ultra-lightweight architecture: **~60 MB RAM**, **< 1% idle CPU
 ### 🏝️ 2. Dynamic Origin Island
 Floating interactive top-notch overlay inspired by modern mobile dynamic islands:
 
-| Dynamic Island Notch | Expanded Music Player |
-| :---: | :---: |
-| ![Origin Island Notch](docs/images/origin_island_notch.png) | ![Origin Island Player](docs/images/origin_island_player.png) |
+<p align="center">
+  <img src="docs/images/origin_island_notch.png" width="100%" alt="Origin Island Flush Notch">
+</p>
 
 #### 🎛️ Multi-Feature Island Suite
 
-| 🌤️ Live Weather & Clock HUD | ⚙️ Control Center & Quick Toggles |
+| 🎵 Expanded Music Player & Waveform EQ | 🌤️ Live Weather & Clock HUD |
 | :---: | :---: |
-| ![Origin Island Weather](docs/images/origin_island_weather.png) | ![Origin Island Controls](docs/images/origin_island_controls.png) |
-| **📁 Smart Shelf (File & QR Stash)** | **⚡ Hardware Telemetry & Tools** |
-| ![Origin Island Smart Shelf](docs/images/origin_island_shelf.png) | ![Origin Island Telemetry](docs/images/origin_island_telemetry.png) |
+| ![Origin Island Player](docs/images/origin_island_player.png) | ![Origin Island Weather](docs/images/origin_island_weather.png) |
+| **⚙️ Control Center & Quick Toggles** | **📁 Smart Shelf (File & QR Stash)** |
+| ![Origin Island Controls](docs/images/origin_island_controls.png) | ![Origin Island Smart Shelf](docs/images/origin_island_shelf.png) |
+| **⚡ Live Hardware Telemetry & Tools** | **📱 Wireless Phone Drop & QR Remote** |
+| ![Origin Island Telemetry](docs/images/origin_island_telemetry.png) | ![Phone Drop QR Pairing](docs/images/phone_drop_qr.png) |
 
 - **Real-Time Media Detection**: Windows SMTC integration for Spotify, YouTube, and media players.
 - **Live WASAPI Audio Visualizer**: 60 FPS real-time audio loopback frequency spectrum with adaptive theme colors.
@@ -47,20 +49,7 @@ Floating interactive top-notch overlay inspired by modern mobile dynamic islands
 
 ---
 
-### 📱 3. Phone Drop Link & Web Remote
-Control your desktop and stream lyrics directly to your smartphone:
-
-<p align="center">
-  <img src="docs/images/phone_drop_qr.png" width="400" alt="Phone Drop QR Pairing">
-</p>
-
-- **Instant Local Pairing**: Scan the QR code to open the web dashboard on any phone connected to your Wi-Fi (port `8765`).
-- **Live Lyrics Stream**: Watch synced karaoke lyrics on your phone in real time.
-- **Wireless File Drop**: Effortlessly transfer photos, links, and documents between your phone and PC.
-
----
-
-### 🤖 4. JARVIS Voice & Vision Agent
+### 🤖 3. JARVIS Voice & Vision Agent
 
 <p align="center">
   <img src="docs/images/jarvis_hud.png" width="450" alt="JARVIS HUD">
