@@ -5932,10 +5932,17 @@ class OriginIsland(QWidget):
 
     def _get_phone_cover_bytes(self) -> Optional[Tuple[bytes, str]]:
         """Returns album art bytes and mime type for phone display."""
-        if self._last_media_info and self._last_media_info.thumbnail_bytes:
+        cur_media = getattr(self._media, "current_info", None) if hasattr(self, "_media") else None
+        tb = None
+        if cur_media and cur_media.thumbnail_bytes:
+            tb = cur_media.thumbnail_bytes
+        elif self._last_media_info and self._last_media_info.thumbnail_bytes:
             tb = self._last_media_info.thumbnail_bytes
+
+        if tb:
             mime = "image/png" if tb.startswith(b"\x89PNG") else "image/jpeg"
             return tb, mime
+
         if ALBUM_ART_PATH.exists():
             try:
                 return ALBUM_ART_PATH.read_bytes(), "image/png"
@@ -5945,15 +5952,18 @@ class OriginIsland(QWidget):
 
     def _get_phone_lyrics_data(self) -> dict:
         """Returns live synchronized lyrics, active line index, and current playback position."""
+        cur_media = getattr(self._media, "current_info", None) if hasattr(self, "_media") else None
+        media_src = cur_media if (cur_media and cur_media.has_media) else self._last_media_info
+
         lines = []
         for t, text in getattr(self, "_lyrics_lines", []):
             lines.append({"sec": float(t), "text": str(text)})
 
         # If in-memory lines are empty, attempt immediate disk-cache recovery or background fetch
-        if not lines and self._last_media_info and self._last_media_info.title:
+        if not lines and media_src and media_src.title:
             try:
-                title = self._last_media_info.title
-                artist = self._last_media_info.artist or ""
+                title = media_src.title
+                artist = media_src.artist or ""
                 clean_title, clean_artist = LyricsEngine.clean_song_info(title, artist)
                 cached = LyricsEngine.get_disk_cached_lyrics(clean_title, clean_artist)
                 if cached:
@@ -5964,17 +5974,21 @@ class OriginIsland(QWidget):
                     track_key = f"{artist}:{title}".strip().lower()
                     if track_key != getattr(self, "_lyrics_cache_key", ""):
                         self._lyrics_cache_key = track_key
-                        LyricsEngine.fetch_lyrics(track_key, artist, title, "", self._playback_dur_sec, self._on_lyrics_loaded)
+                        dur = media_src.duration_sec if media_src.duration_sec > 0 else getattr(self, "_playback_dur_sec", 210.0)
+                        LyricsEngine.fetch_lyrics(track_key, artist, title, "", dur, self._on_lyrics_loaded)
             except Exception:
                 pass
 
+        pos = media_src.current_position() if (media_src and media_src.is_playing) else getattr(self, "_playback_pos_sec", 0.0)
+        dur = media_src.duration_sec if (media_src and media_src.duration_sec > 0) else getattr(self, "_playback_dur_sec", 0.0)
+
         return {
-            "title": self._last_media_info.title if self._last_media_info else "",
-            "artist": self._last_media_info.artist if self._last_media_info else "",
-            "pos_sec": round(float(getattr(self, "_playback_pos_sec", 0.0)), 2),
-            "dur_sec": round(float(getattr(self, "_playback_dur_sec", 0.0)), 2),
+            "title": media_src.title if media_src else "",
+            "artist": media_src.artist if media_src else "",
+            "pos_sec": round(float(pos), 2),
+            "dur_sec": round(float(dur), 2),
             "active_idx": int(getattr(self, "_lyrics_active_idx", 0)),
-            "is_playing": bool(self._is_genuine_music_playing()),
+            "is_playing": bool(media_src and media_src.is_playing),
             "lines": lines
         }
 
@@ -5990,20 +6004,41 @@ class OriginIsland(QWidget):
             except Exception:
                 pass
 
+        cur_media = getattr(self._media, "current_info", None) if hasattr(self, "_media") else None
+        media_src = None
+        if cur_media and cur_media.has_media:
+            from media_service import is_valid_media_info
+            if is_valid_media_info(cur_media):
+                media_src = cur_media
+                self._last_media_info = cur_media
+        if not media_src and self._last_media_info and self._last_media_info.has_media:
+            media_src = self._last_media_info
+
         cur_song = None
-        if self._last_media_info:
+        if media_src and media_src.title:
+            # Detect track change immediately and trigger lyrics fetch
+            if media_src.title != getattr(self, "_last_played_title", ""):
+                self._last_played_title = media_src.title
+                dur_val = media_src.duration_sec if media_src.duration_sec > 0 else getattr(self, "_playback_dur_sec", 210.0)
+                if hasattr(self, "_fetch_synced_lyrics_async"):
+                    self._fetch_synced_lyrics_async(media_src.title, media_src.artist or "", dur_val)
+
             lyrics_lines = []
             for t, text in getattr(self, "_lyrics_lines", []):
                 lyrics_lines.append({"sec": float(t), "text": str(text)})
 
+            # Real-time position interpolation directly from media session
+            pos = media_src.current_position() if media_src.is_playing else getattr(self, "_playback_pos_sec", 0.0)
+            dur = media_src.duration_sec if media_src.duration_sec > 0 else getattr(self, "_playback_dur_sec", 0.0)
+
             cur_song = {
-                "title": self._last_media_info.title,
-                "artist": self._last_media_info.artist,
-                "album": getattr(self._last_media_info, "album", ""),
-                "is_playing": self._is_genuine_music_playing(),
-                "pos_sec": round(float(getattr(self, "_playback_pos_sec", 0.0)), 2),
-                "dur_sec": round(float(getattr(self, "_playback_dur_sec", 0.0)), 2),
-                "has_cover": bool(self._last_media_info.thumbnail_bytes or ALBUM_ART_PATH.exists()),
+                "title": media_src.title,
+                "artist": media_src.artist or "Unknown Artist",
+                "album": getattr(media_src, "album", ""),
+                "is_playing": bool(media_src.is_playing),
+                "pos_sec": round(float(pos), 2),
+                "dur_sec": round(float(dur), 2),
+                "has_cover": bool(media_src.thumbnail_bytes or (self._last_media_info and self._last_media_info.thumbnail_bytes) or ALBUM_ART_PATH.exists()),
                 "has_lyrics": bool(lyrics_lines),
                 "active_lyric_idx": int(getattr(self, "_lyrics_active_idx", 0)),
                 "lines": lyrics_lines,

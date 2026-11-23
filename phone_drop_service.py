@@ -3767,9 +3767,17 @@ class AudioStreamBroadcaster:
         self._available = False
         try:
             import soundcard as sc
-            import av
             import numpy as np
-            self._available = True
+            import shutil
+            import subprocess
+            self._has_ffmpeg = bool(shutil.which("ffmpeg"))
+            self._available = self._has_ffmpeg
+            if not self._available:
+                try:
+                    import av
+                    self._available = True
+                except Exception:
+                    self._available = False
         except ImportError:
             self._available = False
 
@@ -3821,10 +3829,11 @@ class AudioStreamBroadcaster:
             self._recent_chunks.clear()
 
     def _capture_loop(self):
+        proc = None
         try:
             import soundcard as sc
-            import av
             import numpy as np
+            import subprocess
 
             spk = sc.default_speaker()
             if not spk:
@@ -3834,52 +3843,60 @@ class AudioStreamBroadcaster:
             if not mic:
                 return
 
-            class MemoryWriter:
-                def __init__(self):
-                    self.chunks: List[bytes] = []
-                def write(self, d: bytes) -> int:
-                    self.chunks.append(d)
-                    return len(d)
-                def get_and_clear(self) -> bytes:
-                    res = b"".join(self.chunks)
-                    self.chunks.clear()
-                    return res
+            ffmpeg_cmd = [
+                "ffmpeg", "-y", "-loglevel", "quiet",
+                "-f", "s16le", "-ar", "44100", "-ac", "2", "-i", "pipe:0",
+                "-c:a", "libmp3lame", "-b:a", "128k", "-flush_packets", "1",
+                "-f", "mp3", "pipe:1"
+            ]
+            proc = subprocess.Popen(
+                ffmpeg_cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                bufsize=0
+            )
 
-            writer = MemoryWriter()
-            container = av.open(writer, mode="w", format="mp3")
-            stream = container.add_stream("mp3", rate=44100)
-            stream.bit_rate = 128000
-            stream.channels = 2
-
-            with mic.recorder(samplerate=44100, channels=2) as rec:
-                while self._running:
-                    # 1152 samples (~26.1ms audio per MP3 frame)
-                    data = rec.record(numframes=1152)
-                    planar = np.ascontiguousarray(data.T, dtype=np.float32)
-                    frame = av.AudioFrame.from_ndarray(planar, format="fltp", layout="stereo")
-                    frame.rate = 44100
-                    for p in stream.encode(frame):
-                        container.mux(p)
-                    encoded = writer.get_and_clear()
-                    if encoded:
+            def reader_thread():
+                while self._running and proc.poll() is None:
+                    try:
+                        chunk = proc.stdout.read(2048)
+                        if not chunk:
+                            break
                         with self._lock:
                             if not self._header_chunk:
-                                self._header_chunk = encoded
-                            self._recent_chunks.append(encoded)
+                                self._header_chunk = chunk
+                            self._recent_chunks.append(chunk)
                             for q in list(self._listeners):
                                 try:
-                                    q.put_nowait(encoded)
+                                    q.put_nowait(chunk)
                                 except queue.Full:
                                     pass
-            try:
-                for p in stream.encode(None):
-                    container.mux(p)
-                container.close()
-            except Exception:
-                pass
+                    except Exception:
+                        break
+
+            t_reader = threading.Thread(target=reader_thread, daemon=True, name="AudioMp3Reader")
+            t_reader.start()
+
+            with mic.recorder(samplerate=44100, channels=2) as rec:
+                while self._running and proc.poll() is None:
+                    # 1152 samples (~26.1ms audio per MP3 frame)
+                    data = rec.record(numframes=1152)
+                    pcm = (np.clip(data, -1.0, 1.0) * 32767.0).astype(np.int16).tobytes()
+                    try:
+                        proc.stdin.write(pcm)
+                    except (BrokenPipeError, OSError):
+                        break
+
         except Exception as e:
             print(f"[AudioBroadcaster] Error in loopback audio streaming: {e}")
         finally:
+            if proc:
+                try:
+                    proc.stdin.close()
+                    proc.terminate()
+                except Exception:
+                    pass
             with self._lock:
                 self._header_chunk = b""
                 self._recent_chunks.clear()
