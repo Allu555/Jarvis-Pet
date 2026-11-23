@@ -1733,9 +1733,9 @@ header {
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px;">
-    <a href="/app" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:rgba(0,122,255,0.18);border:0.5px solid rgba(0,122,255,0.4);color:#5ac8fa;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.2px;" title="Download JARVIS Remote Android APK">
+    <a href="/app" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:rgba(0,122,255,0.18);border:0.5px solid rgba(0,122,255,0.4);color:#5ac8fa;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.2px;" title="Download JARVIS Remote Android APK v2.0">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5682.1523l-2.0223 3.503C15.5902 8.4116 13.8533 8.125 12 8.125s-3.5902.2866-5.1322.8299L4.8455 5.4519a.416.416 0 00-.5682-.1523.416.416 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
-      APK
+      APK v2.0
     </a>
     <div class="ios-pill-badge">
       <div class="ios-pulse-dot"></div>
