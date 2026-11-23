@@ -45,3 +45,9 @@ jarvis/spider_3d/current_screen.png
 jarvis/spider_3d/live_check.png
 jarvis/spider_3d/test_frame.png
 /system_resource_dashboard.png
+
+# Android build artifacts
+android_app/build/
+android_app/*.keystore
+*.idsig
+dist/
