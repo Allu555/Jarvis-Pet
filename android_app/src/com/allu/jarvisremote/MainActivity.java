@@ -2,10 +2,16 @@ package com.allu.jarvisremote;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -18,6 +24,7 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -38,6 +45,7 @@ public class MainActivity extends Activity {
     private static final String PREFS_NAME = "jarvis_remote_prefs";
     private static final String KEY_SERVER_URL = "server_url";
     private static final String DEFAULT_URL = "http://10.233.226.213:8765/remote";
+    private static final int FILE_CHOOSER_REQUEST_CODE = 2001;
 
     private WebView webView;
     private ProgressBar progressBar;
@@ -46,6 +54,7 @@ public class MainActivity extends Activity {
     private Vibrator vibrator;
     private Handler mainHandler;
     private String currentServerUrl;
+    private ValueCallback<Uri[]> mFilePathCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -128,6 +137,8 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             settings.setMediaPlaybackRequiresUserGesture(false);
@@ -169,7 +180,63 @@ public class MainActivity extends Activity {
                     progressBar.setVisibility(View.GONE);
                 }
             }
+
+            @Override
+            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
+                if (mFilePathCallback != null) {
+                    mFilePathCallback.onReceiveValue(null);
+                    mFilePathCallback = null;
+                }
+                mFilePathCallback = filePathCallback;
+
+                Intent intent = null;
+                if (fileChooserParams != null) {
+                    try {
+                        intent = fileChooserParams.createIntent();
+                    } catch (Exception ignored) {}
+                }
+                if (intent == null) {
+                    intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                }
+                try {
+                    startActivityForResult(Intent.createChooser(intent, "Choose Files to Send"), FILE_CHOOSER_REQUEST_CODE);
+                    return true;
+                } catch (ActivityNotFoundException e) {
+                    if (mFilePathCallback != null) {
+                        mFilePathCallback.onReceiveValue(null);
+                        mFilePathCallback = null;
+                    }
+                    return false;
+                }
+            }
         });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
+            if (mFilePathCallback != null) {
+                Uri[] results = null;
+                if (resultCode == Activity.RESULT_OK && data != null) {
+                    ClipData clipData = data.getClipData();
+                    if (clipData != null) {
+                        int count = clipData.getItemCount();
+                        results = new Uri[count];
+                        for (int i = 0; i < count; i++) {
+                            results[i] = clipData.getItemAt(i).getUri();
+                        }
+                    } else if (data.getData() != null) {
+                        results = new Uri[]{ data.getData() };
+                    }
+                }
+                mFilePathCallback.onReceiveValue(results);
+                mFilePathCallback = null;
+            }
+        }
     }
 
     private void loadServerUrl(String url) {
@@ -324,7 +391,50 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getNativeVersion() {
-            return "2.0.0 Pro (Android 14+ Ready)";
+            return "2.1.0 Pro (Android 14+ Ready)";
+        }
+
+        @JavascriptInterface
+        public int getBatteryLevel() {
+            try {
+                BatteryManager bm = (BatteryManager) getSystemService(Context.BATTERY_SERVICE);
+                if (bm != null) {
+                    int cap = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+                    if (cap >= 0 && cap <= 100) return cap;
+                }
+                IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                Intent b = registerReceiver(null, ifilter);
+                if (b != null) {
+                    int level = b.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                    int scale = b.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                    if (level >= 0 && scale > 0) {
+                        return Math.round((level / (float) scale) * 100);
+                    }
+                }
+            } catch (Exception ignored) {}
+            return -1;
+        }
+
+        @JavascriptInterface
+        public boolean isCharging() {
+            try {
+                IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                Intent b = registerReceiver(null, ifilter);
+                if (b != null) {
+                    int status = b.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                    return status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL;
+                }
+            } catch (Exception ignored) {}
+            return false;
+        }
+
+        @JavascriptInterface
+        public void triggerNativeFilePicker() {
+            mainHandler.post(() -> {
+                if (webView != null) {
+                    webView.evaluateJavascript("document.getElementById('upload-input') && document.getElementById('upload-input').click();", null);
+                }
+            });
         }
     }
 }

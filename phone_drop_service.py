@@ -213,7 +213,7 @@ header {
   -webkit-backdrop-filter: blur(35px) saturate(200%);
   background: rgba(0, 0, 0, 0.75);
   border-bottom: 0.5px solid var(--ios-border);
-  padding: 12px 20px;
+  padding: max(14px, env(safe-area-inset-top)) 16px 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -771,32 +771,166 @@ header {
 
 /* ══════════ VIEW 3: AIRDROP & FILES ══════════ */
 .airdrop-hub {
-  border: 2px dashed rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 24px;
-  padding: 30px 16px;
+  border: 1.5px dashed rgba(0, 122, 255, 0.45);
+  background: radial-gradient(circle at 50% 30%, rgba(0, 122, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 80%);
+  border-radius: 26px;
+  padding: 26px 16px 20px 16px;
   text-align: center;
   cursor: pointer;
   margin-bottom: 16px;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), inset 0 1px 1.5px rgba(255, 255, 255, 0.15);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .airdrop-hub:active, .airdrop-hub.drag-over {
   border-color: var(--ios-blue);
-  background: rgba(0, 122, 255, 0.08);
-  transform: scale(0.98);
+  background: radial-gradient(circle at 50% 30%, rgba(0, 122, 255, 0.25) 0%, rgba(0, 122, 255, 0.06) 80%);
+  transform: scale(0.985);
 }
 
-.airdrop-icon-ring {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  background: rgba(0, 122, 255, 0.15);
+.airdrop-icon-container {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--ios-blue);
-  margin: 0 auto 12px;
+}
+
+.airdrop-pulse-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 122, 255, 0.45);
+  animation: airdropRadar 2.4s ease-out infinite;
+  pointer-events: none;
+}
+
+.airdrop-pulse-ring:nth-child(2) {
+  animation-delay: 1.2s;
+}
+
+@keyframes airdropRadar {
+  0% { transform: scale(0.65); opacity: 0.85; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.airdrop-icon-ring {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(0, 122, 255, 0.35), rgba(90, 200, 250, 0.22));
+  border: 1px solid rgba(0, 122, 255, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 0 24px rgba(0, 122, 255, 0.4);
+  z-index: 2;
+  transition: transform 0.2s ease;
+}
+
+.airdrop-hub:active .airdrop-icon-ring {
+  transform: scale(0.92);
+}
+
+.airdrop-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.airdrop-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid rgba(255, 255, 255, 0.16);
+  color: #f2f2f7;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.airdrop-pill-btn:active {
+  transform: scale(0.95);
+  background: rgba(0, 122, 255, 0.22);
+  border-color: var(--ios-blue);
+  color: #5ac8fa;
+}
+
+/* Upload Progress Box */
+.airdrop-progress-box {
+  background: rgba(28, 28, 30, 0.85);
+  border: 0.5px solid rgba(0, 122, 255, 0.45);
+  border-radius: 18px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  display: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.airdrop-prog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.airdrop-prog-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.airdrop-prog-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5ac8fa;
+}
+
+.airdrop-prog-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.airdrop-prog-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #007aff, #5ac8fa);
+  border-radius: 999px;
+  transition: width 0.12s ease;
+  box-shadow: 0 0 10px rgba(0, 122, 255, 0.6);
+}
+
+.airdrop-prog-status {
+  font-size: 11px;
+  color: var(--ios-gray-text);
+  margin-top: 6px;
 }
 
 .shelf-card-list {
@@ -1975,9 +2109,9 @@ header {
       <span id="header-pc-bat">💻 --%</span>
       <span id="header-phone-bat">📱 --%</span>
     </div>
-    <a href="/app" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:rgba(0,122,255,0.18);border:0.5px solid rgba(0,122,255,0.4);color:#5ac8fa;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.2px;" title="Download JARVIS Remote Android APK v2.0">
+    <a href="/app" id="header-apk-link" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:rgba(0,122,255,0.18);border:0.5px solid rgba(0,122,255,0.4);color:#5ac8fa;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.2px;" title="Download JARVIS Remote Android APK v2.1">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5682.1523l-2.0223 3.503C15.5902 8.4116 13.8533 8.125 12 8.125s-3.5902.2866-5.1322.8299L4.8455 5.4519a.416.416 0 00-.5682-.1523.416.416 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
-      APK v2.0
+      APK v2.1
     </a>
     <div class="ios-pill-badge">
       <div class="ios-pulse-dot"></div>
@@ -2228,23 +2362,71 @@ header {
   <!-- ══════════ TAB 3: AIRDROP & FILES ══════════ -->
   <section id="tab-airdrop" class="view-section">
     <div class="ios-card">
-      <div class="card-header">AirDrop to Laptop</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="card-header" style="margin-bottom:0;">AirDrop to Laptop Shelf</div>
+        <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:rgba(48,209,88,0.18);border:0.5px solid rgba(48,209,88,0.35);color:#30d158;">● Ready</span>
+      </div>
+
+      <!-- Multiple file inputs with specific filters for instant Android & Web picker opening -->
       <input type="file" id="upload-input" multiple style="display:none;">
-      <div class="airdrop-hub" id="airdrop-dropzone">
-        <div class="airdrop-icon-ring">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
-          </svg>
+      <input type="file" id="upload-media" accept="image/*,video/*" multiple style="display:none;">
+      <input type="file" id="upload-audio" accept="audio/*" multiple style="display:none;">
+      <input type="file" id="upload-docs" accept=".pdf,.doc,.docx,.txt,.zip,.xls,.xlsx,.ppt,.pptx" multiple style="display:none;">
+
+      <!-- Live upload progress box -->
+      <div id="airdrop-progress-box" class="airdrop-progress-box">
+        <div class="airdrop-prog-header">
+          <span id="airdrop-prog-name" class="airdrop-prog-name">Uploading...</span>
+          <span id="airdrop-prog-pct" class="airdrop-prog-pct">0%</span>
         </div>
-        <div style="font-size:16px; font-weight:700; margin-bottom:4px;">Tap to Send Files</div>
-        <div style="font-size:13px; color:var(--ios-gray-text);">Photos, Videos, Audio, Documents</div>
+        <div class="airdrop-prog-track">
+          <div id="airdrop-prog-bar" class="airdrop-prog-bar"></div>
+        </div>
+        <div id="airdrop-prog-status" class="airdrop-prog-status">Transferring to PC desktop shelf...</div>
+      </div>
+
+      <!-- AirDrop Main Interactive Hub -->
+      <div class="airdrop-hub" id="airdrop-dropzone" title="Tap to choose any files to send to PC">
+        <div class="airdrop-icon-container">
+          <div class="airdrop-pulse-ring"></div>
+          <div class="airdrop-pulse-ring"></div>
+          <div class="airdrop-icon-ring">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+        </div>
+        <div style="font-size:17px; font-weight:700; margin-bottom:4px; letter-spacing:-0.2px;">Tap to Send Files to Laptop</div>
+        <div style="font-size:12.5px; color:var(--ios-gray-text);">Instant Wi-Fi AirDrop into PC Desktop Shelf</div>
+
+        <!-- Quick filter pills -->
+        <div class="airdrop-pills-row" id="airdrop-pills">
+          <button type="button" class="airdrop-pill-btn" id="pill-send-media" title="Select photos and videos">
+            <span>📸</span><span>Photos & Videos</span>
+          </button>
+          <button type="button" class="airdrop-pill-btn" id="pill-send-audio" title="Select audio and voice recordings">
+            <span>🎵</span><span>Audio</span>
+          </button>
+          <button type="button" class="airdrop-pill-btn" id="pill-send-docs" title="Select documents and PDFs">
+            <span>📄</span><span>Documents</span>
+          </button>
+          <button type="button" class="airdrop-pill-btn" id="pill-send-all" title="Select all file types">
+            <span>🗂️</span><span>Browse Files</span>
+          </button>
+        </div>
       </div>
     </div>
 
+    <!-- Shelf Files List Card -->
     <div class="ios-card">
-      <div class="card-header">Desktop Shelf Files</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="card-header" style="margin-bottom:0;">Desktop Shelf Files</div>
+        <button id="btn-refresh-shelf" class="ios-btn" style="padding:5px 12px;font-size:11.5px;border-radius:12px;background:rgba(255,255,255,0.08);cursor:pointer;" title="Refresh shelf list">
+          🔄 Refresh
+        </button>
+      </div>
       <div class="shelf-card-list" id="shelf-items">
         <div style="font-size:13px; color:var(--ios-gray-text); text-align:center; padding:18px;">
           No files on laptop shelf.
@@ -3077,22 +3259,140 @@ if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
 // ══════════ AIRDROP & FILES ══════════
 const airdropDropzone = document.getElementById("airdrop-dropzone");
 const uploadInput = document.getElementById("upload-input");
+const uploadMedia = document.getElementById("upload-media");
+const uploadAudio = document.getElementById("upload-audio");
+const uploadDocs = document.getElementById("upload-docs");
 
-airdropDropzone.addEventListener("click", () => uploadInput.click());
-uploadInput.addEventListener("change", (e) => {
-  if (e.target.files.length > 0) uploadFiles(Array.from(e.target.files));
+function triggerFilePicker(inputEl) {
+  if (window.AndroidBridge && typeof window.AndroidBridge.vibrate === "function") {
+    try { window.AndroidBridge.vibrate(20); } catch (e) {}
+  } else if (navigator.vibrate) {
+    try { navigator.vibrate(20); } catch (e) {}
+  }
+
+  if (inputEl) {
+    try {
+      inputEl.value = "";
+      inputEl.click();
+    } catch (e) {
+      if (window.AndroidBridge && typeof window.AndroidBridge.triggerNativeFilePicker === "function") {
+        window.AndroidBridge.triggerNativeFilePicker();
+      }
+    }
+  }
+}
+
+// Hook up main dropzone
+if (airdropDropzone) {
+  airdropDropzone.addEventListener("click", (e) => {
+    if (e.target.closest(".airdrop-pill-btn")) return;
+    triggerFilePicker(uploadInput);
+  });
+}
+
+// Hook up category pills
+const pillMedia = document.getElementById("pill-send-media");
+const pillAudio = document.getElementById("pill-send-audio");
+const pillDocs = document.getElementById("pill-send-docs");
+const pillAll = document.getElementById("pill-send-all");
+
+if (pillMedia) pillMedia.addEventListener("click", (e) => { e.stopPropagation(); triggerFilePicker(uploadMedia || uploadInput); });
+if (pillAudio) pillAudio.addEventListener("click", (e) => { e.stopPropagation(); triggerFilePicker(uploadAudio || uploadInput); });
+if (pillDocs) pillDocs.addEventListener("click", (e) => { e.stopPropagation(); triggerFilePicker(uploadDocs || uploadInput); });
+if (pillAll) pillAll.addEventListener("click", (e) => { e.stopPropagation(); triggerFilePicker(uploadInput); });
+
+// Attach change listeners to all file inputs
+[uploadInput, uploadMedia, uploadAudio, uploadDocs].forEach(input => {
+  if (!input) return;
+  input.addEventListener("change", (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      uploadFiles(Array.from(e.target.files));
+    }
+  });
 });
 
+function formatBytes(bytes, decimals = 1) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
 async function uploadFiles(files) {
-  for (const f of files) {
-    showToast(`AirDropping ${f.name}...`);
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `/api/upload?filename=${encodeURIComponent(f.name)}`, true);
-    xhr.onload = () => {
-      if (xhr.status === 200) showToast(`AirDropped ${f.name}!`);
-    };
-    xhr.send(f);
+  if (!files || files.length === 0) return;
+  const progBox = document.getElementById("airdrop-progress-box");
+  const progName = document.getElementById("airdrop-prog-name");
+  const progPct = document.getElementById("airdrop-prog-pct");
+  const progBar = document.getElementById("airdrop-prog-bar");
+  const progStatus = document.getElementById("airdrop-prog-status");
+
+  if (progBox) progBox.style.display = "block";
+
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const prefix = files.length > 1 ? `(${i + 1}/${files.length}) ` : "";
+    if (progName) progName.textContent = `${prefix}${f.name}`;
+    if (progPct) progPct.textContent = "0%";
+    if (progBar) progBar.style.width = "0%";
+    if (progStatus) progStatus.textContent = `Sending ${formatBytes(f.size)} to laptop shelf...`;
+
+    await new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `/api/upload?filename=${encodeURIComponent(f.name)}`, true);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          if (progPct) progPct.textContent = `${pct}%`;
+          if (progBar) progBar.style.width = `${pct}%`;
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          if (progPct) progPct.textContent = "100%";
+          if (progBar) progBar.style.width = "100%";
+          if (progStatus) progStatus.textContent = "✅ Saved to Laptop Desktop Shelf!";
+          showToast(`AirDropped ${f.name}!`);
+        } else {
+          if (progStatus) progStatus.textContent = "⚠️ Upload error";
+          showToast(`Upload failed for ${f.name}`);
+        }
+        resolve();
+      };
+
+      xhr.onerror = () => {
+        if (progStatus) progStatus.textContent = "⚠️ Connection error";
+        resolve();
+      };
+
+      xhr.send(f);
+    });
   }
+
+  fetchStatus();
+
+  if (window.AndroidBridge && typeof window.AndroidBridge.vibrate === "function") {
+    try { window.AndroidBridge.vibrate(40); } catch (e) {}
+  } else if (navigator.vibrate) {
+    try { navigator.vibrate(40); } catch (e) {}
+  }
+
+  setTimeout(() => {
+    if (progBox) progBox.style.display = "none";
+  }, 2200);
+}
+
+const btnRefreshShelf = document.getElementById("btn-refresh-shelf");
+if (btnRefreshShelf) {
+  btnRefreshShelf.addEventListener("click", () => {
+    btnRefreshShelf.textContent = "⏳...";
+    fetchStatus().finally(() => {
+      setTimeout(() => { btnRefreshShelf.textContent = "🔄 Refresh"; }, 400);
+    });
+  });
 }
 
 // ══════════ REMOTE TILES & CLIPBOARD ══════════
@@ -3229,8 +3529,20 @@ async function pollStatus() {
   }
 }
 
+function getFileIcon(ext) {
+  const e = (ext || "").toLowerCase();
+  if (["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg"].includes(e)) return "🖼️";
+  if (["mp3", "wav", "flac", "m4a", "ogg", "aac", "webm"].includes(e)) return "🎵";
+  if (["mp4", "mkv", "mov", "avi"].includes(e)) return "🎬";
+  if (["pdf", "doc", "docx", "txt", "md", "rtf", "xls", "xlsx", "ppt", "pptx"].includes(e)) return "📄";
+  if (["zip", "rar", "7z", "tar", "gz"].includes(e)) return "📦";
+  if (["py", "js", "html", "css", "json", "java", "c", "cpp"].includes(e)) return "💻";
+  return "📁";
+}
+
 function renderShelf(files) {
   const container = document.getElementById("shelf-items");
+  if (!container) return;
   if (!files || files.length === 0) {
     container.innerHTML = '<div style="font-size:13px; color:var(--ios-gray-text); text-align:center; padding:18px;">No files on laptop shelf.</div>';
     return;
@@ -3239,12 +3551,17 @@ function renderShelf(files) {
   files.forEach(f => {
     const row = document.createElement("div");
     row.className = "shelf-row";
+    const icon = getFileIcon(f.ext);
+    const sizeStr = f.size ? formatBytes(f.size) : "";
     row.innerHTML = `
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span class="shelf-file-badge">${f.ext}</span>
-        <span class="shelf-file-name">${f.name}</span>
+      <div style="display:flex; align-items:center; gap:10px; overflow:hidden;">
+        <span style="font-size:18px;">${icon}</span>
+        <div style="overflow:hidden;">
+          <div class="shelf-file-name" title="${f.name}">${f.name}</div>
+          <div style="font-size:10.5px; color:var(--ios-gray-text);">${f.ext ? f.ext.toUpperCase() : "FILE"}${sizeStr ? ' • ' + sizeStr : ''}</div>
+        </div>
       </div>
-      <a class="shelf-dl-btn" href="/api/download/${encodeURIComponent(f.name)}" download>Save</a>
+      <a class="shelf-dl-btn" href="/api/download/${encodeURIComponent(f.name)}" download title="Download to phone">Save ⬇️</a>
     `;
     container.appendChild(row);
   });
@@ -4294,42 +4611,67 @@ function updatePCBatteryUI(bat) {
   }
 }
 
+function updatePhoneBatteryDisplay(level, charging) {
+  const pct = Math.max(0, Math.min(100, Math.round(level <= 1.0 ? level * 100 : level)));
+  const pctEl = document.getElementById("pct-phone-bat");
+  const barEl = document.getElementById("bar-phone-bat");
+  const stateEl = document.getElementById("state-phone-bat");
+  const boltEl = document.getElementById("bolt-phone-bat");
+  const headerPhone = document.getElementById("header-phone-bat");
+  const headerPill = document.getElementById("header-battery-pill");
+
+  if (pctEl) pctEl.textContent = `${pct}%`;
+  if (barEl) {
+    barEl.style.width = `${pct}%`;
+    barEl.style.background = pct < 20 ? "#ff453a" : (pct < 50 ? "#ffd60a" : "#30d158");
+  }
+  if (boltEl) boltEl.style.display = charging ? "inline" : "none";
+  if (stateEl) stateEl.textContent = charging ? "⚡ Charging" : "On Battery";
+  if (headerPhone) headerPhone.textContent = `📱 ${pct}%${charging ? "⚡" : ""}`;
+  if (headerPill) headerPill.style.display = "inline-flex";
+
+  fetch("/api/phone/battery", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ level: pct / 100.0, charging })
+  }).catch(() => {});
+}
+
+function checkNativeBridgeBattery() {
+  if (window.AndroidBridge && typeof window.AndroidBridge.getBatteryLevel === "function") {
+    try {
+      const level = window.AndroidBridge.getBatteryLevel();
+      const charging = typeof window.AndroidBridge.isCharging === "function" ? window.AndroidBridge.isCharging() : false;
+      if (level >= 0) {
+        updatePhoneBatteryDisplay(level, charging);
+        return true;
+      }
+    } catch (e) {}
+  }
+  return false;
+}
+
+function checkNativeAppEnv() {
+  if (window.AndroidBridge && typeof window.AndroidBridge.isNativeApp === "function") {
+    const apkLink = document.getElementById("header-apk-link");
+    if (apkLink) apkLink.style.display = "none";
+    document.body.classList.add("is-native-android-app");
+  }
+}
+
 async function initPhoneBatterySync() {
+  checkNativeAppEnv();
+  const fromNative = checkNativeBridgeBattery();
+  if (fromNative) {
+    setInterval(checkNativeBridgeBattery, 20000);
+  }
+
   if ('getBattery' in navigator) {
     try {
       const bat = await navigator.getBattery();
       function reportBattery() {
-        const payload = {
-          level: bat.level,
-          charging: bat.charging,
-          chargingTime: bat.chargingTime,
-          dischargingTime: bat.dischargingTime
-        };
-        fetch("/api/phone/battery", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        }).catch(() => {});
-
-        const pct = Math.round(bat.level * 100);
-        const pctEl = document.getElementById("pct-phone-bat");
-        const barEl = document.getElementById("bar-phone-bat");
-        const stateEl = document.getElementById("state-phone-bat");
-        const boltEl = document.getElementById("bolt-phone-bat");
-        const headerPhone = document.getElementById("header-phone-bat");
-        const headerPill = document.getElementById("header-battery-pill");
-
-        if (pctEl) pctEl.textContent = `${pct}%`;
-        if (barEl) {
-          barEl.style.width = `${pct}%`;
-          barEl.style.background = pct < 20 ? "#ff453a" : (pct < 50 ? "#ffd60a" : "#30d158");
-        }
-        if (boltEl) boltEl.style.display = bat.charging ? "inline" : "none";
-        if (stateEl) stateEl.textContent = bat.charging ? "⚡ Charging" : "On Battery";
-        if (headerPhone) headerPhone.textContent = `📱 ${pct}%${bat.charging ? "⚡" : ""}`;
-        if (headerPill) headerPill.style.display = "inline-flex";
+        updatePhoneBatteryDisplay(bat.level, bat.charging);
       }
-
       reportBattery();
       bat.addEventListener("levelchange", reportBattery);
       bat.addEventListener("chargingchange", reportBattery);
@@ -4338,6 +4680,7 @@ async function initPhoneBatterySync() {
   }
 }
 initPhoneBatterySync();
+setTimeout(checkNativeAppEnv, 500);
 
 // ══════════ 4. BEDTIME SLEEP TIMER (Feature 5) ══════════
 let selectedSleepMinutes = 15;
@@ -4499,12 +4842,21 @@ class AudioStreamBroadcaster:
                 "-c:a", "libmp3lame", "-b:a", "128k", "-flush_packets", "1",
                 "-f", "mp3", "pipe:1"
             ]
+            creation_flags = 0
+            startupinfo = None
+            if sys.platform == "win32":
+                creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 0x00000001)
+                startupinfo.wShowWindow = 0  # SW_HIDE
             proc = subprocess.Popen(
                 ffmpeg_cmd,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
-                bufsize=0
+                bufsize=0,
+                creationflags=creation_flags,
+                startupinfo=startupinfo
             )
 
             def reader_thread():
