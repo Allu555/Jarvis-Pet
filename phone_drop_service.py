@@ -449,10 +449,10 @@ body.tab-music-active #tab-music {
 }
 
 .apple-cover-stage .cover-wrapper {
-  width: min(28vh, 66vw);
-  height: min(28vh, 66vw);
-  max-width: 230px;
-  max-height: 230px;
+  width: min(38vh, 82vw);
+  height: min(38vh, 82vw);
+  max-width: 300px;
+  max-height: 300px;
   aspect-ratio: 1 / 1;
   position: relative;
   display: flex;
@@ -464,12 +464,12 @@ body.tab-music-active #tab-music {
 .apple-cover-stage .cover-art {
   width: 100%;
   height: 100%;
-  border-radius: 18px;
+  border-radius: 22px;
   object-fit: cover;
   position: relative;
   z-index: 2;
-  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.72), 0 2px 10px rgba(0, 0, 0, 0.35);
-  border: 0.5px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.78), 0 4px 14px rgba(0, 0, 0, 0.4);
+  border: 0.5px solid rgba(255, 255, 255, 0.25);
   transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
   image-rendering: high-quality;
 }
@@ -485,12 +485,12 @@ body.tab-music-active #tab-music {
 
 .apple-cover-stage .cover-reflection {
   position: absolute;
-  width: 90%;
-  height: 90%;
-  border-radius: 24px;
-  filter: blur(36px) saturate(220%);
-  opacity: 0.85;
-  transform: translateY(10px) scale(0.96);
+  width: 92%;
+  height: 92%;
+  border-radius: 26px;
+  filter: blur(42px) saturate(240%);
+  opacity: 0.92;
+  transform: translateY(12px) scale(0.98);
   z-index: 1;
   pointer-events: none;
   transition: opacity 0.5s ease;
@@ -498,14 +498,15 @@ body.tab-music-active #tab-music {
 
 .apple-lyrics-stage {
   width: 100%;
-  height: min(28vh, 66vw);
-  max-width: 230px;
-  max-height: 230px;
-  border-radius: 18px;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  height: min(38vh, 82vw);
+  max-width: 320px;
+  max-height: 320px;
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -815,11 +816,20 @@ body.tab-music-active #tab-music {
 }
 
 .sheet-grabber {
-  width: 36px;
-  height: 5px;
-  background: rgba(255, 255, 255, 0.3);
+  width: 44px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.40);
   border-radius: 999px;
   margin: 0 auto 16px;
+  cursor: grab;
+  touch-action: none;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.sheet-grabber:active {
+  cursor: grabbing;
+  background: rgba(255, 255, 255, 0.70);
+  transform: scaleX(1.1);
 }
 
 .sheet-title {
@@ -946,34 +956,34 @@ body.tab-music-active #tab-music {
   flex: 1;
   overflow-y: auto;
   scroll-behavior: smooth;
-  padding: 30px 12px 60px;
+  padding: 34px 14px 68px;
   text-align: center;
   mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
 }
 
 .lyric-item {
-  padding: 10px 14px;
-  margin: 4px 0;
-  font-size: 18px;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.32);
+  padding: 12px 16px;
+  margin: 5px 0;
+  font-size: 21px;
+  line-height: 1.52;
+  color: rgba(255, 255, 255, 0.40);
   font-weight: 600;
   border-radius: 14px;
   cursor: pointer;
   filter: blur(0.4px);
-  transition: all 0.32s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .lyric-item.active {
   color: #ffffff;
-  font-size: 23px;
-  font-weight: 700;
+  font-size: 27px;
+  font-weight: 800;
   letter-spacing: -0.3px;
   transform: scale(1.05);
   filter: blur(0px);
-  text-shadow: 0 0 20px rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.08);
+  text-shadow: 0 0 24px rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .lyric-item:active {
@@ -3599,16 +3609,62 @@ function setPlayState(playing) {
   }
 }
 
-// Scrubber Click
-scrubTrack.addEventListener("click", (e) => {
-  if (currentDur <= 0) return;
+// Scrubber Click & Smooth Touch/Mouse Dragging
+let isDraggingScrub = false;
+
+function handleScrubEvent(e) {
+  if (currentDur <= 0 || !scrubTrack) return;
   const rect = scrubTrack.getBoundingClientRect();
-  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  const target = ratio * currentDur;
+  currentPos = target;
+  updateScrubber();
+}
+
+function commitScrubEvent(e) {
+  if (currentDur <= 0 || !scrubTrack) return;
+  const rect = scrubTrack.getBoundingClientRect();
+  const clientX = (e.changedTouches && e.changedTouches.length > 0) ? e.changedTouches[0].clientX : (e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX);
+  const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   const target = ratio * currentDur;
   currentPos = target;
   updateScrubber();
   sendCommand("seek", target);
-});
+}
+
+if (scrubTrack) {
+  scrubTrack.addEventListener("click", (e) => {
+    commitScrubEvent(e);
+  });
+  scrubTrack.addEventListener("mousedown", (e) => {
+    isDraggingScrub = true;
+    handleScrubEvent(e);
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (isDraggingScrub) handleScrubEvent(e);
+  });
+  window.addEventListener("mouseup", (e) => {
+    if (isDraggingScrub) {
+      isDraggingScrub = false;
+      commitScrubEvent(e);
+    }
+  });
+
+  scrubTrack.addEventListener("touchstart", (e) => {
+    isDraggingScrub = true;
+    handleScrubEvent(e);
+  }, { passive: true });
+  window.addEventListener("touchmove", (e) => {
+    if (isDraggingScrub && e.touches.length > 0) handleScrubEvent(e);
+  }, { passive: true });
+  window.addEventListener("touchend", (e) => {
+    if (isDraggingScrub) {
+      isDraggingScrub = false;
+      commitScrubEvent(e);
+    }
+  });
+}
 
 function updateScrubber() {
   if (currentDur > 0) {
@@ -3802,6 +3858,123 @@ if (optMutePc && sheetMoreBackdrop) {
     showToast("Toggled PC Mute");
     sheetMoreBackdrop.classList.remove("open");
   });
+}
+
+// ══════════ TACTILE DRAGGABLE MODAL SHEETS & OPTION SELECTIONS ══════════
+function makeModalSheetDraggable(sheetContent, sheetBackdrop, onClose) {
+  if (!sheetContent || !sheetBackdrop) return;
+  let startY = 0;
+  let currentY = 0;
+  let isDragging = false;
+  let startTime = 0;
+
+  function onTouchStart(e) {
+    if (e.target.closest("input, button")) return;
+    const touch = e.touches ? e.touches[0] : e;
+    const rect = sheetContent.getBoundingClientRect();
+    if (touch.clientY - rect.top > 120 && sheetContent.scrollTop > 5) return;
+    startY = touch.clientY;
+    currentY = startY;
+    startTime = Date.now();
+    isDragging = true;
+    sheetContent.style.transition = "none";
+  }
+
+  function onTouchMove(e) {
+    if (!isDragging) return;
+    const touch = e.touches ? e.touches[0] : e;
+    currentY = touch.clientY;
+    const deltaY = currentY - startY;
+    if (deltaY > 0) {
+      sheetContent.style.transform = `translateY(${deltaY}px)`;
+      const progress = Math.max(0, 1 - (deltaY / 320));
+      sheetBackdrop.style.backgroundColor = `rgba(0, 0, 0, ${0.65 * progress})`;
+      if (e.cancelable) e.preventDefault();
+    } else {
+      sheetContent.style.transform = `translateY(${deltaY * 0.18}px)`;
+    }
+  }
+
+  function onTouchEnd(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    sheetContent.style.transition = "transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)";
+    sheetBackdrop.style.transition = "opacity 0.25s ease, background-color 0.25s ease";
+
+    const deltaY = currentY - startY;
+    const duration = Date.now() - startTime;
+    const velocity = deltaY / Math.max(1, duration);
+
+    if (deltaY > 75 || (velocity > 0.35 && deltaY > 25)) {
+      sheetContent.style.transform = "translateY(100%)";
+      sheetBackdrop.style.opacity = "0";
+      setTimeout(() => {
+        sheetBackdrop.classList.remove("open");
+        sheetContent.style.transform = "";
+        sheetBackdrop.style.backgroundColor = "";
+        sheetBackdrop.style.opacity = "";
+        if (typeof onClose === "function") onClose();
+      }, 240);
+    } else {
+      sheetContent.style.transform = "translateY(0)";
+      sheetBackdrop.style.backgroundColor = "";
+    }
+  }
+
+  sheetContent.addEventListener("touchstart", onTouchStart, { passive: false });
+  window.addEventListener("touchmove", onTouchMove, { passive: false });
+  window.addEventListener("touchend", onTouchEnd);
+  window.addEventListener("touchcancel", onTouchEnd);
+}
+
+const sheetAudioContent = document.getElementById("sheet-audio-content");
+if (sheetAudioContent && sheetAudioBackdrop) {
+  makeModalSheetDraggable(sheetAudioContent, sheetAudioBackdrop);
+}
+
+const sheetMoreContent = document.getElementById("sheet-more-content");
+if (sheetMoreContent && sheetMoreBackdrop) {
+  makeModalSheetDraggable(sheetMoreContent, sheetMoreBackdrop);
+}
+
+// Draggable Option Selection: Device switcher inside Audio Output sheet
+const devLaptop = document.getElementById("dev-laptop");
+const devEarphones = document.getElementById("dev-earphones");
+const earphonesCheck = document.getElementById("earphones-check");
+if (devLaptop) {
+  devLaptop.addEventListener("click", () => {
+    stopAudioStream();
+    devLaptop.classList.add("active");
+    const c = devLaptop.querySelector(".device-check");
+    if (c) c.style.display = "block";
+    if (devEarphones) devEarphones.classList.remove("active");
+    if (earphonesCheck) earphonesCheck.style.display = "none";
+    showToast("Audio Output: Laptop Speakers");
+  });
+}
+if (devEarphones) {
+  devEarphones.addEventListener("click", () => {
+    startAudioStream();
+    devEarphones.classList.add("active");
+    if (earphonesCheck) earphonesCheck.style.display = "block";
+    if (devLaptop) devLaptop.classList.remove("active");
+    const c = devLaptop ? devLaptop.querySelector(".device-check") : null;
+    if (c) c.style.display = "none";
+  });
+}
+
+// Draggable Earphones Volume Slider inside Audio Output sheet
+const sliderEarphones = document.getElementById("slider-earphones-vol");
+const earphonesVolTxt = document.getElementById("earphones-vol-label");
+if (sliderEarphones) {
+  const onEarphonesVol = () => {
+    const val = parseInt(sliderEarphones.value, 10);
+    if (earphonesVolTxt) earphonesVolTxt.innerText = `${val}%`;
+    const p = document.getElementById("pc-audio-stream-player");
+    if (p) p.volume = val / 100;
+  };
+  sliderEarphones.addEventListener("input", onEarphonesVol);
+  sliderEarphones.addEventListener("change", onEarphonesVol);
 }
 
 let isFetchingLyrics = false;
