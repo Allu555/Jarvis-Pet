@@ -84,6 +84,38 @@ def get_local_ip() -> str:
     return ip
 
 
+class _SYSTEM_POWER_STATUS(ctypes.Structure):
+    _fields_ = [
+        ("ACLineStatus", ctypes.c_byte),
+        ("BatteryFlag", ctypes.c_byte),
+        ("BatteryLifePercent", ctypes.c_byte),
+        ("SystemStatusFlag", ctypes.c_byte),
+        ("BatteryLifeTime", ctypes.c_ulong),
+        ("BatteryFullLifeTime", ctypes.c_ulong),
+    ]
+
+
+def get_win32_power_status() -> Optional[Dict[str, Any]]:
+    """Returns real-time laptop battery percentage and AC charging state."""
+    try:
+        sps = _SYSTEM_POWER_STATUS()
+        if ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(sps)):
+            percent = int(sps.BatteryLifePercent)
+            if percent == 255:
+                return None
+            is_charging = bool(sps.BatteryFlag & 8) or (sps.ACLineStatus == 1 and percent < 100)
+            is_plugged = bool(sps.ACLineStatus == 1)
+            return {
+                "percent": min(100, max(0, percent)),
+                "charging": is_charging,
+                "power_plugged": is_plugged,
+            }
+    except Exception:
+        pass
+    return None
+
+
+
 # ─── Apple iOS Mobile Web Application (HTML / CSS / JS) ──────────────────────────
 
 MOBILE_HTML = """<!DOCTYPE html>
@@ -1705,6 +1737,425 @@ header {
   border-color: var(--ios-red);
   color: #fff;
 }
+
+/* ══════════ 1. WIRELESS GAMEPAD CONTROLLER STYLES ══════════ */
+.gamepad-card {
+  background: radial-gradient(circle at 50% 30%, rgba(35, 35, 45, 0.85), rgba(12, 12, 16, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 16px;
+  margin-bottom: 14px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.gamepad-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.gamepad-pill-btn {
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  background: rgba(30, 30, 38, 0.85);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.gamepad-pill-btn.active {
+  background: rgba(0, 122, 255, 0.25);
+  border-color: #007aff;
+  color: #5ac8fa;
+}
+.gamepad-shoulders-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.shoulder-group {
+  display: flex;
+  gap: 6px;
+}
+.center-nav-group {
+  display: flex;
+  gap: 6px;
+}
+.gamepad-btn {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  border: none;
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.08s ease, background-color 0.08s ease;
+}
+.gamepad-btn:active, .gamepad-btn.pressed {
+  transform: scale(0.92);
+  filter: brightness(1.3);
+}
+.shoulder-trigger, .shoulder-bumper {
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(60, 60, 72, 0.9), rgba(28, 28, 36, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  min-width: 54px;
+}
+.center-pill-btn {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(45, 45, 55, 0.8);
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10px;
+  font-weight: 700;
+}
+.btn-sub {
+  font-size: 8px;
+  opacity: 0.6;
+  font-weight: 600;
+  margin-top: 1px;
+}
+.gamepad-arena {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+}
+.gamepad-wing {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.dpad-container {
+  display: grid;
+  grid-template-columns: 46px 46px 46px;
+  grid-template-rows: 46px 46px 46px;
+  gap: 2px;
+  background: rgba(20, 20, 26, 0.9);
+  padding: 4px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.dpad-btn {
+  background: linear-gradient(145deg, rgba(50, 50, 62, 0.95), rgba(30, 30, 38, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 16px;
+}
+.dpad-up { grid-column: 2; grid-row: 1; border-radius: 12px 12px 4px 4px; }
+.dpad-left { grid-column: 1; grid-row: 2; border-radius: 12px 4px 4px 12px; }
+.dpad-center { grid-column: 2; grid-row: 2; background: rgba(26, 26, 32, 0.9); border-radius: 4px; }
+.dpad-right { grid-column: 3; grid-row: 2; border-radius: 4px 12px 12px 4px; }
+.dpad-down { grid-column: 2; grid-row: 3; border-radius: 4px 4px 12px 12px; }
+
+.stick-outer-ring {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(30, 30, 38, 0.9), rgba(16, 16, 22, 0.98));
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4);
+  touch-action: none;
+}
+.stick-thumb-knob {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(85, 85, 105, 0.95), rgba(40, 40, 50, 0.95));
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  position: absolute;
+  top: calc(50% - 26px);
+  left: calc(50% - 26px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: transform 0.04s ease-out;
+}
+.stick-core-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ios-red);
+  box-shadow: 0 0 8px var(--ios-red);
+}
+
+.action-diamond {
+  display: grid;
+  grid-template-columns: 50px 50px 50px;
+  grid-template-rows: 50px 50px 50px;
+  gap: 4px;
+}
+.diamond-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.3);
+  font-weight: 900;
+  color: #ffffff;
+}
+.btn-y {
+  grid-column: 2; grid-row: 1;
+  background: radial-gradient(circle at 35% 35%, #ffd60a, #cc9900);
+  border: 1.5px solid #ffe566;
+  color: #1a1a00;
+}
+.btn-x {
+  grid-column: 1; grid-row: 2;
+  background: radial-gradient(circle at 35% 35%, #0a84ff, #0055b3);
+  border: 1.5px solid #66b2ff;
+}
+.btn-b {
+  grid-column: 3; grid-row: 2;
+  background: radial-gradient(circle at 35% 35%, #ff453a, #b31b14);
+  border: 1.5px solid #ff857e;
+}
+.btn-a {
+  grid-column: 2; grid-row: 3;
+  background: radial-gradient(circle at 35% 35%, #30d158, #1f8537);
+  border: 1.5px solid #75e68f;
+}
+.btn-letter {
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1;
+}
+.btn-key-sub {
+  font-size: 8px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+.gamepad-footer-hint {
+  text-align: center;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 12px;
+}
+
+/* ══════════ 2. DUAL BATTERY WIDGET STYLES ══════════ */
+.battery-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.battery-tile {
+  background: rgba(28, 28, 34, 0.85);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.battery-tile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.battery-tile-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ios-gray-text);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.battery-bar-container {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+.battery-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  background: #30d158;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+.battery-val-row {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.battery-pct-text {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+}
+.battery-bolt-icon {
+  color: #ffd60a;
+  font-size: 14px;
+  display: none;
+}
+.battery-state-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ══════════ 3. WIRELESS MIC & DICTATION STYLES ══════════ */
+.mic-action-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mic-dictate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(0, 122, 255, 0.25), rgba(88, 86, 214, 0.3));
+  border: 1px solid rgba(0, 122, 255, 0.5);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.mic-dictate-btn.recording {
+  background: linear-gradient(135deg, rgba(255, 69, 58, 0.4), rgba(255, 45, 85, 0.6));
+  border-color: var(--ios-red);
+  animation: pulse-ring 1.2s infinite;
+}
+.dictate-transcript-box {
+  background: rgba(18, 18, 22, 0.9);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-height: 48px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.85);
+  font-style: italic;
+  display: none;
+}
+.voice-memo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(35, 35, 42, 0.85);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.voice-memo-btn.recording {
+  background: rgba(255, 69, 58, 0.25);
+  border-color: #ff453a;
+  color: #ff453a;
+}
+
+/* ══════════ 4. BEDTIME SLEEP TIMER STYLES ══════════ */
+.sleep-timer-presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.sleep-preset-btn {
+  padding: 10px 6px;
+  border-radius: 12px;
+  background: rgba(36, 36, 44, 0.85);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+.sleep-preset-btn.active {
+  background: rgba(250, 45, 72, 0.25);
+  border-color: var(--ios-red);
+  color: #fff;
+}
+.sleep-action-select {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: rgba(24, 24, 30, 0.95);
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  outline: none;
+  margin-bottom: 12px;
+}
+.sleep-countdown-banner {
+  background: linear-gradient(135deg, rgba(88, 86, 214, 0.2), rgba(0, 122, 255, 0.15));
+  border: 0.5px solid rgba(88, 86, 214, 0.4);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.sleep-countdown-time {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+}
+.quick-header-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(40, 40, 50, 0.85);
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.header-battery-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(25, 25, 32, 0.85);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.7);
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.6); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 69, 58, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); }
+}
 </style>
 </head>
 <body>
@@ -1733,6 +2184,13 @@ header {
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px;">
+    <button id="btn-quick-screen" class="quick-header-pill" title="Open Live Screen Mirror">
+      <span>🖥️ Screen</span>
+    </button>
+    <div id="header-battery-pill" class="header-battery-pill" style="display:none;" title="Battery Levels">
+      <span id="header-pc-bat">💻 --%</span>
+      <span id="header-phone-bat">📱 --%</span>
+    </div>
     <a href="/app" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:rgba(0,122,255,0.18);border:0.5px solid rgba(0,122,255,0.4);color:#5ac8fa;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.2px;" title="Download JARVIS Remote Android APK v2.0">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5682.1523l-2.0223 3.503C15.5902 8.4116 13.8533 8.125 12 8.125s-3.5902.2866-5.1322.8299L4.8455 5.4519a.416.416 0 00-.5682-.1523.416.416 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
       APK v2.0
@@ -2043,14 +2501,103 @@ header {
         <button class="ios-btn" style="flex:1;" id="btn-pull-clip">Copy from PC</button>
       </div>
     </div>
+
+    <!-- Dual Battery Status Widget (Feature 4) -->
+    <div class="ios-card" id="card-battery-widget">
+      <div class="card-header">Bi-Directional Battery Status</div>
+      <div class="battery-grid-2">
+        <!-- PC Battery -->
+        <div class="battery-tile" id="tile-pc-bat">
+          <div class="battery-tile-header">
+            <span class="battery-tile-title">Laptop</span>
+            <span id="bolt-pc-bat" class="battery-bolt-icon">⚡</span>
+          </div>
+          <div class="battery-val-row">
+            <span id="pct-pc-bat" class="battery-pct-text">--%</span>
+          </div>
+          <div class="battery-bar-container">
+            <div id="bar-pc-bat" class="battery-bar-fill" style="width:0%;"></div>
+          </div>
+          <span id="state-pc-bat" class="battery-state-text">Checking status...</span>
+        </div>
+
+        <!-- Phone Battery -->
+        <div class="battery-tile" id="tile-phone-bat">
+          <div class="battery-tile-header">
+            <span class="battery-tile-title">Phone</span>
+            <span id="bolt-phone-bat" class="battery-bolt-icon">⚡</span>
+          </div>
+          <div class="battery-val-row">
+            <span id="pct-phone-bat" class="battery-pct-text">--%</span>
+          </div>
+          <div class="battery-bar-container">
+            <div id="bar-phone-bat" class="battery-bar-fill" style="width:0%;"></div>
+          </div>
+          <span id="state-phone-bat" class="battery-state-text">Checking status...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wireless Phone Mic & Voice Dictation (Feature 3) -->
+    <div class="ios-card" id="card-mic-dictate">
+      <div class="card-header">Wireless Phone Mic to PC</div>
+      <div class="mic-action-box">
+        <button id="btn-start-dictate" class="mic-dictate-btn" title="Speak into phone to type live into active PC window">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+          <span id="label-dictate">Tap to Dictate (Live into PC)</span>
+        </button>
+        <div id="dictate-transcript" class="dictate-transcript-box">Listening... speak naturally.</div>
+
+        <button id="btn-record-voice-memo" class="voice-memo-btn" title="Record high-quality audio note and send to laptop desktop shelf">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="8"></circle>
+          </svg>
+          <span id="label-voice-memo">Record Voice Memo to Shelf</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bedtime Sleep Timer & PC Power Automation (Feature 5) -->
+    <div class="ios-card" id="card-sleep-timer">
+      <div class="card-header">Bedtime Sleep Timer</div>
+      <div class="sleep-timer-presets">
+        <button class="sleep-preset-btn active" data-min="15">15 Min</button>
+        <button class="sleep-preset-btn" data-min="30">30 Min</button>
+        <button class="sleep-preset-btn" data-min="45">45 Min</button>
+        <button class="sleep-preset-btn" data-min="60">60 Min</button>
+      </div>
+
+      <select id="select-sleep-action" class="sleep-action-select">
+        <option value="fade_and_sleep" selected>🌙 Fade Music & Sleep PC (Bedtime)</option>
+        <option value="sleep">💤 Sleep PC Instantly</option>
+        <option value="lock">🔒 Lock PC</option>
+        <option value="shutdown">🛑 Shut Down PC</option>
+      </select>
+
+      <div id="sleep-countdown-banner" class="sleep-countdown-banner" style="display:none;">
+        <div>
+          <div style="font-size:11px; font-weight:700; color:rgba(255,255,255,0.7); text-transform:uppercase;">Timer Active</div>
+          <div id="sleep-countdown-time" class="sleep-countdown-time">00:00</div>
+        </div>
+        <button id="btn-cancel-sleep-timer" class="ios-btn" style="padding:6px 14px; background:rgba(255,69,58,0.3); border:0.5px solid #ff453a; color:#fff; font-size:11.5px;">Cancel</button>
+      </div>
+
+      <button id="btn-start-sleep-timer" class="ios-btn" style="width:100%;">Start Sleep Timer</button>
+    </div>
   </section>
 
   <!-- ══════════ TAB 5: WIRELESS TRACKPAD, LIVE DISPLAY & REMOTE KEYBOARD ══════════ -->
   <section id="tab-remote" class="view-section">
-    <!-- Mode Switcher (Trackpad, Live Display, Keyboard, Presentation) -->
+    <!-- Mode Switcher (Trackpad, Live Display, Gamepad, Keyboard, Presentation) -->
     <div class="remote-mode-switcher">
       <button id="mode-trackpad" class="mode-tab-btn active">Trackpad</button>
       <button id="mode-display" class="mode-tab-btn">Live Screen</button>
+      <button id="mode-gamepad" class="mode-tab-btn">Gamepad</button>
       <button id="mode-keyboard" class="mode-tab-btn">Keyboard</button>
       <button id="mode-present" class="mode-tab-btn">Present</button>
     </div>
@@ -2148,6 +2695,10 @@ header {
                   <button class="screen-zoom-btn" data-zoom="2.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">2x</button>
                   <button class="screen-zoom-btn" data-zoom="3.0" style="padding:3px 7px; border-radius:6px; font-size:10.5px; font-weight:700; border:none; background:transparent; color:#fff; cursor:pointer;">3x</button>
                 </div>
+                <!-- Screen Quality & Tap Mode -->
+                <button id="btn-screen-quality" style="padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; border:0.5px solid var(--ios-border); background:rgba(40,40,48,0.85); color:#30d158; cursor:pointer;" title="Toggle Quality / Speed">⚡ 30 FPS</button>
+                <button id="btn-screen-tap-mode" style="padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; border:0.5px solid var(--ios-border); background:rgba(40,40,48,0.85); color:#ffffff; cursor:pointer;" title="Tap to Click Action">🖱️ Left</button>
+
                 <!-- Live Screen Audio Toggle -->
                 <button id="btn-live-screen-audio" class="live-screen-audio-btn" title="Toggle Live Audio Stream">
                   <span>🎧</span> <span id="label-live-audio">Audio</span>
@@ -2281,7 +2832,91 @@ header {
       </div>
     </div>
 
-    <!-- 3. DEDICATED FULL KEYBOARD VIEW -->
+    <!-- 3. WIRELESS PC GAMEPAD / VIRTUAL CONTROLLER VIEW (Feature 1) -->
+    <div id="view-gamepad-content" style="display:none;">
+      <div class="gamepad-card">
+        <!-- Gamepad Top Toolbar -->
+        <div class="gamepad-top-bar">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button id="btn-gamepad-mode" class="gamepad-pill-btn active" title="Toggle WASD or Arrow Keys">
+              <span id="label-gamepad-mode">WASD Mode</span>
+            </button>
+            <button id="btn-gamepad-haptic" class="gamepad-pill-btn active" title="Toggle Haptic Feedback">
+              <span id="label-gamepad-haptic">📳 Haptic: ON</span>
+            </button>
+          </div>
+          <button id="btn-gamepad-fullscreen" class="gamepad-pill-btn" title="Toggle Fullscreen Controller">
+            <span>⛶ Fullscreen</span>
+          </button>
+        </div>
+
+        <!-- Shoulder Bumpers & Triggers Row -->
+        <div class="gamepad-shoulders-row">
+          <div class="shoulder-group">
+            <button class="gamepad-btn shoulder-trigger" data-btn="l2">L2 <span class="btn-sub">AIM</span></button>
+            <button class="gamepad-btn shoulder-bumper" data-btn="l1">L1 <span class="btn-sub">SPRINT</span></button>
+          </div>
+          <div class="center-nav-group">
+            <button class="gamepad-btn center-pill-btn" data-btn="select">SELECT <span class="btn-sub">TAB</span></button>
+            <button class="gamepad-btn center-pill-btn" data-btn="start">START <span class="btn-sub">ENTER</span></button>
+          </div>
+          <div class="shoulder-group">
+            <button class="gamepad-btn shoulder-bumper" data-btn="r1">R1 <span class="btn-sub">CROUCH</span></button>
+            <button class="gamepad-btn shoulder-trigger" data-btn="r2">R2 <span class="btn-sub">FIRE</span></button>
+          </div>
+        </div>
+
+        <!-- Main Controller Arena (Split Thumb Zones) -->
+        <div class="gamepad-arena">
+          <!-- Left Wing: Tactile D-Pad & Analog Thumbstick -->
+          <div class="gamepad-wing left-wing">
+            <!-- Tactile D-Pad Cross -->
+            <div class="dpad-container">
+              <button class="gamepad-btn dpad-btn dpad-up" data-btn="up" title="Up">▲</button>
+              <button class="gamepad-btn dpad-btn dpad-left" data-btn="left" title="Left">◀</button>
+              <div class="dpad-center"></div>
+              <button class="gamepad-btn dpad-btn dpad-right" data-btn="right" title="Right">▶</button>
+              <button class="gamepad-btn dpad-btn dpad-down" data-btn="down" title="Down">▼</button>
+            </div>
+
+            <!-- Virtual 360° Analog Stick -->
+            <div class="stick-outer-ring" id="gamepad-stick-ring">
+              <div class="stick-thumb-knob" id="gamepad-stick-knob">
+                <span class="stick-core-dot"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Wing: Diamond Action Buttons -->
+          <div class="gamepad-wing right-wing">
+            <div class="action-diamond">
+              <button class="gamepad-btn diamond-btn btn-y" data-btn="y" title="Y (Action / Use)">
+                <span class="btn-letter">Y</span>
+                <span class="btn-key-sub">F</span>
+              </button>
+              <button class="gamepad-btn diamond-btn btn-x" data-btn="x" title="X (Interact / Reload)">
+                <span class="btn-letter">X</span>
+                <span class="btn-key-sub">E</span>
+              </button>
+              <button class="gamepad-btn diamond-btn btn-b" data-btn="b" title="B (Cancel / Back)">
+                <span class="btn-letter">B</span>
+                <span class="btn-key-sub">ESC</span>
+              </button>
+              <button class="gamepad-btn diamond-btn btn-a" data-btn="a" title="A (Jump / Confirm)">
+                <span class="btn-letter">A</span>
+                <span class="btn-key-sub">SPACE</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="gamepad-footer-hint">
+          <span>🎮 Handheld PC Controller • Zero Input Latency • Multi-Touch Active</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. DEDICATED FULL KEYBOARD VIEW -->
     <div id="view-keyboard-content" style="display:none;">
       <div class="ios-card" style="padding:14px; margin-bottom:12px;">
         <div style="font-size:11.5px; font-weight:700; color:var(--ios-gray-text); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.6px;">Remote PC Keyboard</div>
@@ -2879,6 +3514,16 @@ async function pollStatus() {
     if (data.shelf_files && Array.isArray(data.shelf_files)) {
       renderShelf(data.shelf_files);
     }
+
+    // Bi-Directional Battery Sync
+    if (data.pc_battery) {
+      updatePCBatteryUI(data.pc_battery);
+    }
+
+    // Bedtime Sleep Timer Sync
+    if (data.sleep_timer) {
+      updateSleepTimerUI(data.sleep_timer);
+    }
   } catch (e) {
   } finally {
     isFetchingStatus = false;
@@ -2909,10 +3554,12 @@ function renderShelf(files) {
 // ══════════ WIRELESS TRACKPAD, LIVE PC DISPLAY & REMOTE KEYBOARD ══════════
 const btnModeTrackpad = document.getElementById("mode-trackpad");
 const btnModeDisplay = document.getElementById("mode-display");
+const btnModeGamepad = document.getElementById("mode-gamepad");
 const btnModeKeyboard = document.getElementById("mode-keyboard");
 const btnModePresent = document.getElementById("mode-present");
 const viewTrackpadContent = document.getElementById("view-trackpad-content");
 const viewDisplayContent = document.getElementById("view-display-content");
+const viewGamepadContent = document.getElementById("view-gamepad-content");
 const viewKeyboardContent = document.getElementById("view-keyboard-content");
 const viewPresentContent = document.getElementById("view-present-content");
 
@@ -2920,15 +3567,19 @@ const liveScreenImg = document.getElementById("live-screen-img");
 const screenLoadingOverlay = document.getElementById("screen-loading-overlay");
 const screenViewport = document.getElementById("screen-viewport");
 const btnViewportExpand = document.getElementById("btn-viewport-expand");
+const btnScreenQuality = document.getElementById("btn-screen-quality");
+const btnScreenTapMode = document.getElementById("btn-screen-tap-mode");
 
 let isLiveDisplayActive = false;
 let isViewportExpanded = false;
 let currentScreenZoom = 1.0;
 let panOffsetX = 0, panOffsetY = 0;
+let liveScreenQuality = "fast";
+let screenTapBtn = "left";
 
 function setRemoteMode(mode) {
-  const allBtns = [btnModeTrackpad, btnModeDisplay, btnModeKeyboard, btnModePresent];
-  const allViews = [viewTrackpadContent, viewDisplayContent, viewKeyboardContent, viewPresentContent];
+  const allBtns = [btnModeTrackpad, btnModeDisplay, btnModeGamepad, btnModeKeyboard, btnModePresent];
+  const allViews = [viewTrackpadContent, viewDisplayContent, viewGamepadContent, viewKeyboardContent, viewPresentContent];
 
   allBtns.forEach(b => {
     if (b) {
@@ -2949,6 +3600,10 @@ function setRemoteMode(mode) {
     if (btnModeDisplay) btnModeDisplay.classList.add("active");
     if (viewDisplayContent) viewDisplayContent.style.display = "block";
     startLiveStream();
+  } else if (mode === "gamepad") {
+    if (btnModeGamepad) btnModeGamepad.classList.add("active");
+    if (viewGamepadContent) viewGamepadContent.style.display = "block";
+    stopLiveStream();
   } else if (mode === "keyboard") {
     if (btnModeKeyboard) btnModeKeyboard.classList.add("active");
     if (viewKeyboardContent) viewKeyboardContent.style.display = "block";
@@ -2962,8 +3617,50 @@ function setRemoteMode(mode) {
 
 if (btnModeTrackpad) btnModeTrackpad.addEventListener("click", () => setRemoteMode("trackpad"));
 if (btnModeDisplay) btnModeDisplay.addEventListener("click", () => setRemoteMode("display"));
+if (btnModeGamepad) btnModeGamepad.addEventListener("click", () => setRemoteMode("gamepad"));
 if (btnModeKeyboard) btnModeKeyboard.addEventListener("click", () => setRemoteMode("keyboard"));
 if (btnModePresent) btnModePresent.addEventListener("click", () => setRemoteMode("present"));
+
+if (btnScreenQuality) {
+  btnScreenQuality.addEventListener("click", () => {
+    if (liveScreenQuality === "fast") {
+      liveScreenQuality = "hd";
+      btnScreenQuality.textContent = "🎨 Crisp HD";
+      btnScreenQuality.style.color = "#ffd60a";
+    } else {
+      liveScreenQuality = "fast";
+      btnScreenQuality.textContent = "⚡ 30 FPS";
+      btnScreenQuality.style.color = "#30d158";
+    }
+    if (isLiveDisplayActive) {
+      stopLiveStream();
+      setTimeout(startLiveStream, 100);
+    }
+  });
+}
+
+if (btnScreenTapMode) {
+  btnScreenTapMode.addEventListener("click", () => {
+    if (screenTapBtn === "left") {
+      screenTapBtn = "right";
+      btnScreenTapMode.textContent = "🖱️ Right";
+      btnScreenTapMode.style.color = "#ff453a";
+    } else {
+      screenTapBtn = "left";
+      btnScreenTapMode.textContent = "🖱️ Left";
+      btnScreenTapMode.style.color = "#ffffff";
+    }
+  });
+}
+
+const btnQuickScreen = document.getElementById("btn-quick-screen");
+if (btnQuickScreen) {
+  btnQuickScreen.addEventListener("click", () => {
+    const tabRemoteBtn = document.querySelector('.tab-btn[data-tab="tab-remote"]');
+    if (tabRemoteBtn) tabRemoteBtn.click();
+    setRemoteMode("display");
+  });
+}
 
 if (btnViewportExpand && screenViewport) {
   btnViewportExpand.addEventListener("click", () => {
@@ -2992,7 +3689,8 @@ function startLiveStream() {
     liveScreenImg.onerror = () => {
       if (screenLoadingOverlay) screenLoadingOverlay.style.display = "flex";
     };
-    liveScreenImg.src = "/api/remote/mjpeg?t=" + Date.now();
+    const qual = liveScreenQuality === "hd" ? 80 : 55;
+    liveScreenImg.src = "/api/remote/mjpeg?quality=" + qual + "&t=" + Date.now();
   }
 }
 
@@ -3052,8 +3750,8 @@ if (screenViewport) {
     const targetY = Math.round(normY * 1080);
 
     if (isClick) {
-      sendMouse({action: "abs_click", x: targetX, y: targetY});
-      showToast("Clicked PC Screen");
+      sendMouse({action: "abs_click", x: targetX, y: targetY, btn: screenTapBtn});
+      showToast(screenTapBtn === "right" ? "Right Clicked PC Screen" : "Clicked PC Screen");
     } else {
       sendMouse({action: "abs_move", x: targetX, y: targetY});
     }
@@ -3745,6 +4443,455 @@ if (sliderEarphonesVol) {
     if (earphonesVolLabel) earphonesVolLabel.innerText = val + "%";
   });
 }
+
+// ══════════ 1. WIRELESS GAMEPAD CONTROLLER (Feature 1) ══════════
+let gamepadMode = "wasd";
+let gamepadHaptic = true;
+
+const btnGamepadMode = document.getElementById("btn-gamepad-mode");
+const labelGamepadMode = document.getElementById("label-gamepad-mode");
+if (btnGamepadMode) {
+  btnGamepadMode.addEventListener("click", () => {
+    if (gamepadMode === "wasd") {
+      gamepadMode = "arrows";
+      if (labelGamepadMode) labelGamepadMode.textContent = "Arrow Keys";
+    } else {
+      gamepadMode = "wasd";
+      if (labelGamepadMode) labelGamepadMode.textContent = "WASD Mode";
+    }
+    showToast(`Gamepad: ${labelGamepadMode.textContent}`);
+  });
+}
+
+const btnGamepadHaptic = document.getElementById("btn-gamepad-haptic");
+const labelGamepadHaptic = document.getElementById("label-gamepad-haptic");
+if (btnGamepadHaptic) {
+  btnGamepadHaptic.addEventListener("click", () => {
+    gamepadHaptic = !gamepadHaptic;
+    btnGamepadHaptic.classList.toggle("active", gamepadHaptic);
+    if (labelGamepadHaptic) labelGamepadHaptic.textContent = gamepadHaptic ? "📳 Haptic: ON" : "📳 Haptic: OFF";
+  });
+}
+
+const btnGamepadFullscreen = document.getElementById("btn-gamepad-fullscreen");
+if (btnGamepadFullscreen) {
+  btnGamepadFullscreen.addEventListener("click", () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  });
+}
+
+function sendGamepadEvent(btn, state) {
+  if (gamepadHaptic && state === "down" && navigator.vibrate) {
+    try { navigator.vibrate(15); } catch (e) {}
+  }
+  fetch("/api/remote/gamepad", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ btn, state, mode: gamepadMode })
+  }).catch(() => {});
+}
+
+// Multi-touch & Mouse support for gamepad buttons
+document.querySelectorAll(".gamepad-btn").forEach(btn => {
+  const btnName = btn.dataset.btn;
+  if (!btnName) return;
+
+  btn.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    btn.classList.add("pressed");
+    sendGamepadEvent(btnName, "down");
+  }, { passive: false });
+
+  btn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    btn.classList.remove("pressed");
+    sendGamepadEvent(btnName, "up");
+  }, { passive: false });
+
+  btn.addEventListener("touchcancel", (e) => {
+    e.preventDefault();
+    btn.classList.remove("pressed");
+    sendGamepadEvent(btnName, "up");
+  }, { passive: false });
+
+  btn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    btn.classList.add("pressed");
+    sendGamepadEvent(btnName, "down");
+  });
+
+  btn.addEventListener("mouseup", (e) => {
+    e.preventDefault();
+    btn.classList.remove("pressed");
+    sendGamepadEvent(btnName, "up");
+  });
+
+  btn.addEventListener("mouseleave", () => {
+    if (btn.classList.contains("pressed")) {
+      btn.classList.remove("pressed");
+      sendGamepadEvent(btnName, "up");
+    }
+  });
+});
+
+// Virtual 360° Analog Stick
+const stickRing = document.getElementById("gamepad-stick-ring");
+const stickKnob = document.getElementById("gamepad-stick-knob");
+let stickActive = false;
+let stickTouchId = null;
+let activeStickDirs = { up: false, down: false, left: false, right: false };
+
+if (stickRing && stickKnob) {
+  function handleStickMove(clientX, clientY) {
+    const rect = stickRing.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const maxRadius = rect.width / 2 - 10;
+
+    let dx = clientX - centerX;
+    let dy = clientY - centerY;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > maxRadius) {
+      dx = (dx / distance) * maxRadius;
+      dy = (dy / distance) * maxRadius;
+    }
+
+    stickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    const normX = dx / maxRadius;
+    const normY = dy / maxRadius;
+
+    // Deadzone = 0.25
+    const wantLeft = normX < -0.3;
+    const wantRight = normX > 0.3;
+    const wantUp = normY < -0.3;
+    const wantDown = normY > 0.3;
+
+    if (wantLeft !== activeStickDirs.left) {
+      activeStickDirs.left = wantLeft;
+      sendGamepadEvent("left", wantLeft ? "down" : "up");
+    }
+    if (wantRight !== activeStickDirs.right) {
+      activeStickDirs.right = wantRight;
+      sendGamepadEvent("right", wantRight ? "down" : "up");
+    }
+    if (wantUp !== activeStickDirs.up) {
+      activeStickDirs.up = wantUp;
+      sendGamepadEvent("up", wantUp ? "down" : "up");
+    }
+    if (wantDown !== activeStickDirs.down) {
+      activeStickDirs.down = wantDown;
+      sendGamepadEvent("down", wantDown ? "down" : "up");
+    }
+  }
+
+  function resetStick() {
+    stickActive = false;
+    stickTouchId = null;
+    stickKnob.style.transform = "translate(0px, 0px)";
+    for (const dir in activeStickDirs) {
+      if (activeStickDirs[dir]) {
+        activeStickDirs[dir] = false;
+        sendGamepadEvent(dir, "up");
+      }
+    }
+  }
+
+  stickRing.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    if (e.changedTouches.length > 0) {
+      const t = e.changedTouches[0];
+      stickActive = true;
+      stickTouchId = t.identifier;
+      handleStickMove(t.clientX, t.clientY);
+    }
+  }, { passive: false });
+
+  stickRing.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    if (!stickActive) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === stickTouchId) {
+        handleStickMove(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+        break;
+      }
+    }
+  }, { passive: false });
+
+  stickRing.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    resetStick();
+  }, { passive: false });
+
+  stickRing.addEventListener("touchcancel", (e) => {
+    e.preventDefault();
+    resetStick();
+  }, { passive: false });
+}
+
+// ══════════ 2. WIRELESS PHONE MIC & DICTATION (Feature 3) ══════════
+const btnStartDictate = document.getElementById("btn-start-dictate");
+const labelDictate = document.getElementById("label-dictate");
+const dictateTranscript = document.getElementById("dictate-transcript");
+let isDictating = false;
+let speechRecognizer = null;
+
+if (window.webkitSpeechRecognition || window.SpeechRecognition) {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  speechRecognizer = new SpeechRec();
+  speechRecognizer.continuous = true;
+  speechRecognizer.interimResults = true;
+  speechRecognizer.lang = navigator.language || "en-US";
+
+  speechRecognizer.onstart = () => {
+    isDictating = true;
+    if (btnStartDictate) btnStartDictate.classList.add("recording");
+    if (labelDictate) labelDictate.textContent = "Listening... Speak naturally";
+    if (dictateTranscript) {
+      dictateTranscript.style.display = "block";
+      dictateTranscript.textContent = "Listening...";
+    }
+  };
+
+  speechRecognizer.onresult = (event) => {
+    let interim = "";
+    let finalStr = "";
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        finalStr += event.results[i][0].transcript;
+      } else {
+        interim += event.results[i][0].transcript;
+      }
+    }
+    const current = finalStr || interim;
+    if (dictateTranscript) dictateTranscript.textContent = current;
+    if (finalStr.trim()) {
+      fetch("/api/mic/dictate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: finalStr.trim(), mode: "paste" })
+      }).then(() => showToast("Dictated to active PC window")).catch(() => {});
+    }
+  };
+
+  speechRecognizer.onerror = () => {
+    isDictating = false;
+    if (btnStartDictate) btnStartDictate.classList.remove("recording");
+    if (labelDictate) labelDictate.textContent = "Tap to Dictate (Live into PC)";
+    if (dictateTranscript) dictateTranscript.style.display = "none";
+  };
+
+  speechRecognizer.onend = () => {
+    isDictating = false;
+    if (btnStartDictate) btnStartDictate.classList.remove("recording");
+    if (labelDictate) labelDictate.textContent = "Tap to Dictate (Live into PC)";
+  };
+
+  if (btnStartDictate) {
+    btnStartDictate.addEventListener("click", () => {
+      if (!isDictating) {
+        try { speechRecognizer.start(); } catch (e) {}
+      } else {
+        speechRecognizer.stop();
+      }
+    });
+  }
+} else {
+  if (btnStartDictate) {
+    btnStartDictate.addEventListener("click", () => {
+      const text = prompt("Speech recognition not supported in this browser. Type text to send live to PC:");
+      if (text) {
+        fetch("/api/mic/dictate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, mode: "paste" })
+        }).then(() => showToast("Typed into active PC window"));
+      }
+    });
+  }
+}
+
+// Voice Memo Recording & Upload
+const btnRecordVoiceMemo = document.getElementById("btn-record-voice-memo");
+const labelVoiceMemo = document.getElementById("label-voice-memo");
+let mediaRecorder = null;
+let recordedAudioChunks = [];
+let isRecordingMemo = false;
+
+if (btnRecordVoiceMemo && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  btnRecordVoiceMemo.addEventListener("click", async () => {
+    if (!isRecordingMemo) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        recordedAudioChunks = [];
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) recordedAudioChunks.push(e.data);
+        };
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(recordedAudioChunks, { type: "audio/webm" });
+          const fname = `VoiceNote_${Date.now()}.webm`;
+          showToast("Sending Voice Memo to PC...");
+          try {
+            await fetch(`/api/mic/upload?filename=${encodeURIComponent(fname)}`, {
+              method: "POST",
+              headers: { "Content-Type": "audio/webm" },
+              body: blob
+            });
+            showToast("🎙️ Voice Memo saved to PC Shelf!");
+          } catch (e) {
+            showToast("Failed to upload voice memo");
+          }
+        };
+        mediaRecorder.start();
+        isRecordingMemo = true;
+        btnRecordVoiceMemo.classList.add("recording");
+        if (labelVoiceMemo) labelVoiceMemo.textContent = "⏹ Stop & Send Memo";
+      } catch (e) {
+        alert("Microphone access denied or unavailable.");
+      }
+    } else {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      }
+      isRecordingMemo = false;
+      btnRecordVoiceMemo.classList.remove("recording");
+      if (labelVoiceMemo) labelVoiceMemo.textContent = "Record Voice Memo to Shelf";
+    }
+  });
+}
+
+// ══════════ 3. BI-DIRECTIONAL BATTERY SYNC (Feature 4) ══════════
+function updatePCBatteryUI(bat) {
+  const pctEl = document.getElementById("pct-pc-bat");
+  const barEl = document.getElementById("bar-pc-bat");
+  const stateEl = document.getElementById("state-pc-bat");
+  const boltEl = document.getElementById("bolt-pc-bat");
+  const headerPc = document.getElementById("header-pc-bat");
+  const headerPill = document.getElementById("header-battery-pill");
+
+  if (pctEl && bat) {
+    pctEl.textContent = `${bat.percent}%`;
+    if (barEl) {
+      barEl.style.width = `${bat.percent}%`;
+      barEl.style.background = bat.percent < 20 ? "#ff453a" : (bat.percent < 50 ? "#ffd60a" : "#30d158");
+    }
+    if (boltEl) boltEl.style.display = bat.charging ? "inline" : "none";
+    if (stateEl) {
+      stateEl.textContent = bat.charging ? "⚡ Charging" : (bat.power_plugged ? "Power Connected" : "On Battery");
+    }
+    if (headerPc) headerPc.textContent = `💻 ${bat.percent}%${bat.charging ? "⚡" : ""}`;
+    if (headerPill) headerPill.style.display = "inline-flex";
+  }
+}
+
+async function initPhoneBatterySync() {
+  if ('getBattery' in navigator) {
+    try {
+      const bat = await navigator.getBattery();
+      function reportBattery() {
+        const payload = {
+          level: bat.level,
+          charging: bat.charging,
+          chargingTime: bat.chargingTime,
+          dischargingTime: bat.dischargingTime
+        };
+        fetch("/api/phone/battery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+
+        const pct = Math.round(bat.level * 100);
+        const pctEl = document.getElementById("pct-phone-bat");
+        const barEl = document.getElementById("bar-phone-bat");
+        const stateEl = document.getElementById("state-phone-bat");
+        const boltEl = document.getElementById("bolt-phone-bat");
+        const headerPhone = document.getElementById("header-phone-bat");
+        const headerPill = document.getElementById("header-battery-pill");
+
+        if (pctEl) pctEl.textContent = `${pct}%`;
+        if (barEl) {
+          barEl.style.width = `${pct}%`;
+          barEl.style.background = pct < 20 ? "#ff453a" : (pct < 50 ? "#ffd60a" : "#30d158");
+        }
+        if (boltEl) boltEl.style.display = bat.charging ? "inline" : "none";
+        if (stateEl) stateEl.textContent = bat.charging ? "⚡ Charging" : "On Battery";
+        if (headerPhone) headerPhone.textContent = `📱 ${pct}%${bat.charging ? "⚡" : ""}`;
+        if (headerPill) headerPill.style.display = "inline-flex";
+      }
+
+      reportBattery();
+      bat.addEventListener("levelchange", reportBattery);
+      bat.addEventListener("chargingchange", reportBattery);
+      setInterval(reportBattery, 30000);
+    } catch (e) {}
+  }
+}
+initPhoneBatterySync();
+
+// ══════════ 4. BEDTIME SLEEP TIMER (Feature 5) ══════════
+let selectedSleepMinutes = 15;
+document.querySelectorAll(".sleep-preset-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".sleep-preset-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    selectedSleepMinutes = parseInt(btn.dataset.min, 10) || 15;
+  });
+});
+
+const btnStartSleepTimer = document.getElementById("btn-start-sleep-timer");
+const btnCancelSleepTimer = document.getElementById("btn-cancel-sleep-timer");
+const selectSleepAction = document.getElementById("select-sleep-action");
+const sleepCountdownBanner = document.getElementById("sleep-countdown-banner");
+const sleepCountdownTime = document.getElementById("sleep-countdown-time");
+
+if (btnStartSleepTimer) {
+  btnStartSleepTimer.addEventListener("click", async () => {
+    const act = selectSleepAction ? selectSleepAction.value : "fade_and_sleep";
+    try {
+      const res = await fetch("/api/timer/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ duration_minutes: selectedSleepMinutes, action: act })
+      });
+      const data = await res.json();
+      updateSleepTimerUI(data);
+      showToast(`Sleep timer started for ${selectedSleepMinutes} min`);
+    } catch (e) {}
+  });
+}
+
+if (btnCancelSleepTimer) {
+  btnCancelSleepTimer.addEventListener("click", async () => {
+    try {
+      const res = await fetch("/api/timer/cancel", { method: "POST" });
+      const data = await res.json();
+      updateSleepTimerUI(data);
+      showToast("Sleep timer cancelled");
+    } catch (e) {}
+  });
+}
+
+function updateSleepTimerUI(timer) {
+  if (!sleepCountdownBanner || !sleepCountdownTime) return;
+  if (timer && timer.active && timer.remaining_seconds > 0) {
+    const m = Math.floor(timer.remaining_seconds / 60);
+    const s = timer.remaining_seconds % 60;
+    sleepCountdownTime.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    sleepCountdownBanner.style.display = "flex";
+    if (btnStartSleepTimer) btnStartSleepTimer.style.display = "none";
+  } else {
+    sleepCountdownBanner.style.display = "none";
+    if (btnStartSleepTimer) btnStartSleepTimer.style.display = "block";
+  }
+}
 </script>
 </body>
 </html>
@@ -3901,6 +5048,112 @@ class AudioStreamBroadcaster:
                 self._header_chunk = b""
                 self._recent_chunks.clear()
                 self._running = False
+
+
+# ─── Bedtime Sleep Timer Automation ───────────────────────────────────────────
+
+class SleepTimerManager:
+    _instance: Optional['SleepTimerManager'] = None
+
+    @classmethod
+    def get_instance(cls) -> 'SleepTimerManager':
+        if cls._instance is None:
+            cls._instance = SleepTimerManager()
+        return cls._instance
+
+    def __init__(self):
+        self.active: bool = False
+        self.action: str = "fade_and_sleep"
+        self.total_seconds: int = 0
+        self.end_time: float = 0.0
+        self._thread: Optional[threading.Thread] = None
+        self._lock = threading.RLock()
+
+    def start(self, duration_minutes: int, action: str = "fade_and_sleep") -> Dict[str, Any]:
+        with self._lock:
+            self.total_seconds = max(10, int(duration_minutes * 60))
+            self.action = action
+            self.end_time = time.time() + self.total_seconds
+            self.active = True
+            if self._thread is None or not self._thread.is_alive():
+                self._thread = threading.Thread(target=self._run_loop, daemon=True)
+                self._thread.start()
+            return self.get_status()
+
+    def cancel(self) -> Dict[str, Any]:
+        with self._lock:
+            self.active = False
+            self.total_seconds = 0
+            self.end_time = 0.0
+            return self.get_status()
+
+    def get_status(self) -> Dict[str, Any]:
+        with self._lock:
+            if not self.active:
+                return {"active": False, "remaining_seconds": 0, "action": self.action, "total_seconds": 0}
+            remaining = int(max(0, self.end_time - time.time()))
+            if remaining <= 0:
+                self.active = False
+            return {
+                "active": self.active,
+                "remaining_seconds": remaining,
+                "action": self.action,
+                "total_seconds": self.total_seconds,
+            }
+
+    def _run_loop(self):
+        user32 = ctypes.windll.user32
+        action = self.action
+        remaining = 0
+        while True:
+            time.sleep(1.0)
+            with self._lock:
+                if not self.active:
+                    break
+                remaining = self.end_time - time.time()
+                action = self.action
+                if remaining <= 0:
+                    self.active = False
+                    break
+                # If fade_and_sleep and in last 45 seconds, step down volume gradually
+                if self.action == "fade_and_sleep" and remaining <= 45:
+                    try:
+                        if int(remaining) % 2 == 0:
+                            user32.keybd_event(0xAE, 0, 0, 0)
+                            user32.keybd_event(0xAE, 0, 2, 0)
+                    except Exception:
+                        pass
+
+        if remaining <= 0 and not self.active:
+            self._execute_action(action)
+
+    def _execute_action(self, action: str):
+        user32 = ctypes.windll.user32
+        try:
+            # Pause any currently playing media
+            user32.keybd_event(0xB3, 0, 0, 0)
+            time.sleep(0.05)
+            user32.keybd_event(0xB3, 0, 2, 0)
+        except Exception:
+            pass
+
+        time.sleep(0.5)
+
+        if action in ("fade_and_sleep", "sleep"):
+            try:
+                ctypes.windll.PowrProf.SetSuspendState(0, 1, 0)
+            except Exception as e:
+                print(f"[SleepTimer] Error putting PC to sleep: {e}")
+        elif action == "lock":
+            try:
+                user32.LockWorkStation()
+            except Exception as e:
+                print(f"[SleepTimer] Error locking PC: {e}")
+        elif action == "shutdown":
+            try:
+                os.system("shutdown /s /t 10")
+            except Exception as e:
+                print(f"[SleepTimer] Error shutting down: {e}")
 
 
 # ─── HTTP Request Handler ─────────────────────────────────────────────────────
@@ -4196,6 +5449,71 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             self._send_json({"success": True})
             return
 
+        elif path == "/api/remote/gamepad":
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            btn = data.get("btn", "")
+            state = data.get("state", "click")
+            mode = data.get("mode", "wasd")
+            if btn:
+                self.server.service.handle_gamepad_action(btn, state, mode)
+            self._send_json({"success": True})
+            return
+
+        elif path == "/api/phone/battery":
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            self.server.service.on_phone_battery_received(data)
+            self._send_json({"success": True})
+            return
+
+        elif path == "/api/timer/start":
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            dur = int(data.get("duration_minutes", 30))
+            act = data.get("action", "fade_and_sleep")
+            status = SleepTimerManager.get_instance().start(dur, act)
+            self._send_json(status)
+            return
+
+        elif path == "/api/timer/cancel":
+            status = SleepTimerManager.get_instance().cancel()
+            self._send_json(status)
+            return
+
+        elif path == "/api/mic/dictate":
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            text = data.get("text", "").strip()
+            mode = data.get("mode", "paste")
+            if text:
+                self.server.service.handle_remote_type(text, mode)
+            self._send_json({"success": True, "text": text})
+            return
+
+        elif path == "/api/mic/upload":
+            params = urllib.parse.parse_qs(parsed.query)
+            raw_name = params.get("filename", [f"VoiceNote_{int(time.time())}.webm"])[0]
+            filename = urllib.parse.unquote(raw_name)
+            safe_name = Path(filename).name or f"VoiceNote_{int(time.time())}.webm"
+
+            vn_dir = DOWNLOADS_DIR / "VoiceNotes"
+            vn_dir.mkdir(parents=True, exist_ok=True)
+            target_path = vn_dir / safe_name
+            with open(target_path, "wb") as out_f:
+                remaining = content_length
+                while remaining > 0:
+                    read_size = min(remaining, 65536)
+                    chunk = self.rfile.read(read_size)
+                    if not chunk:
+                        break
+                    out_f.write(chunk)
+                    remaining -= len(chunk)
+
+            self.server.service.on_voice_note_received(str(target_path), target_path.name)
+            self._send_json({"success": True, "path": str(target_path), "name": target_path.name})
+            return
+
         self.send_error(404, "Not Found")
 
 
@@ -4279,6 +5597,8 @@ class PhoneDropService:
         self.cb_get_cover_bytes: Optional[Callable[[], Optional[Tuple[bytes, str]]]] = None
         self.cb_get_lyrics: Optional[Callable[[], Dict[str, Any]]] = None
         self.cb_jarvis_query: Optional[Callable[[str], None]] = None
+        self.cb_phone_battery: Optional[Callable[[Dict[str, Any]], None]] = None
+        self.phone_battery_info: Dict[str, Any] = {}
 
         self.audio_broadcaster = AudioStreamBroadcaster()
 
@@ -4788,6 +6108,105 @@ class PhoneDropService:
         except Exception as e:
             print(f"[PhoneDropService] Error in handle_remote_key: {e}")
 
+    def handle_gamepad_action(self, btn: str, state: str = "click", mode: str = "wasd"):
+        """Instant Win32 key and mouse injection for virtual controller buttons and analog stick."""
+        try:
+            self._attach_desktop()
+            user32 = ctypes.windll.user32
+            KEYEVENTF_KEYUP = 0x0002
+            b = btn.lower().strip()
+            vk = None
+            mouse_btn = None
+
+            # Mode 'wasd' vs 'arrows'
+            if b == "up":
+                vk = 0x57 if mode == "wasd" else 0x26
+            elif b == "down":
+                vk = 0x53 if mode == "wasd" else 0x28
+            elif b == "left":
+                vk = 0x41 if mode == "wasd" else 0x25
+            elif b == "right":
+                vk = 0x44 if mode == "wasd" else 0x27
+            elif b == "a":
+                vk = 0x20  # Space (Jump / Confirm)
+            elif b == "b":
+                vk = 0x1B  # Esc (Back / Cancel)
+            elif b == "x":
+                vk = 0x45  # 'E' (Interact / Reload)
+            elif b == "y":
+                vk = 0x46  # 'F' (Flashlight / Use)
+            elif b == "l1":
+                vk = 0x10  # Shift (Sprint / Sneak)
+            elif b == "r1":
+                vk = 0x11  # Ctrl (Crouch / Fire)
+            elif b == "l2":
+                mouse_btn = "right"  # Right click (Aim)
+            elif b == "r2":
+                mouse_btn = "left"   # Left click (Shoot)
+            elif b == "start":
+                vk = 0x0D  # Enter (Start / Pause)
+            elif b == "select":
+                vk = 0x09  # Tab (Select / Scoreboard)
+
+            if mouse_btn:
+                MOUSEEVENTF_LEFTDOWN = 0x0002
+                MOUSEEVENTF_LEFTUP = 0x0004
+                MOUSEEVENTF_RIGHTDOWN = 0x0008
+                MOUSEEVENTF_RIGHTUP = 0x0010
+                if mouse_btn == "left":
+                    d_flag, u_flag = MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP
+                else:
+                    d_flag, u_flag = MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP
+
+                if state == "down":
+                    user32.mouse_event(d_flag, 0, 0, 0, 0)
+                elif state == "up":
+                    user32.mouse_event(u_flag, 0, 0, 0, 0)
+                else:
+                    user32.mouse_event(d_flag, 0, 0, 0, 0)
+                    time.sleep(0.015)
+                    user32.mouse_event(u_flag, 0, 0, 0, 0)
+            elif vk:
+                if state == "down":
+                    user32.keybd_event(vk, 0, 0, 0)
+                elif state == "up":
+                    user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+                else:
+                    user32.keybd_event(vk, 0, 0, 0)
+                    time.sleep(0.015)
+                    user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        except Exception as e:
+            print(f"[PhoneDropService] Gamepad action error: {e}")
+
+    def on_phone_battery_received(self, data: Dict[str, Any]):
+        """Stores phone battery level and notifies callbacks for desktop toasts."""
+        try:
+            level = float(data.get("level", 1.0))
+            percent = int(round(level * 100)) if level <= 1.0 else int(round(level))
+            charging = bool(data.get("charging", False))
+            self.phone_battery_info = {
+                "percent": max(0, min(100, percent)),
+                "charging": charging,
+                "updated": time.time()
+            }
+            if self.cb_phone_battery:
+                try:
+                    self.cb_phone_battery(self.phone_battery_info)
+                except Exception as e:
+                    print(f"[PhoneDropService] cb_phone_battery error: {e}")
+        except Exception as e:
+            print(f"[PhoneDropService] Battery parsing error: {e}")
+
+    def on_voice_note_received(self, path: str, name: str):
+        """Called when a voice memo from phone is saved to PC."""
+        print(f"[PhoneDropService] Voice memo saved: {path}")
+        if self.cb_file_received:
+            try:
+                self.cb_file_received(path, name)
+            except Exception as e:
+                print(f"[PhoneDropService] cb_file_received error: {e}")
+
+
     def get_cover_bytes(self) -> Optional[Tuple[bytes, str]]:
         if self.cb_get_cover_bytes:
             try:
@@ -4831,6 +6250,9 @@ class PhoneDropService:
             "now_playing": None,
             "shelf_files": [],
             "volume": 50,
+            "pc_battery": get_win32_power_status(),
+            "phone_battery": self.phone_battery_info,
+            "sleep_timer": SleepTimerManager.get_instance().get_status(),
             "jarvis": {
                 "status": "Ready",
                 "status_detail": "Ready",

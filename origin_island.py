@@ -1459,6 +1459,10 @@ class OriginIsland(QWidget):
         self._phone_drop_service.cb_get_cover_bytes = self._get_phone_cover_bytes
         self._phone_drop_service.cb_get_lyrics = self._get_phone_lyrics_data
         self._phone_drop_service.cb_jarvis_query = self._run_assistant_task
+        self._phone_battery_info: Dict[str, Any] = {}
+        self._phone_fully_charged_notified: bool = False
+        self._phone_low_battery_notified: bool = False
+        self._phone_drop_service.cb_phone_battery = self._on_phone_battery_updated
         try:
             self._phone_drop_service.start()
         except Exception as _e:
@@ -5864,6 +5868,27 @@ class OriginIsland(QWidget):
         self._wake_timer()
         self.update()
 
+    def _on_phone_battery_updated(self, info: Dict[str, Any]):
+        """Called by PhoneDropService when phone battery report is received."""
+        self._phone_battery_info = info
+        pct = int(info.get("percent", 0))
+        chg = bool(info.get("charging", False))
+
+        if pct == 100 and chg and not self._phone_fully_charged_notified:
+            self.show_ambient_toast("📱 Phone Fully Charged (100%) ⚡")
+            self._phone_fully_charged_notified = True
+        elif pct < 100:
+            self._phone_fully_charged_notified = False
+
+        if pct <= 20 and not chg and not self._phone_low_battery_notified:
+            self.show_ambient_toast(f"⚠️ Phone Battery Low ({pct}%) - Connect Charger")
+            self._phone_low_battery_notified = True
+        elif chg or pct > 25:
+            self._phone_low_battery_notified = False
+
+        self._wake_timer()
+        self.update()
+
     def _on_phone_clipboard_received(self, text: str):
         """Called by PhoneDropService when phone copies text to laptop clipboard."""
         try:
@@ -6126,6 +6151,10 @@ class OriginIsland(QWidget):
 
         # 1. Connection Status Badge
         status_text = self._phone_drop_service.get_connected_device_summary()
+        if self._phone_battery_info and "percent" in self._phone_battery_info:
+            pct = self._phone_battery_info["percent"]
+            chg = self._phone_battery_info.get("charging", False)
+            status_text += f" • 📱 {pct}%{'⚡' if chg else ''}"
         is_conn = "Connected" in status_text
         badge_rect = QRectF(rx, my + 34, rw, 22)
         p.setPen(QPen(QColor(48, 209, 88, 100) if is_conn else QColor(255, 255, 255, 25), 1.0))
