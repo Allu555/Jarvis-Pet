@@ -778,38 +778,45 @@ body.tab-music-active #tab-music {
   text-align: center;
 }
 
-/* Apple Modal Bottom Sheets */
+/* Apple Modal Bottom Sheets - Floating & Hardware-Accelerated */
 .apple-sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  z-index: 1000;
-  display: none;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 100000 !important;
+  display: flex;
   align-items: flex-end;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.25s ease;
+  pointer-events: none;
+  transition: opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .apple-sheet-backdrop.open {
-  display: flex;
   opacity: 1;
+  pointer-events: auto;
 }
 
 .apple-modal-sheet {
-  background: rgba(28, 28, 30, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-top-left-radius: 28px;
-  border-top-right-radius: 28px;
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: none;
+  border-top-left-radius: 32px;
+  border-top-right-radius: 32px;
   width: 100%;
-  max-width: 480px;
-  padding: 16px 20px 32px;
+  max-width: 500px;
+  padding: 14px 20px calc(24px + env(safe-area-inset-bottom, 24px));
   box-sizing: border-box;
-  transform: translateY(100%);
-  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+  max-height: 86vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  transform: translateY(105%);
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 -16px 50px rgba(0, 0, 0, 0.85);
+  will-change: transform;
 }
 
 .apple-sheet-backdrop.open .apple-modal-sheet {
@@ -817,9 +824,9 @@ body.tab-music-active #tab-music {
 }
 
 .sheet-grabber {
-  width: 44px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.40);
+  width: 48px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.35);
   border-radius: 999px;
   margin: 0 auto 16px;
   cursor: grab;
@@ -829,22 +836,23 @@ body.tab-music-active #tab-music {
 
 .sheet-grabber:active {
   cursor: grabbing;
-  background: rgba(255, 255, 255, 0.70);
-  transform: scaleX(1.1);
+  background: rgba(255, 255, 255, 0.75);
+  transform: scaleX(1.15);
 }
 
 .sheet-title {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   color: #ffffff;
   text-align: center;
+  letter-spacing: -0.3px;
   margin-bottom: 20px;
 }
 
 .device-list, .sheet-action-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 20px;
 }
 
@@ -852,21 +860,28 @@ body.tab-music-active #tab-music {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 15px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.device-row:active {
+  transform: scale(0.98);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .device-row.active {
-  background: rgba(250, 45, 72, 0.16);
-  border-color: rgba(250, 45, 72, 0.4);
+  background: linear-gradient(135deg, rgba(250, 45, 72, 0.22), rgba(250, 45, 72, 0.08));
+  border-color: rgba(250, 45, 72, 0.55);
+  box-shadow: 0 4px 20px rgba(250, 45, 72, 0.25);
 }
 
 .device-icon {
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .device-details {
@@ -874,21 +889,30 @@ body.tab-music-active #tab-music {
 }
 
 .device-title {
-  font-size: 15px;
+  font-size: 15.5px;
   font-weight: 700;
   color: #ffffff;
+  letter-spacing: -0.2px;
 }
 
 .device-subtitle {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
-  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.58);
+  margin-top: 3px;
+  line-height: 1.3;
 }
 
 .device-check {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   color: #fa2d48;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  background: rgba(250, 45, 72, 0.16);
 }
 
 .sheet-audio-controls {
@@ -899,12 +923,70 @@ body.tab-music-active #tab-music {
   margin-bottom: 16px;
 }
 
-.sheet-vol-row {
+/* iOS Tactile Capsule Slider */
+.sheet-vol-capsule-container {
+  margin: 18px 0 20px;
+}
+
+.sheet-vol-capsule {
+  position: relative;
+  width: 100%;
+  height: 46px;
+  background: rgba(255, 255, 255, 0.09);
+  border-radius: 23px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  color: rgba(255, 255, 255, 0.6);
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sheet-vol-capsule:active {
+  transform: scale(0.99);
+}
+
+.sheet-vol-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 80%;
+  background: linear-gradient(90deg, #fa2d48 0%, #ff5e62 100%);
+  border-radius: 23px;
+  pointer-events: none;
+  transition: width 0.05s ease-out;
+  box-shadow: 0 0 14px rgba(250, 45, 72, 0.45);
+}
+
+.sheet-vol-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.sheet-vol-range-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+  z-index: 10;
+  -webkit-appearance: none;
+  touch-action: pan-y;
 }
 
 .sheet-action-item {
@@ -912,8 +994,8 @@ body.tab-music-active #tab-music {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
-  border-radius: 14px;
+  padding: 15px 18px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #ffffff;
@@ -921,26 +1003,31 @@ body.tab-music-active #tab-music {
   font-weight: 600;
   cursor: pointer;
   text-align: left;
+  transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .sheet-action-item:active {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.16);
+  transform: scale(0.985);
 }
 
 .sheet-close-btn {
   width: 100%;
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.14);
-  border: none;
+  padding: 15px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: #ffffff;
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+  margin-top: 10px;
 }
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 13px;
+
+.sheet-close-btn:active {
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(0.98);
 }
 
 /* Apple Music Live Synced Lyrics Sheet */
@@ -2711,77 +2798,6 @@ body.tab-music-active #tab-music {
     </div>
   </section>
 
-  <!-- Apple Music Audio Output / Wireless Earphones Sheet -->
-  <div class="apple-sheet-backdrop" id="sheet-audio-backdrop">
-    <div class="apple-modal-sheet" id="sheet-audio-content">
-      <div class="sheet-grabber"></div>
-      <div class="sheet-title">Audio Output</div>
-
-      <div class="device-list">
-        <div class="device-row active" id="dev-laptop">
-          <div class="device-icon">💻</div>
-          <div class="device-details">
-            <div class="device-title">Laptop Speakers</div>
-            <div class="device-subtitle">PC Default Audio</div>
-          </div>
-          <div class="device-check">✓</div>
-        </div>
-
-        <div class="device-row" id="dev-earphones">
-          <div class="device-icon">🎧</div>
-          <div class="device-details">
-            <div class="device-title">Wireless Phone Earphones</div>
-            <div class="device-subtitle" id="earphones-stream-sub">Stream PC Audio to Phone (Low Latency)</div>
-          </div>
-          <div class="device-check" id="earphones-check" style="display:none;">✓</div>
-        </div>
-      </div>
-
-      <!-- Live Stream Controls inside Sheet -->
-      <div class="sheet-audio-controls">
-        <button id="btn-toggle-audio-stream" class="audio-stream-btn start">
-          <span id="audio-btn-icon">▶</span>
-          <span id="audio-btn-label">Listen to PC</span>
-        </button>
-        <div class="audio-eq-bars" id="audio-eq-bars">
-          <div class="bar bar-1"></div>
-          <div class="bar bar-2"></div>
-          <div class="bar bar-3"></div>
-          <div class="bar bar-4"></div>
-        </div>
-      </div>
-
-      <div class="sheet-vol-row">
-        <span>🔈</span>
-        <input type="range" id="slider-earphones-vol" min="0" max="100" value="80" style="flex:1; accent-color:#fa2d48;">
-        <span>🔊</span>
-        <span id="earphones-vol-label" style="font-size:12px; font-weight:700; min-width:36px; text-align:right;">80%</span>
-      </div>
-
-      <button class="sheet-close-btn" id="btn-close-audio-sheet">Done</button>
-    </div>
-  </div>
-
-  <!-- Apple Music Options Sheet -->
-  <div class="apple-sheet-backdrop" id="sheet-more-backdrop">
-    <div class="apple-modal-sheet" id="sheet-more-content">
-      <div class="sheet-grabber"></div>
-      <div class="sheet-title">Options</div>
-      <div class="sheet-action-list">
-        <button class="sheet-action-item" id="opt-view-lyrics">
-          <span>💬 Toggle Fullscreen Lyrics</span>
-        </button>
-        <button class="sheet-action-item" id="opt-copy-song">
-          <span>📋 Copy Song Title & Artist</span>
-        </button>
-        <button class="sheet-action-item" id="opt-mute-pc">
-          <span>🔇 Toggle Mute PC Audio</span>
-        </button>
-      </div>
-      <button class="sheet-close-btn" id="btn-close-more-sheet">Cancel</button>
-    </div>
-  </div>
-
   <!-- ══════════ TAB 2: JARVIS AI ══════════ -->
   <section id="tab-jarvis" class="view-section">
     <div class="ios-card jarvis-hero">
@@ -3474,6 +3490,83 @@ body.tab-music-active #tab-music {
   </div>
 </nav>
 
+<!-- Apple Music Audio Output / Wireless Earphones Sheet (Top-level, Hardware-accelerated) -->
+<div class="apple-sheet-backdrop" id="sheet-audio-backdrop">
+  <div class="apple-modal-sheet" id="sheet-audio-content">
+    <div class="sheet-grabber"></div>
+    <div class="sheet-title">Audio Output</div>
+
+    <div class="device-list">
+      <div class="device-row active" id="dev-laptop">
+        <div class="device-icon">💻</div>
+        <div class="device-details">
+          <div class="device-title">Laptop Speakers</div>
+          <div class="device-subtitle">PC Default Audio</div>
+        </div>
+        <div class="device-check">✓</div>
+      </div>
+
+      <div class="device-row" id="dev-earphones">
+        <div class="device-icon">🎧</div>
+        <div class="device-details">
+          <div class="device-title">Wireless Phone Earphones</div>
+          <div class="device-subtitle" id="earphones-stream-sub">Stream PC Audio to Phone (Low Latency)</div>
+        </div>
+        <div class="device-check" id="earphones-check" style="display:none;">✓</div>
+      </div>
+    </div>
+
+    <!-- Live Stream Controls inside Sheet -->
+    <div class="sheet-audio-controls">
+      <button id="btn-toggle-audio-stream" class="audio-stream-btn start">
+        <span id="audio-btn-icon">▶</span>
+        <span id="audio-btn-label">Listen to PC</span>
+      </button>
+      <div class="audio-eq-bars" id="audio-eq-bars">
+        <div class="bar bar-1"></div>
+        <div class="bar bar-2"></div>
+        <div class="bar bar-3"></div>
+        <div class="bar bar-4"></div>
+      </div>
+    </div>
+
+    <!-- iOS Control Center Tactile Capsule Volume Slider -->
+    <div class="sheet-vol-capsule-container">
+      <div class="sheet-vol-capsule" id="sheet-vol-capsule">
+        <div class="sheet-vol-fill" id="sheet-vol-fill" style="width: 80%;"></div>
+        <div class="sheet-vol-content">
+          <span class="sheet-vol-icon-left">🔈</span>
+          <span class="sheet-vol-text" id="earphones-vol-label">Volume: 80%</span>
+          <span class="sheet-vol-icon-right">🔊</span>
+        </div>
+        <input type="range" id="slider-earphones-vol" min="0" max="100" value="80" class="sheet-vol-range-input" aria-label="Earphones Volume">
+      </div>
+    </div>
+
+    <button class="sheet-close-btn" id="btn-close-audio-sheet">Done</button>
+  </div>
+</div>
+
+<!-- Apple Music Options Sheet -->
+<div class="apple-sheet-backdrop" id="sheet-more-backdrop">
+  <div class="apple-modal-sheet" id="sheet-more-content">
+    <div class="sheet-grabber"></div>
+    <div class="sheet-title">Options</div>
+    <div class="sheet-action-list">
+      <button class="sheet-action-item" id="opt-view-lyrics">
+        <span>💬 Toggle Fullscreen Lyrics</span>
+      </button>
+      <button class="sheet-action-item" id="opt-copy-song">
+        <span>📋 Copy Song Title & Artist</span>
+      </button>
+      <button class="sheet-action-item" id="opt-mute-pc">
+        <span>🔇 Toggle Mute PC Audio</span>
+      </button>
+    </div>
+    <button class="sheet-close-btn" id="btn-close-more-sheet">Cancel</button>
+  </div>
+</div>
+
 <!-- iOS Toast -->
 <div class="ios-toast" id="ios-toast">
   <span id="toast-msg">Success</span>
@@ -3834,7 +3927,10 @@ function drawWaveScrubber() {
 }
 
 function animWaveLoop() {
-  drawWaveScrubber();
+  const musicTab = document.getElementById("tab-music");
+  if (musicTab && musicTab.classList.contains("active")) {
+    drawWaveScrubber();
+  }
   requestAnimationFrame(animWaveLoop);
 }
 requestAnimationFrame(animWaveLoop);
@@ -3993,6 +4089,60 @@ if (sheetAudioBackdrop) {
   });
 }
 
+// Draggable Sheet dismissal gestures for Apple modal sheets
+function setupSheetGestures(backdropId, contentId) {
+  const backdrop = document.getElementById(backdropId);
+  const content = document.getElementById(contentId);
+  if (!backdrop || !content) return;
+
+  let startY = 0;
+  let currentY = 0;
+  let isDragging = false;
+  const grabber = content.querySelector(".sheet-grabber");
+
+  const startDrag = (clientY, target) => {
+    if (content.scrollTop > 5 && target !== grabber && !target.classList.contains("sheet-title")) return;
+    startY = clientY;
+    currentY = clientY;
+    isDragging = true;
+    content.style.transition = "none";
+  };
+
+  const moveDrag = (clientY, e) => {
+    if (!isDragging) return;
+    currentY = clientY;
+    const dy = currentY - startY;
+    if (dy > 0) {
+      if (e && e.cancelable) e.preventDefault();
+      content.style.transform = `translateY(${dy}px)`;
+    } else {
+      content.style.transform = `translateY(${dy * 0.15}px)`;
+    }
+  };
+
+  const endDrag = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    content.style.transition = "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)";
+    const dy = currentY - startY;
+    if (dy > 80) {
+      backdrop.classList.remove("open");
+      setTimeout(() => {
+        content.style.transform = "";
+      }, 320);
+    } else {
+      content.style.transform = "";
+    }
+  };
+
+  content.addEventListener("touchstart", (e) => startDrag(e.touches[0].clientY, e.target), { passive: true });
+  content.addEventListener("touchmove", (e) => moveDrag(e.touches[0].clientY, e), { passive: false });
+  content.addEventListener("touchend", endDrag);
+}
+
+setupSheetGestures("sheet-audio-backdrop", "sheet-audio-content");
+setupSheetGestures("sheet-more-backdrop", "sheet-more-content");
+
 const btnBottomQueue = document.getElementById("btn-bottom-queue");
 if (btnBottomQueue && sheetMoreBackdrop) {
   btnBottomQueue.addEventListener("click", () => sheetMoreBackdrop.classList.add("open"));
@@ -4140,15 +4290,17 @@ if (devEarphones) {
 // Draggable Earphones Volume Slider inside Audio Output sheet
 const sliderEarphones = document.getElementById("slider-earphones-vol");
 const earphonesVolTxt = document.getElementById("earphones-vol-label");
+const sheetVolFill = document.getElementById("sheet-vol-fill");
+function setEarphonesVolumeUI(val) {
+  val = Math.max(0, Math.min(100, parseInt(val, 10) || 0));
+  if (earphonesVolTxt) earphonesVolTxt.innerText = `Volume: ${val}%`;
+  if (sheetVolFill) sheetVolFill.style.width = `${val}%`;
+  const p = document.getElementById("pc-audio-stream-player");
+  if (p) p.volume = val / 100;
+}
 if (sliderEarphones) {
-  const onEarphonesVol = () => {
-    const val = parseInt(sliderEarphones.value, 10);
-    if (earphonesVolTxt) earphonesVolTxt.innerText = `${val}%`;
-    const p = document.getElementById("pc-audio-stream-player");
-    if (p) p.volume = val / 100;
-  };
-  sliderEarphones.addEventListener("input", onEarphonesVol);
-  sliderEarphones.addEventListener("change", onEarphonesVol);
+  sliderEarphones.addEventListener("input", (e) => setEarphonesVolumeUI(e.target.value));
+  sliderEarphones.addEventListener("change", (e) => setEarphonesVolumeUI(e.target.value));
 }
 
 let isFetchingLyrics = false;
@@ -5484,7 +5636,9 @@ if (sliderEarphonesVol) {
     const val = parseInt(e.target.value, 10);
     const p = getAudioPlayer();
     if (p) p.volume = val / 100;
-    if (earphonesVolLabel) earphonesVolLabel.innerText = val + "%";
+    if (earphonesVolLabel) earphonesVolLabel.innerText = "Volume: " + val + "%";
+    const fill = document.getElementById("sheet-vol-fill");
+    if (fill) fill.style.width = val + "%";
   });
 }
 
