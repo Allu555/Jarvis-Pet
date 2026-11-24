@@ -616,7 +616,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getNativeVersion() {
-            return "2.3.0 Pro (Streaming Speech & Win32 Direct Input)";
+            return "2.4.0 Pro (Immersive Apple Music & Custom Icon)";
         }
 
         @JavascriptInterface

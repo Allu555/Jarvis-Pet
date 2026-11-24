@@ -86,7 +86,7 @@ def main():
 
     run_cmd(
         f'"{AAPT2}" link {flat_args} -I "{ANDROID_JAR}" --manifest "{manifest_xml}" '
-        f'--min-sdk-version 26 --target-sdk-version 34 --version-code 5 --version-name 2.3.0 --replace-version '
+        f'--min-sdk-version 26 --target-sdk-version 34 --version-code 6 --version-name 2.4.0 --replace-version '
         f'--java "{gen_dir}" -o "{unaligned_apk}" --auto-add-overlay',
         "Linking resources and generating R.java"
     )

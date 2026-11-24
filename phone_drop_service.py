@@ -329,91 +329,244 @@ header {
   justify-content: space-between;
 }
 
-/* ══════════ VIEW 1: APPLE MUSIC & SYNCED LYRICS ══════════ */
-.now-playing-box {
+/* ══════════ APPLE MUSIC IMMERSIVE PLAYER ══════════ */
+#tab-music {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  background: #000000;
+  min-height: calc(100vh - 120px);
+}
+
+.apple-music-wrapper {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  border-radius: 28px;
+}
+
+.apple-dynamic-backdrop {
+  position: absolute;
+  inset: -60px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(80px) saturate(240%) brightness(0.55);
+  opacity: 0.85;
+  transform: scale(1.15);
+  transition: background-image 0.8s ease-in-out, opacity 0.8s ease-in-out;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.apple-player-container {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
+  padding: 14px 18px 20px;
+  max-width: 440px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
-.cover-wrapper {
-  width: min(280px, 80vw);
-  height: min(280px, 80vw);
-  margin: 6px 0 20px;
+.apple-source-header {
+  margin-bottom: 12px;
+}
+
+.apple-source-pill {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: -0.1px;
+}
+
+.apple-media-viewport {
+  width: 100%;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.apple-cover-stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.apple-cover-stage .cover-wrapper {
+  width: min(340px, 84vw);
+  height: min(340px, 84vw);
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.cover-reflection {
-  position: absolute;
-  width: 90%;
-  height: 90%;
-  border-radius: 28px;
-  filter: blur(45px) saturate(220%);
-  opacity: 0.72;
-  transform: translateY(14px) scale(0.96);
-  z-index: 1;
-  pointer-events: none;
-  transition: opacity 0.5s ease;
-}
-
-.cover-art {
+.apple-cover-stage .cover-art {
   width: 100%;
   height: 100%;
-  border-radius: 26px;
+  border-radius: 22px;
   object-fit: cover;
   position: relative;
   z-index: 2;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  image-rendering: -webkit-optimize-contrast;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 2px 10px rgba(0, 0, 0, 0.3);
+  border: 0.5px solid rgba(255, 255, 255, 0.2);
   transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  image-rendering: high-quality;
 }
 
-.cover-art.playing {
+.apple-cover-stage .cover-art.playing {
   animation: vinylBreathe 5s infinite ease-in-out;
 }
 
 @keyframes vinylBreathe {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.028); }
+  50% { transform: scale(1.025); }
 }
 
-.track-name {
-  font-size: 21px;
+.apple-cover-stage .cover-reflection {
+  position: absolute;
+  width: 90%;
+  height: 90%;
+  border-radius: 26px;
+  filter: blur(40px) saturate(220%);
+  opacity: 0.85;
+  transform: translateY(12px) scale(0.96);
+  z-index: 1;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+.apple-lyrics-stage {
+  width: 100%;
+  height: min(340px, 84vw);
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.apple-metadata-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.apple-track-info {
+  flex: 1;
+  min-width: 0;
+  padding-right: 12px;
+}
+
+.apple-track-info .track-name {
+  font-size: 23px;
   font-weight: 700;
-  letter-spacing: -0.4px;
   color: #ffffff;
-  max-width: 90%;
+  letter-spacing: -0.4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  text-align: left;
 }
 
-.artist-name {
-  font-size: 15px;
+.apple-track-info .artist-name {
+  font-size: 15.5px;
   font-weight: 500;
-  color: var(--ios-gray-text);
-  margin-bottom: 20px;
+  color: rgba(255, 255, 255, 0.68);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  margin-bottom: 0;
+}
+
+.apple-track-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.apple-action-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.2s ease;
+}
+
+.apple-action-btn:active {
+  transform: scale(0.9);
+}
+
+.apple-action-btn.starred svg {
+  fill: #ffd60a;
+  stroke: #ffd60a;
+}
+
+.apple-lyrics-teaser {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.apple-lyrics-teaser:active {
+  transform: scale(0.98);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.apple-lyrics-teaser .teaser-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  text-align: left;
 }
 
 /* Apple iOS Scrubber */
 .scrub-container {
   width: 100%;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .scrub-track {
   width: 100%;
-  height: 7px;
-  background: rgba(255, 255, 255, 0.16);
+  height: 4.5px;
+  background: rgba(255, 255, 255, 0.24);
   border-radius: 999px;
   position: relative;
   cursor: pointer;
+  touch-action: none;
 }
 
 .scrub-progress {
@@ -424,30 +577,30 @@ header {
   width: 0%;
   background: #ffffff;
   border-radius: 999px;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
-  transition: width 0.1s linear;
+  transition: width 0.08s linear;
 }
 
 .scrub-labels {
   display: flex;
   justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 6px;
   font-size: 12px;
-  color: var(--ios-gray-text);
+  color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 /* Playback Control Hub */
-.controls-hub {
+.apple-controls-hub {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 32px;
-  margin-bottom: 22px;
+  justify-content: space-between;
+  width: 80%;
+  max-width: 300px;
+  margin: 10px auto 20px;
 }
 
-.ctrl-btn {
+.apple-ctrl-btn {
   background: none;
   border: none;
   color: #ffffff;
@@ -455,69 +608,249 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.12s cubic-bezier(0.25, 1, 0.5, 1);
+  padding: 8px;
+  transition: transform 0.12s ease, opacity 0.15s ease;
 }
 
-.ctrl-btn:active {
+.apple-ctrl-btn:active {
   transform: scale(0.86);
+  opacity: 0.75;
 }
 
-.ctrl-btn.play-circle {
-  width: 66px;
-  height: 66px;
-  border-radius: 50%;
-  background: #ffffff;
-  color: #000000;
+/* Apple Music Volume Slider */
+.apple-volume-slider-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 22px;
+}
+
+.vol-icon-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 28px rgba(255, 255, 255, 0.35);
+  padding: 4px;
+  cursor: pointer;
 }
 
-.ctrl-btn.play-circle:active {
-  transform: scale(0.92);
-}
-
-/* Apple Control Center Liquid Glass Volume Capsule */
-.ios-volume-capsule {
-  width: 100%;
-  height: 40px;
+.apple-volume-track {
+  flex: 1;
+  height: 4.5px;
+  background: rgba(255, 255, 255, 0.24);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(35px);
-  -webkit-backdrop-filter: blur(35px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
   position: relative;
-  overflow: hidden;
   cursor: pointer;
   touch-action: none;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.25), 0 6px 20px rgba(0, 0, 0, 0.35);
 }
 
-.ios-volume-fill {
+.apple-volume-fill {
   position: absolute;
   top: 0;
   left: 0;
-  bottom: 0;
+  height: 100%;
   width: 50%;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), #ffffff);
+  background: #ffffff;
   border-radius: 999px;
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.45);
-  pointer-events: none;
-  transition: width 0.08s ease;
+  transition: width 0.06s ease;
 }
 
-.ios-volume-content {
-  position: relative;
-  z-index: 3;
+/* Bottom Utility Bar */
+.apple-utility-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 65%;
+  max-width: 240px;
+  margin: 0 auto 8px;
+}
+
+.apple-util-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.apple-util-btn:active {
+  transform: scale(0.9);
+}
+
+.apple-util-btn.active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(20px);
+}
+
+.apple-output-footer {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.2px;
+  text-align: center;
+}
+
+/* Apple Modal Bottom Sheets */
+.apple-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 1000;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.apple-sheet-backdrop.open {
+  display: flex;
+  opacity: 1;
+}
+
+.apple-modal-sheet {
+  background: rgba(28, 28, 30, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
   width: 100%;
-  height: 100%;
-  padding: 0 16px;
-  pointer-events: none;
-  mix-blend-mode: difference;
+  max-width: 480px;
+  padding: 16px 20px 32px;
+  box-sizing: border-box;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.apple-sheet-backdrop.open .apple-modal-sheet {
+  transform: translateY(0);
+}
+
+.sheet-grabber {
+  width: 36px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  margin: 0 auto 16px;
+}
+
+.sheet-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.device-list, .sheet-action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.device-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.device-row.active {
+  background: rgba(250, 45, 72, 0.16);
+  border-color: rgba(250, 45, 72, 0.4);
+}
+
+.device-icon {
+  font-size: 22px;
+}
+
+.device-details {
+  flex: 1;
+}
+
+.device-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.device-subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 2px;
+}
+
+.device-check {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fa2d48;
+}
+
+.sheet-audio-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.sheet-vol-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.sheet-action-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sheet-action-item:active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.sheet-close-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.14);
+  border: none;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
   color: #ffffff;
   font-weight: 700;
   font-size: 13px;
@@ -2109,9 +2442,9 @@ header {
       <span id="header-pc-bat">💻 --%</span>
       <span id="header-phone-bat">📱 --%</span>
     </div>
-    <a href="/app" id="header-apk-link" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:rgba(0,122,255,0.18);border:0.5px solid rgba(0,122,255,0.4);color:#5ac8fa;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.2px;" title="Download JARVIS Remote Android APK v2.3">
+    <a href="/app" id="header-apk-link" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:rgba(0,122,255,0.18);border:0.5px solid rgba(0,122,255,0.4);color:#5ac8fa;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.2px;" title="Download JARVIS Remote Android APK v2.4">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5682.1523l-2.0223 3.503C15.5902 8.4116 13.8533 8.125 12 8.125s-3.5902.2866-5.1322.8299L4.8455 5.4519a.416.416 0 00-.5682-.1523.416.416 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
-      APK v2.3
+      APK v2.4
     </a>
     <div class="ios-pill-badge">
       <div class="ios-pulse-dot"></div>
@@ -2122,17 +2455,62 @@ header {
 
 <div class="main-content">
 
-  <!-- ══════════ TAB 1: NOW PLAYING & SYNCED LYRICS ══════════ -->
+  <!-- ══════════ TAB 1: APPLE MUSIC IMMERSIVE PLAYER ══════════ -->
   <section id="tab-music" class="view-section active">
-    <div class="music-layout-grid">
-      <div class="ios-card now-playing-box">
-        <div class="cover-wrapper">
-          <img id="cover-reflection" class="cover-reflection" src="/api/media/cover" alt="" onerror="this.style.opacity='0'">
-          <img id="track-cover" class="cover-art" src="/api/media/cover" alt="Album Artwork" onerror="this.src='/api/media/cover'">
+    <div class="apple-music-wrapper">
+      <!-- Dynamic Ambient Blurred Backdrop -->
+      <div id="apple-music-bg" class="apple-dynamic-backdrop"></div>
+
+      <div class="apple-player-container">
+        <!-- Top Source Header -->
+        <div class="apple-source-header">
+          <span class="apple-source-pill" id="apple-source-label">Playing from Laptop</span>
         </div>
 
-        <div class="track-name" id="track-name">No Music Playing</div>
-        <div class="artist-name" id="track-artist">Desktop Idle</div>
+        <!-- Cover Art & Synced Lyrics Viewport -->
+        <div class="apple-media-viewport" id="apple-media-viewport">
+          <!-- Big High-Def Album Artwork View -->
+          <div class="apple-cover-stage" id="apple-cover-stage">
+            <div class="cover-wrapper">
+              <img id="cover-reflection" class="cover-reflection" src="/api/media/cover" alt="" onerror="this.style.opacity='0'">
+              <img id="track-cover" class="cover-art" src="/api/media/cover" alt="Album Artwork" onerror="this.src='/api/media/cover'">
+            </div>
+          </div>
+
+          <!-- Fullscreen Synced Lyrics View (Flips in when toggled) -->
+          <div class="apple-lyrics-stage" id="apple-lyrics-stage" style="display:none;">
+            <div class="lyrics-container" id="lyrics-container">
+              <div class="lyrics-placeholder" id="lyrics-loading">Connecting to music stream...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Track Metadata Row with Star and More buttons -->
+        <div class="apple-metadata-row">
+          <div class="apple-track-info">
+            <div class="track-name" id="track-name">No Music Playing</div>
+            <div class="artist-name" id="track-artist">Desktop Idle</div>
+          </div>
+          <div class="apple-track-actions">
+            <button class="apple-action-btn" id="btn-music-star" title="Favorite Track">
+              <svg id="star-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2"></polygon>
+              </svg>
+            </button>
+            <button class="apple-action-btn" id="btn-music-more" title="More Options">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="5" cy="12" r="2"></circle>
+                <circle cx="12" cy="12" r="2"></circle>
+                <circle cx="19" cy="12" r="2"></circle>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Synchronized Lyrics Teaser Strip -->
+        <div class="apple-lyrics-teaser" id="lyrics-teaser-strip" title="Tap for Fullscreen Live Synced Lyrics">
+          <span class="teaser-text" id="lyrics-teaser-text">♪ Tap for Live Synchronized Lyrics ›</span>
+        </div>
 
         <!-- Scrubber -->
         <div class="scrub-container">
@@ -2145,106 +2523,163 @@ header {
           </div>
         </div>
 
-        <!-- Controls Hub -->
-        <div class="controls-hub">
-          <!-- Previous -->
-          <button class="ctrl-btn" id="ctrl-prev" title="Previous Track">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="19 20 9 12 19 4 19 20"></polygon>
-              <rect x="5" y="4" width="3" height="16" rx="1"></rect>
+        <!-- Iconic Apple Music Playback Controls -->
+        <div class="apple-controls-hub">
+          <!-- Previous (Double Solid Left Triangle) -->
+          <button class="apple-ctrl-btn" id="ctrl-prev" title="Previous Track">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="11 19 2 12 11 5 11 19"></polygon>
+              <polygon points="22 19 13 12 22 5 22 19"></polygon>
             </svg>
           </button>
 
-          <!-- Play / Pause -->
-          <button class="ctrl-btn play-circle" id="ctrl-playpause" title="Play/Pause">
-            <svg id="glyph-play" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="6 4 20 12 6 20 6 4"></polygon>
+          <!-- Play / Pause (Apple Music Solid White Glyphs) -->
+          <button class="apple-ctrl-btn play-circle" id="ctrl-playpause" title="Play/Pause">
+            <svg id="glyph-play" width="44" height="44" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="6 3 20 12 6 21 6 3"></polygon>
             </svg>
-            <svg id="glyph-pause" style="display:none;" width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="6" y="4" width="4" height="16" rx="1.5"></rect>
-              <rect x="14" y="4" width="4" height="16" rx="1.5"></rect>
+            <svg id="glyph-pause" style="display:none;" width="42" height="42" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="5" y="4" width="4.5" height="16" rx="2"></rect>
+              <rect x="14.5" y="4" width="4.5" height="16" rx="2"></rect>
+            </svg>
+          </button>
+
+          <!-- Next (Double Solid Right Triangle) -->
+          <button class="apple-ctrl-btn" id="ctrl-next" title="Next Track">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="13 19 22 12 13 5 13 19"></polygon>
+              <polygon points="2 19 11 12 2 5 2 19"></polygon>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Apple Music Sleek Horizontal Volume Slider -->
+        <div class="apple-volume-slider-bar">
+          <button class="vol-icon-btn" id="btn-vol-down" title="Decrease Volume">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            </svg>
+          </button>
+          <div class="apple-volume-track" id="vol-capsule">
+            <div class="apple-volume-fill" id="vol-fill"></div>
+          </div>
+          <button class="vol-icon-btn" id="btn-vol-up" title="Increase Volume">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" stroke-width="2" fill="none"></path>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" stroke="currentColor" stroke-width="2" fill="none"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Bottom Utility Toolbar -->
+        <div class="apple-utility-bar">
+          <!-- Lyrics Toggle -->
+          <button class="apple-util-btn" id="btn-bottom-lyrics" title="Toggle Synchronized Lyrics">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              <line x1="9" y1="9" x2="15" y2="9"></line>
+              <line x1="9" y1="13" x2="13" y2="13"></line>
             </svg>
           </button>
 
-          <!-- Next / Skip -->
-          <button class="ctrl-btn" id="ctrl-next" title="Next Track">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="5 4 15 12 5 20 5 4"></polygon>
-              <rect x="16" y="4" width="3" height="16" rx="1"></rect>
+          <!-- AirPlay / Audio Routing (Listen to PC) -->
+          <button class="apple-util-btn" id="btn-bottom-airplay" title="Audio Output & Wireless Earphones">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"></path>
+              <polygon points="12 15 17 21 7 21 12 15"></polygon>
+            </svg>
+          </button>
+
+          <!-- Queue / Sleep Timer -->
+          <button class="apple-util-btn" id="btn-bottom-queue" title="Queue & Controls">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
             </svg>
           </button>
         </div>
 
-        <!-- Apple Control Center Liquid Glass Volume Capsule -->
-        <div class="ios-volume-capsule" id="vol-capsule">
-          <div class="ios-volume-fill" id="vol-fill"></div>
-          <div class="ios-volume-content">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-              </svg>
-              <span style="font-size:12px; letter-spacing:0.4px;">VOLUME</span>
-            </div>
-            <span class="vol-label" id="vol-pct-text">50%</span>
-          </div>
-        </div>
-
-        <!-- Wireless Earphones Mode / Live PC Audio Streaming -->
-        <div class="wireless-earphones-card">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:18px;">🎧</span>
-              <div>
-                <div style="font-size:12.5px; font-weight:700; color:#fff;">Wireless Earphones Mode</div>
-                <div style="font-size:10px; color:rgba(255,255,255,0.45);">Stream PC Audio to Phone</div>
-              </div>
-            </div>
-            <div id="audio-stream-status" class="audio-status-pill offline">
-              <span class="status-dot"></span>
-              <span id="audio-status-text">OFFLINE</span>
-            </div>
-          </div>
-
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
-            <button id="btn-toggle-audio-stream" class="audio-stream-btn start">
-              <span id="audio-btn-icon">▶</span>
-              <span id="audio-btn-label">Listen to PC</span>
-            </button>
-            <div class="audio-eq-bars" id="audio-eq-bars">
-              <div class="bar bar-1"></div>
-              <div class="bar bar-2"></div>
-              <div class="bar bar-3"></div>
-              <div class="bar bar-4"></div>
-            </div>
-          </div>
-
-          <!-- Earphones Volume Control -->
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:12px; color:rgba(255,255,255,0.5);">🔈</span>
-            <input type="range" id="slider-earphones-vol" min="0" max="100" value="80" style="flex:1; accent-color:var(--ios-red);">
-            <span style="font-size:12px; color:rgba(255,255,255,0.5);">🔊</span>
-            <span id="earphones-vol-label" style="font-size:11px; font-weight:700; min-width:32px; color:rgba(255,255,255,0.85); text-align:right;">80%</span>
-          </div>
-          <div style="font-size:9.5px; color:rgba(255,255,255,0.35); margin-top:6px; line-height:1.4;">
-            ⚡ Low-latency live stream of all PC audio (YouTube, Spotify, Movies, Games) directly through phone earphones. Keeps playing in background.
-          </div>
-        </div>
-      </div>
-
-      <!-- Apple Music Real-Time Synced Lyrics -->
-      <div class="ios-card lyrics-card">
-        <div class="card-header">
-          <span>Synchronized Lyrics</span>
-          <span style="color:var(--ios-red); font-size:11px; font-weight:700;">LIVE</span>
-        </div>
-        <div class="lyrics-container" id="lyrics-container">
-          <div class="lyrics-placeholder" id="lyrics-loading">Connecting to music stream...</div>
-        </div>
+        <!-- Output Device Name Label -->
+        <div class="apple-output-footer" id="apple-output-name">Laptop Audio</div>
       </div>
     </div>
   </section>
+
+  <!-- Apple Music Audio Output / Wireless Earphones Sheet -->
+  <div class="apple-sheet-backdrop" id="sheet-audio-backdrop">
+    <div class="apple-modal-sheet" id="sheet-audio-content">
+      <div class="sheet-grabber"></div>
+      <div class="sheet-title">Audio Output</div>
+
+      <div class="device-list">
+        <div class="device-row active" id="dev-laptop">
+          <div class="device-icon">💻</div>
+          <div class="device-details">
+            <div class="device-title">Laptop Speakers</div>
+            <div class="device-subtitle">PC Default Audio</div>
+          </div>
+          <div class="device-check">✓</div>
+        </div>
+
+        <div class="device-row" id="dev-earphones">
+          <div class="device-icon">🎧</div>
+          <div class="device-details">
+            <div class="device-title">Wireless Phone Earphones</div>
+            <div class="device-subtitle" id="earphones-stream-sub">Stream PC Audio to Phone (Low Latency)</div>
+          </div>
+          <div class="device-check" id="earphones-check" style="display:none;">✓</div>
+        </div>
+      </div>
+
+      <!-- Live Stream Controls inside Sheet -->
+      <div class="sheet-audio-controls">
+        <button id="btn-toggle-audio-stream" class="audio-stream-btn start">
+          <span id="audio-btn-icon">▶</span>
+          <span id="audio-btn-label">Listen to PC</span>
+        </button>
+        <div class="audio-eq-bars" id="audio-eq-bars">
+          <div class="bar bar-1"></div>
+          <div class="bar bar-2"></div>
+          <div class="bar bar-3"></div>
+          <div class="bar bar-4"></div>
+        </div>
+      </div>
+
+      <div class="sheet-vol-row">
+        <span>🔈</span>
+        <input type="range" id="slider-earphones-vol" min="0" max="100" value="80" style="flex:1; accent-color:#fa2d48;">
+        <span>🔊</span>
+        <span id="earphones-vol-label" style="font-size:12px; font-weight:700; min-width:36px; text-align:right;">80%</span>
+      </div>
+
+      <button class="sheet-close-btn" id="btn-close-audio-sheet">Done</button>
+    </div>
+  </div>
+
+  <!-- Apple Music Options Sheet -->
+  <div class="apple-sheet-backdrop" id="sheet-more-backdrop">
+    <div class="apple-modal-sheet" id="sheet-more-content">
+      <div class="sheet-grabber"></div>
+      <div class="sheet-title">Options</div>
+      <div class="sheet-action-list">
+        <button class="sheet-action-item" id="opt-view-lyrics">
+          <span>💬 Toggle Fullscreen Lyrics</span>
+        </button>
+        <button class="sheet-action-item" id="opt-copy-song">
+          <span>📋 Copy Song Title & Artist</span>
+        </button>
+        <button class="sheet-action-item" id="opt-mute-pc">
+          <span>🔇 Toggle Mute PC Audio</span>
+        </button>
+      </div>
+      <button class="sheet-close-btn" id="btn-close-more-sheet">Cancel</button>
+    </div>
+  </div>
 
   <!-- ══════════ TAB 2: JARVIS AI ══════════ -->
   <section id="tab-jarvis" class="view-section">
@@ -3155,6 +3590,127 @@ function evaluateCurrentLyric() {
     }
   }
   highlightLyric(targetIdx);
+
+  // Update live lyrics teaser strip line
+  const teaserText = document.getElementById("lyrics-teaser-text");
+  if (teaserText && lyricsList[targetIdx]) {
+    const raw = lyricsList[targetIdx].text || "♪ Instrumental ♪";
+    teaserText.textContent = `${raw} ›`;
+  }
+}
+
+// Apple Music View Controls & Sheets
+let isLyricsViewActive = false;
+function toggleLyricsView(force) {
+  if (typeof force === "boolean") {
+    isLyricsViewActive = force;
+  } else {
+    isLyricsViewActive = !isLyricsViewActive;
+  }
+  const coverStage = document.getElementById("apple-cover-stage");
+  const lyricsStage = document.getElementById("apple-lyrics-stage");
+  const btnLyrics = document.getElementById("btn-bottom-lyrics");
+  if (coverStage && lyricsStage) {
+    if (isLyricsViewActive) {
+      coverStage.style.display = "none";
+      lyricsStage.style.display = "flex";
+      if (btnLyrics) btnLyrics.classList.add("active");
+      evaluateCurrentLyric();
+    } else {
+      coverStage.style.display = "flex";
+      lyricsStage.style.display = "none";
+      if (btnLyrics) btnLyrics.classList.remove("active");
+    }
+  }
+}
+
+const teaserStrip = document.getElementById("lyrics-teaser-strip");
+if (teaserStrip) teaserStrip.addEventListener("click", () => toggleLyricsView(true));
+
+const btnBottomLyrics = document.getElementById("btn-bottom-lyrics");
+if (btnBottomLyrics) btnBottomLyrics.addEventListener("click", () => toggleLyricsView());
+
+const btnStar = document.getElementById("btn-music-star");
+if (btnStar) {
+  btnStar.addEventListener("click", () => {
+    btnStar.classList.toggle("starred");
+    const isStarred = btnStar.classList.contains("starred");
+    showToast(isStarred ? "Added to Favorite Songs ★" : "Removed from Favorites");
+    if (window.AndroidBridge && typeof window.AndroidBridge.vibrate === "function") {
+      window.AndroidBridge.vibrate(20);
+    }
+  });
+}
+
+const btnMore = document.getElementById("btn-music-more");
+const sheetMoreBackdrop = document.getElementById("sheet-more-backdrop");
+const btnCloseMoreSheet = document.getElementById("btn-close-more-sheet");
+if (btnMore && sheetMoreBackdrop) {
+  btnMore.addEventListener("click", () => sheetMoreBackdrop.classList.add("open"));
+}
+if (btnCloseMoreSheet && sheetMoreBackdrop) {
+  btnCloseMoreSheet.addEventListener("click", () => sheetMoreBackdrop.classList.remove("open"));
+}
+if (sheetMoreBackdrop) {
+  sheetMoreBackdrop.addEventListener("click", (e) => {
+    if (e.target === sheetMoreBackdrop) sheetMoreBackdrop.classList.remove("open");
+  });
+}
+
+const btnAirplay = document.getElementById("btn-bottom-airplay");
+const sheetAudioBackdrop = document.getElementById("sheet-audio-backdrop");
+const btnCloseAudioSheet = document.getElementById("btn-close-audio-sheet");
+if (btnAirplay && sheetAudioBackdrop) {
+  btnAirplay.addEventListener("click", () => sheetAudioBackdrop.classList.add("open"));
+}
+if (btnCloseAudioSheet && sheetAudioBackdrop) {
+  btnCloseAudioSheet.addEventListener("click", () => sheetAudioBackdrop.classList.remove("open"));
+}
+if (sheetAudioBackdrop) {
+  sheetAudioBackdrop.addEventListener("click", (e) => {
+    if (e.target === sheetAudioBackdrop) sheetAudioBackdrop.classList.remove("open");
+  });
+}
+
+const btnBottomQueue = document.getElementById("btn-bottom-queue");
+if (btnBottomQueue && sheetMoreBackdrop) {
+  btnBottomQueue.addEventListener("click", () => sheetMoreBackdrop.classList.add("open"));
+}
+
+const btnVolDown = document.getElementById("btn-vol-down");
+const btnVolUp = document.getElementById("btn-vol-up");
+if (btnVolDown) {
+  btnVolDown.addEventListener("click", () => sendCommand("volume_down"));
+}
+if (btnVolUp) {
+  btnVolUp.addEventListener("click", () => sendCommand("volume_up"));
+}
+
+const optViewLyrics = document.getElementById("opt-view-lyrics");
+if (optViewLyrics && sheetMoreBackdrop) {
+  optViewLyrics.addEventListener("click", () => {
+    sheetMoreBackdrop.classList.remove("open");
+    toggleLyricsView(true);
+  });
+}
+
+const optCopySong = document.getElementById("opt-copy-song");
+if (optCopySong && sheetMoreBackdrop) {
+  optCopySong.addEventListener("click", () => {
+    const text = `${trackName.innerText} - ${trackArtist.innerText}`;
+    if (navigator.clipboard) navigator.clipboard.writeText(text);
+    showToast(`Copied: ${text}`);
+    sheetMoreBackdrop.classList.remove("open");
+  });
+}
+
+const optMutePc = document.getElementById("opt-mute-pc");
+if (optMutePc && sheetMoreBackdrop) {
+  optMutePc.addEventListener("click", () => {
+    sendCommand("volume_mute");
+    showToast("Toggled PC Mute");
+    sheetMoreBackdrop.classList.remove("open");
+  });
 }
 
 let isFetchingLyrics = false;
@@ -3474,6 +4030,14 @@ async function pollStatus() {
         trackCover.src = newCover;
         const coverRefl = document.getElementById("cover-reflection");
         if (coverRefl) coverRefl.src = newCover;
+        const dynamicBg = document.getElementById("apple-music-bg");
+        if (dynamicBg) dynamicBg.style.backgroundImage = `url("${newCover}")`;
+      }
+
+      const srcLabel = document.getElementById("apple-source-label");
+      if (srcLabel) {
+        const app = song.app || (song.album ? song.album : "Laptop");
+        srcLabel.textContent = `Playing from ${app}`;
       }
 
       const songId = `${song.title}:${song.artist}`;
@@ -5312,7 +5876,7 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             return
 
         elif path == "/api/jarvis":
-test            body = self.rfile.read(content_length).decode("utf-8")
+            body = self.rfile.read(content_length).decode("utf-8")
             data = json.loads(body)
             query = data.get("query", "").strip()
             if query:
