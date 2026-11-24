@@ -6053,7 +6053,7 @@ class OriginIsland(QWidget):
             pos = media_src.current_position() if media_src.is_playing else getattr(self, "_playback_pos_sec", 0.0)
             dur = media_src.duration_sec if media_src.duration_sec > 0 else getattr(self, "_playback_dur_sec", 0.0)
 
-            # Accurate cover ID tracking
+            # Accurate cover ID tracking and fast in-memory base64 data URI for instant 0ms cover sync
             cur_tb = None
             if cur_media and cur_media.has_media and cur_media.thumbnail_bytes:
                 cur_tb = cur_media.thumbnail_bytes
@@ -6064,6 +6064,21 @@ class OriginIsland(QWidget):
             tb_len = len(cur_tb) if cur_tb else 0
             cover_id = f"{media_src.title}_{media_src.artist}_{tb_len}".replace(" ", "_")
 
+            cover_b64 = ""
+            if cur_tb and len(cur_tb) < 350000:
+                if getattr(self, "_cached_cover_id", "") == cover_id and hasattr(self, "_cached_cover_b64"):
+                    cover_b64 = self._cached_cover_b64
+                else:
+                    try:
+                        import base64
+                        mime = "image/png" if cur_tb.startswith(b"\x89PNG") else "image/jpeg"
+                        encoded = base64.b64encode(cur_tb).decode("ascii")
+                        cover_b64 = f"data:{mime};base64,{encoded}"
+                        self._cached_cover_id = cover_id
+                        self._cached_cover_b64 = cover_b64
+                    except Exception:
+                        cover_b64 = ""
+
             cur_song = {
                 "title": media_src.title,
                 "artist": media_src.artist or "Unknown Artist",
@@ -6073,6 +6088,7 @@ class OriginIsland(QWidget):
                 "dur_sec": round(float(dur), 2),
                 "has_cover": bool(cur_tb),
                 "cover_id": cover_id,
+                "cover_data": cover_b64,
                 "has_lyrics": bool(lyrics_lines),
                 "active_lyric_idx": int(getattr(self, "_lyrics_active_idx", 0)),
                 "lines": lyrics_lines,

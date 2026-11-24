@@ -333,8 +333,7 @@ header {
 #tab-music {
   position: relative;
   overflow: hidden;
-  border-radius: 28px;
-  background: #000000;
+  background: transparent;
   min-height: calc(100vh - 120px);
 }
 
@@ -343,20 +342,50 @@ header {
   width: 100%;
   min-height: 100%;
   overflow: hidden;
-  border-radius: 28px;
 }
 
+/* Full-bleed edge-to-edge dynamic ambient backdrop across entire screen */
 .apple-dynamic-backdrop {
-  position: absolute;
+  position: fixed;
   inset: -60px;
   background-size: cover;
   background-position: center;
-  filter: blur(80px) saturate(240%) brightness(0.55);
-  opacity: 0.85;
+  filter: blur(80px) saturate(240%) brightness(0.5);
+  opacity: 0;
   transform: scale(1.15);
-  transition: background-image 0.8s ease-in-out, opacity 0.8s ease-in-out;
+  transition: background-image 0.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
   z-index: 0;
   pointer-events: none;
+}
+
+/* When in Music view: blend header and bottom navigation seamlessly with zero black bars */
+body.tab-music-active .apple-dynamic-backdrop {
+  opacity: 0.96;
+}
+
+body.tab-music-active header {
+  background: rgba(0, 0, 0, 0.22) !important;
+  backdrop-filter: blur(25px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+body.tab-music-active .tab-bar-container {
+  background: rgba(0, 0, 0, 0.25) !important;
+  backdrop-filter: blur(30px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+body.tab-music-active .main-content {
+  padding-top: 6px !important;
+  padding-bottom: 74px !important;
+}
+
+body.tab-music-active #tab-music {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .apple-player-container {
@@ -365,27 +394,31 @@ header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 14px 18px 20px;
-  max-width: 440px;
+  justify-content: space-between;
+  padding: 4px 18px 12px;
+  max-width: 420px;
   margin: 0 auto;
   box-sizing: border-box;
+  min-height: calc(100vh - 136px);
 }
 
 .apple-source-header {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .apple-source-pill {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.68);
   letter-spacing: -0.1px;
 }
 
 .apple-media-viewport {
   width: 100%;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   position: relative;
+  display: flex;
+  justify-content: center;
 }
 
 .apple-cover-stage {
@@ -396,23 +429,27 @@ header {
 }
 
 .apple-cover-stage .cover-wrapper {
-  width: min(340px, 84vw);
-  height: min(340px, 84vw);
+  width: min(35vh, 76vw);
+  height: min(35vh, 76vw);
+  max-width: 275px;
+  max-height: 275px;
+  aspect-ratio: 1 / 1;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: 0 auto;
 }
 
 .apple-cover-stage .cover-art {
   width: 100%;
   height: 100%;
-  border-radius: 22px;
+  border-radius: 20px;
   object-fit: cover;
   position: relative;
   z-index: 2;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 2px 10px rgba(0, 0, 0, 0.3);
-  border: 0.5px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.72), 0 2px 10px rgba(0, 0, 0, 0.35);
+  border: 0.5px solid rgba(255, 255, 255, 0.22);
   transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
   image-rendering: high-quality;
 }
@@ -430,10 +467,10 @@ header {
   position: absolute;
   width: 90%;
   height: 90%;
-  border-radius: 26px;
-  filter: blur(40px) saturate(220%);
+  border-radius: 24px;
+  filter: blur(36px) saturate(220%);
   opacity: 0.85;
-  transform: translateY(12px) scale(0.96);
+  transform: translateY(10px) scale(0.96);
   z-index: 1;
   pointer-events: none;
   transition: opacity 0.5s ease;
@@ -441,11 +478,13 @@ header {
 
 .apple-lyrics-stage {
   width: 100%;
-  height: min(340px, 84vw);
-  border-radius: 22px;
+  height: min(35vh, 76vw);
+  max-width: 275px;
+  max-height: 275px;
+  border-radius: 20px;
   background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   flex-direction: column;
@@ -457,29 +496,29 @@ header {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .apple-track-info {
   flex: 1;
   min-width: 0;
-  padding-right: 12px;
+  padding-right: 10px;
 }
 
 .apple-track-info .track-name {
-  font-size: 23px;
+  font-size: 21px;
   font-weight: 700;
   color: #ffffff;
   letter-spacing: -0.4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
   text-align: left;
 }
 
 .apple-track-info .artist-name {
-  font-size: 15.5px;
+  font-size: 14.5px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.68);
   white-space: nowrap;
@@ -499,8 +538,8 @@ header {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
   color: #ffffff;
@@ -508,16 +547,32 @@ header {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.12s ease, background 0.2s ease;
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s ease, border-color 0.2s ease;
 }
 
 .apple-action-btn:active {
-  transform: scale(0.9);
+  transform: scale(0.88);
+}
+
+.apple-action-btn.starred {
+  background: rgba(255, 214, 10, 0.22);
+  border-color: rgba(255, 214, 10, 0.55);
 }
 
 .apple-action-btn.starred svg {
   fill: #ffd60a;
   stroke: #ffd60a;
+  filter: drop-shadow(0 0 6px rgba(255, 214, 10, 0.85));
+}
+
+@keyframes starSpringPop {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.35) rotate(14deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.apple-action-btn.star-animated {
+  animation: starSpringPop 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .apple-lyrics-teaser {
@@ -525,24 +580,24 @@ header {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 8px 14px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  padding: 7px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.09);
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.88);
   cursor: pointer;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   box-sizing: border-box;
   transition: background 0.15s ease, transform 0.12s ease;
 }
 
 .apple-lyrics-teaser:active {
   transform: scale(0.98);
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .apple-lyrics-teaser .teaser-text {
@@ -556,12 +611,12 @@ header {
 /* Apple iOS Scrubber */
 .scrub-container {
   width: 100%;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .scrub-track {
   width: 100%;
-  height: 4.5px;
+  height: 4px;
   background: rgba(255, 255, 255, 0.24);
   border-radius: 999px;
   position: relative;
@@ -583,8 +638,8 @@ header {
 .scrub-labels {
   display: flex;
   justify-content: space-between;
-  margin-top: 6px;
-  font-size: 12px;
+  margin-top: 5px;
+  font-size: 11.5px;
   color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -595,9 +650,9 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 80%;
-  max-width: 300px;
-  margin: 10px auto 20px;
+  width: 82%;
+  max-width: 280px;
+  margin: 2px auto 10px;
 }
 
 .apple-ctrl-btn {
@@ -608,7 +663,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  padding: 6px;
   transition: transform 0.12s ease, opacity 0.15s ease;
 }
 
@@ -621,9 +676,9 @@ header {
 .apple-volume-slider-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  margin-bottom: 22px;
+  margin-bottom: 12px;
 }
 
 .vol-icon-btn {
@@ -639,7 +694,7 @@ header {
 
 .apple-volume-track {
   flex: 1;
-  height: 4.5px;
+  height: 4px;
   background: rgba(255, 255, 255, 0.24);
   border-radius: 999px;
   position: relative;
@@ -663,18 +718,18 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 65%;
-  max-width: 240px;
-  margin: 0 auto 8px;
+  width: 60%;
+  max-width: 220px;
+  margin: 0 auto 4px;
 }
 
 .apple-util-btn {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.68);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -693,7 +748,7 @@ header {
 }
 
 .apple-output-footer {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.55);
   letter-spacing: 0.2px;
@@ -2493,7 +2548,7 @@ header {
           </div>
           <div class="apple-track-actions">
             <button class="apple-action-btn" id="btn-music-star" title="Favorite Track">
-              <svg id="star-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg id="star-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2"></polygon>
               </svg>
             </button>
@@ -3409,7 +3464,13 @@ function activateTab(tabId) {
   const target = document.getElementById(tabId);
   if (btn) btn.classList.add("active");
   if (target) target.classList.add("active");
+  if (tabId === "tab-music") {
+    document.body.classList.add("tab-music-active");
+  } else {
+    document.body.classList.remove("tab-music-active");
+  }
 }
+document.body.classList.add("tab-music-active");
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -3635,9 +3696,18 @@ if (btnStar) {
   btnStar.addEventListener("click", () => {
     btnStar.classList.toggle("starred");
     const isStarred = btnStar.classList.contains("starred");
+    if (isStarred) {
+      btnStar.classList.add("star-animated");
+      setTimeout(() => btnStar.classList.remove("star-animated"), 400);
+    }
+    const song = (window.lastKnownSong && window.lastKnownSong.title) ? window.lastKnownSong : null;
+    if (song) {
+      const favKey = `fav_${song.title}_${song.artist}`.toLowerCase();
+      try { localStorage.setItem(favKey, isStarred ? "1" : "0"); } catch (e) {}
+    }
     showToast(isStarred ? "Added to Favorite Songs ★" : "Removed from Favorites");
     if (window.AndroidBridge && typeof window.AndroidBridge.vibrate === "function") {
-      window.AndroidBridge.vibrate(20);
+      window.AndroidBridge.vibrate(28);
     }
   });
 }
@@ -4022,16 +4092,30 @@ async function pollStatus() {
       }
       updateScrubber();
 
-      // Accurate cover loading matching the exact song and thumbnail state
+      // Instantaneous 0ms cover loading using inline base64 or cached cover ID
+      window.lastKnownSong = song;
       const coverId = song.cover_id || `${song.title}_${song.artist}_${song.has_cover}`;
       if (coverId !== lastCoverId) {
         lastCoverId = coverId;
-        const newCover = `/api/media/cover?id=${encodeURIComponent(coverId)}&t=${Date.now()}`;
+        const newCover = (song.cover_data && song.cover_data.startsWith("data:"))
+          ? song.cover_data
+          : `/api/media/cover?id=${encodeURIComponent(coverId)}`;
         trackCover.src = newCover;
         const coverRefl = document.getElementById("cover-reflection");
         if (coverRefl) coverRefl.src = newCover;
         const dynamicBg = document.getElementById("apple-music-bg");
         if (dynamicBg) dynamicBg.style.backgroundImage = `url("${newCover}")`;
+
+        // Restore Favorite Star state for this song
+        const favKey = `fav_${song.title}_${song.artist}`.toLowerCase();
+        try {
+          const isFav = localStorage.getItem(favKey) === "1";
+          const starBtn = document.getElementById("btn-music-star");
+          if (starBtn) {
+            if (isFav) starBtn.classList.add("starred");
+            else starBtn.classList.remove("starred");
+          }
+        } catch (e) {}
       }
 
       const srcLabel = document.getElementById("apple-source-label");
