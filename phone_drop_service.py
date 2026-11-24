@@ -2109,9 +2109,9 @@ header {
       <span id="header-pc-bat">💻 --%</span>
       <span id="header-phone-bat">📱 --%</span>
     </div>
-    <a href="/app" id="header-apk-link" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:rgba(0,122,255,0.18);border:0.5px solid rgba(0,122,255,0.4);color:#5ac8fa;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.2px;" title="Download JARVIS Remote Android APK v2.1">
+    <a href="/app" id="header-apk-link" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:rgba(0,122,255,0.18);border:0.5px solid rgba(0,122,255,0.4);color:#5ac8fa;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.2px;" title="Download JARVIS Remote Android APK v2.2">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5682.1523l-2.0223 3.503C15.5902 8.4116 13.8533 8.125 12 8.125s-3.5902.2866-5.1322.8299L4.8455 5.4519a.416.416 0 00-.5682-.1523.416.416 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
-      APK v2.1
+      APK v2.2
     </a>
     <div class="ios-pill-badge">
       <div class="ios-pulse-dot"></div>
@@ -3437,6 +3437,7 @@ async function sendCommand(command, query = "") {
 
 // ══════════ POLLING LOOP ══════════
 let lastSongId = "";
+let lastCoverId = "";
 let lastReply = "";
 let isFetchingStatus = false;
 
@@ -3455,19 +3456,31 @@ async function pollStatus() {
       isPlaying = song.is_playing || false;
       setPlayState(isPlaying);
 
-      currentPos = song.pos_sec || 0.0;
+      // Smooth position sync: avoid jitter if delta is minor
+      const serverPos = song.pos_sec || 0.0;
       currentDur = song.dur_sec || 0.0;
+      if (!isPlaying || Math.abs(currentPos - serverPos) > 1.8) {
+        currentPos = serverPos;
+      } else {
+        currentPos = currentPos * 0.25 + serverPos * 0.75;
+      }
       updateScrubber();
+
+      // Accurate cover loading matching the exact song and thumbnail state
+      const coverId = song.cover_id || `${song.title}_${song.artist}_${song.has_cover}`;
+      if (coverId !== lastCoverId) {
+        lastCoverId = coverId;
+        const newCover = `/api/media/cover?id=${encodeURIComponent(coverId)}&t=${Date.now()}`;
+        trackCover.src = newCover;
+        const coverRefl = document.getElementById("cover-reflection");
+        if (coverRefl) coverRefl.src = newCover;
+      }
 
       const songId = `${song.title}:${song.artist}`;
       if (songId !== lastSongId) {
         lastSongId = songId;
         lyricsList = [];
         currentSongTitle = "";
-        const newCover = "/api/media/cover?t=" + Date.now();
-        trackCover.src = newCover;
-        const coverRefl = document.getElementById("cover-reflection");
-        if (coverRefl) coverRefl.src = newCover;
         if (lyricsContainer) {
           lyricsContainer.innerHTML = '<div class="lyrics-placeholder" id="lyrics-loading">Connecting to music stream...</div>';
         }
@@ -4511,20 +4524,37 @@ if (window.webkitSpeechRecognition || window.SpeechRecognition) {
     if (btnStartDictate) btnStartDictate.classList.remove("recording");
     if (labelDictate) labelDictate.textContent = "Tap to Dictate (Live into PC)";
   };
+}
 
-  if (btnStartDictate) {
-    btnStartDictate.addEventListener("click", () => {
+// Global native dictation bridge from Android app
+window.onNativeDictationResult = function(text) {
+  if (dictateTranscript) {
+    dictateTranscript.textContent = `“${text}”`;
+    dictateTranscript.style.color = "#30d158";
+  }
+  showToast(`Dictated: ${text.slice(0, 32)}...`);
+  if (btnStartDictate) btnStartDictate.classList.remove("recording");
+  if (labelDictate) labelDictate.textContent = "Tap to Dictate (Live into PC)";
+};
+
+if (btnStartDictate) {
+  btnStartDictate.addEventListener("click", () => {
+    if (window.AndroidBridge && typeof window.AndroidBridge.startNativeDictation === "function") {
+      btnStartDictate.classList.add("recording");
+      if (labelDictate) labelDictate.textContent = "🎙️ Listening... speak now";
+      if (dictateTranscript) dictateTranscript.textContent = "Listening to speech...";
+      window.AndroidBridge.startNativeDictation();
+      return;
+    }
+
+    if (speechRecognizer) {
       if (!isDictating) {
         try { speechRecognizer.start(); } catch (e) {}
       } else {
         speechRecognizer.stop();
       }
-    });
-  }
-} else {
-  if (btnStartDictate) {
-    btnStartDictate.addEventListener("click", () => {
-      const text = prompt("Speech recognition not supported in this browser. Type text to send live to PC:");
+    } else {
+      const text = prompt("Type or dictate text to send live to active PC window:");
       if (text) {
         fetch("/api/mic/dictate", {
           method: "POST",
@@ -4532,8 +4562,8 @@ if (window.webkitSpeechRecognition || window.SpeechRecognition) {
           body: JSON.stringify({ text, mode: "paste" })
         }).then(() => showToast("Typed into active PC window"));
       }
-    });
-  }
+    }
+  });
 }
 
 // Voice Memo Recording & Upload
@@ -4792,15 +4822,8 @@ class AudioStreamBroadcaster:
         return self._device_name
 
     def add_listener(self) -> queue.Queue:
-        q: queue.Queue = queue.Queue(maxsize=150)
+        q: queue.Queue = queue.Queue(maxsize=120)
         with self._lock:
-            if self._header_chunk:
-                q.put(self._header_chunk)
-            for chunk in self._recent_chunks:
-                try:
-                    q.put_nowait(chunk)
-                except queue.Full:
-                    pass
             self._listeners.append(q)
             if not self._running and self._available:
                 self._running = True
@@ -4819,7 +4842,6 @@ class AudioStreamBroadcaster:
         with self._lock:
             self._running = False
             self._listeners.clear()
-            self._recent_chunks.clear()
 
     def _capture_loop(self):
         proc = None
@@ -4836,10 +4858,11 @@ class AudioStreamBroadcaster:
             if not mic:
                 return
 
+            # Native 48kHz stereo, high-quality 192k MP3 for crystal-clear earphones audio
             ffmpeg_cmd = [
                 "ffmpeg", "-y", "-loglevel", "quiet",
-                "-f", "s16le", "-ar", "44100", "-ac", "2", "-i", "pipe:0",
-                "-c:a", "libmp3lame", "-b:a", "128k", "-flush_packets", "1",
+                "-f", "s16le", "-ar", "48000", "-ac", "2", "-i", "pipe:0",
+                "-c:a", "libmp3lame", "-b:a", "192k", "-flush_packets", "1",
                 "-f", "mp3", "pipe:1"
             ]
             creation_flags = 0
@@ -4862,28 +4885,29 @@ class AudioStreamBroadcaster:
             def reader_thread():
                 while self._running and proc.poll() is None:
                     try:
-                        chunk = proc.stdout.read(2048)
+                        chunk = proc.stdout.read(4096)
                         if not chunk:
                             break
                         with self._lock:
-                            if not self._header_chunk:
-                                self._header_chunk = chunk
-                            self._recent_chunks.append(chunk)
                             for q in list(self._listeners):
                                 try:
                                     q.put_nowait(chunk)
                                 except queue.Full:
-                                    pass
+                                    try:
+                                        q.get_nowait()
+                                        q.put_nowait(chunk)
+                                    except Exception:
+                                        pass
                     except Exception:
                         break
 
             t_reader = threading.Thread(target=reader_thread, daemon=True, name="AudioMp3Reader")
             t_reader.start()
 
-            with mic.recorder(samplerate=44100, channels=2) as rec:
+            # Record in native 48kHz WASAPI loopback with 2048 sample blocks (~42.6ms) for crack-free streaming
+            with mic.recorder(samplerate=48000, channels=2, blocksize=2048) as rec:
                 while self._running and proc.poll() is None:
-                    # 1152 samples (~26.1ms audio per MP3 frame)
-                    data = rec.record(numframes=1152)
+                    data = rec.record(numframes=2048)
                     pcm = (np.clip(data, -1.0, 1.0) * 32767.0).astype(np.int16).tobytes()
                     try:
                         proc.stdin.write(pcm)
@@ -4895,13 +4919,12 @@ class AudioStreamBroadcaster:
         finally:
             if proc:
                 try:
-                    proc.stdin.close()
+                    if proc.stdin:
+                        proc.stdin.close()
                     proc.terminate()
                 except Exception:
                     pass
             with self._lock:
-                self._header_chunk = b""
-                self._recent_chunks.clear()
                 self._running = False
 
 

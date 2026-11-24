@@ -5956,23 +5956,20 @@ class OriginIsland(QWidget):
         self.update()
 
     def _get_phone_cover_bytes(self) -> Optional[Tuple[bytes, str]]:
-        """Returns album art bytes and mime type for phone display."""
+        """Returns album art bytes and mime type for phone display matching the active song."""
         cur_media = getattr(self._media, "current_info", None) if hasattr(self, "_media") else None
         tb = None
-        if cur_media and cur_media.thumbnail_bytes:
+        if cur_media and cur_media.has_media and cur_media.thumbnail_bytes:
             tb = cur_media.thumbnail_bytes
-        elif self._last_media_info and self._last_media_info.thumbnail_bytes:
-            tb = self._last_media_info.thumbnail_bytes
+        elif self._last_media_info and self._last_media_info.has_media and self._last_media_info.thumbnail_bytes:
+            # Only use last_media_info if it matches the current song title
+            if cur_media is None or (cur_media.title == self._last_media_info.title and cur_media.artist == self._last_media_info.artist):
+                tb = self._last_media_info.thumbnail_bytes
 
         if tb:
             mime = "image/png" if tb.startswith(b"\x89PNG") else "image/jpeg"
             return tb, mime
 
-        if ALBUM_ART_PATH.exists():
-            try:
-                return ALBUM_ART_PATH.read_bytes(), "image/png"
-            except Exception:
-                pass
         return None
 
     def _get_phone_lyrics_data(self) -> dict:
@@ -6056,6 +6053,17 @@ class OriginIsland(QWidget):
             pos = media_src.current_position() if media_src.is_playing else getattr(self, "_playback_pos_sec", 0.0)
             dur = media_src.duration_sec if media_src.duration_sec > 0 else getattr(self, "_playback_dur_sec", 0.0)
 
+            # Accurate cover ID tracking
+            cur_tb = None
+            if cur_media and cur_media.has_media and cur_media.thumbnail_bytes:
+                cur_tb = cur_media.thumbnail_bytes
+            elif self._last_media_info and self._last_media_info.has_media and self._last_media_info.thumbnail_bytes:
+                if cur_media is None or (cur_media.title == self._last_media_info.title):
+                    cur_tb = self._last_media_info.thumbnail_bytes
+
+            tb_len = len(cur_tb) if cur_tb else 0
+            cover_id = f"{media_src.title}_{media_src.artist}_{tb_len}".replace(" ", "_")
+
             cur_song = {
                 "title": media_src.title,
                 "artist": media_src.artist or "Unknown Artist",
@@ -6063,7 +6071,8 @@ class OriginIsland(QWidget):
                 "is_playing": bool(media_src.is_playing),
                 "pos_sec": round(float(pos), 2),
                 "dur_sec": round(float(dur), 2),
-                "has_cover": bool(media_src.thumbnail_bytes or (self._last_media_info and self._last_media_info.thumbnail_bytes) or ALBUM_ART_PATH.exists()),
+                "has_cover": bool(cur_tb),
+                "cover_id": cover_id,
                 "has_lyrics": bool(lyrics_lines),
                 "active_lyric_idx": int(getattr(self, "_lyrics_active_idx", 0)),
                 "lines": lyrics_lines,

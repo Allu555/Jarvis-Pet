@@ -1,5 +1,6 @@
 package com.allu.jarvisremote;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
@@ -8,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -18,12 +20,14 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.speech.RecognizerIntent;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -36,9 +40,12 @@ import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import org.json.JSONObject;
+
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
 
 public class MainActivity extends Activity {
 
@@ -46,6 +53,8 @@ public class MainActivity extends Activity {
     private static final String KEY_SERVER_URL = "server_url";
     private static final String DEFAULT_URL = "http://10.233.226.213:8765/remote";
     private static final int FILE_CHOOSER_REQUEST_CODE = 2001;
+    private static final int PERMISSION_REQUEST_MIC = 3001;
+    private static final int SPEECH_REQUEST_CODE = 4001;
 
     private WebView webView;
     private ProgressBar progressBar;
@@ -77,6 +86,13 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         currentServerUrl = prefs.getString(KEY_SERVER_URL, DEFAULT_URL);
+
+        // Request Microphone runtime permission for Voice Memo and Dictation
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_REQUEST_MIC);
+            }
+        }
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.parseColor("#060609"));
@@ -182,6 +198,15 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onPermissionRequest(final PermissionRequest request) {
+                mainHandler.post(() -> {
+                    try {
+                        request.grant(request.getResources());
+                    } catch (Exception ignored) {}
+                });
+            }
+
+            @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
                 if (mFilePathCallback != null) {
                     mFilePathCallback.onReceiveValue(null);
@@ -236,7 +261,41 @@ public class MainActivity extends Activity {
                 mFilePathCallback.onReceiveValue(results);
                 mFilePathCallback = null;
             }
+        } else if (requestCode == SPEECH_REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null) {
+            ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            if (matches != null && !matches.isEmpty()) {
+                String spokenText = matches.get(0);
+                sendPcDictation(spokenText);
+                String quoted = JSONObject.quote(spokenText);
+                webView.evaluateJavascript("if (window.onNativeDictationResult) { window.onNativeDictationResult(" + quoted + "); }", null);
+            }
         }
+    }
+
+    private void sendPcDictation(final String text) {
+        new Thread(() -> {
+            try {
+                String baseUrl = currentServerUrl;
+                int idx = baseUrl.indexOf("/remote");
+                if (idx != -1) baseUrl = baseUrl.substring(0, idx);
+                URL url = new URL(baseUrl + "/api/mic/dictate");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(2500);
+                conn.setReadTimeout(2500);
+
+                JSONObject json = new JSONObject();
+                json.put("text", text);
+                json.put("mode", "paste");
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(json.toString().getBytes("UTF-8"));
+                }
+                conn.getResponseCode();
+                conn.disconnect();
+            } catch (Exception ignored) {}
+        }).start();
     }
 
     private void loadServerUrl(String url) {
@@ -391,7 +450,27 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getNativeVersion() {
-            return "2.1.0 Pro (Android 14+ Ready)";
+            return "2.2.0 Pro (Android 14+ Ready)";
+        }
+
+        @JavascriptInterface
+        public void startNativeDictation() {
+            mainHandler.post(() -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_REQUEST_MIC);
+                        return;
+                    }
+                }
+                try {
+                    Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                    intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now to type live on PC...");
+                    startActivityForResult(intent, SPEECH_REQUEST_CODE);
+                } catch (ActivityNotFoundException e) {
+                    webView.evaluateJavascript("alert('Speech recognition is not available on this device');", null);
+                }
+            });
         }
 
         @JavascriptInterface
