@@ -53,7 +53,7 @@ public class MainActivity extends Activity {
 
     private static final String PREFS_NAME = "jarvis_remote_prefs";
     private static final String KEY_SERVER_URL = "server_url";
-    private static final String DEFAULT_URL = "http://10.233.226.213:8765/remote";
+    private static final String DEFAULT_URL = "http://192.168.1.100:8765/remote";
     private static final int FILE_CHOOSER_REQUEST_CODE = 2001;
     private static final int PERMISSION_REQUEST_MIC = 3001;
     private static final int SPEECH_REQUEST_CODE = 4001;

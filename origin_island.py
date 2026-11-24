@@ -6065,19 +6065,42 @@ class OriginIsland(QWidget):
             cover_id = f"{media_src.title}_{media_src.artist}_{tb_len}".replace(" ", "_")
 
             cover_b64 = ""
-            if cur_tb and len(cur_tb) < 350000:
+            if cur_tb:
                 if getattr(self, "_cached_cover_id", "") == cover_id and hasattr(self, "_cached_cover_b64"):
                     cover_b64 = self._cached_cover_b64
                 else:
                     try:
                         import base64
-                        mime = "image/png" if cur_tb.startswith(b"\x89PNG") else "image/jpeg"
-                        encoded = base64.b64encode(cur_tb).decode("ascii")
-                        cover_b64 = f"data:{mime};base64,{encoded}"
+                        if len(cur_tb) > 120000:
+                            # Optimize large artwork to ~35KB JPEG for 0ms delivery
+                            import io
+                            from PIL import Image
+                            img = Image.open(io.BytesIO(cur_tb))
+                            if img.mode not in ("RGB", "L"):
+                                img = img.convert("RGB")
+                            if max(img.size) > 480:
+                                img.thumbnail((480, 480), Image.Resampling.LANCZOS)
+                            buf = io.BytesIO()
+                            img.save(buf, format="JPEG", quality=84, optimize=True)
+                            opt_tb = buf.getvalue()
+                            encoded = base64.b64encode(opt_tb).decode("ascii")
+                            cover_b64 = f"data:image/jpeg;base64,{encoded}"
+                        else:
+                            mime = "image/png" if cur_tb.startswith(b"\x89PNG") else "image/jpeg"
+                            encoded = base64.b64encode(cur_tb).decode("ascii")
+                            cover_b64 = f"data:{mime};base64,{encoded}"
                         self._cached_cover_id = cover_id
                         self._cached_cover_b64 = cover_b64
                     except Exception:
-                        cover_b64 = ""
+                        try:
+                            import base64
+                            mime = "image/png" if cur_tb.startswith(b"\x89PNG") else "image/jpeg"
+                            encoded = base64.b64encode(cur_tb[:250000]).decode("ascii")
+                            cover_b64 = f"data:{mime};base64,{encoded}"
+                            self._cached_cover_id = cover_id
+                            self._cached_cover_b64 = cover_b64
+                        except Exception:
+                            cover_b64 = ""
 
             cur_song = {
                 "title": media_src.title,

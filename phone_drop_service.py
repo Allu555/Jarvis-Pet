@@ -332,60 +332,75 @@ header {
 /* ══════════ APPLE MUSIC IMMERSIVE PLAYER ══════════ */
 #tab-music {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   background: transparent;
-  min-height: calc(100vh - 120px);
+  width: 100%;
 }
 
 .apple-music-wrapper {
   position: relative;
   width: 100%;
-  min-height: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Full-bleed edge-to-edge dynamic ambient backdrop across entire screen */
 .apple-dynamic-backdrop {
   position: fixed;
-  inset: -60px;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
   background-size: cover;
   background-position: center;
-  filter: blur(80px) saturate(240%) brightness(0.5);
+  filter: blur(85px) saturate(240%) brightness(0.52);
   opacity: 0;
-  transform: scale(1.15);
-  transition: background-image 0.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
+  transform: scale(1.18);
+  transition: background-image 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.45s ease;
   z-index: 0;
   pointer-events: none;
 }
 
 /* When in Music view: blend header and bottom navigation seamlessly with zero black bars */
 body.tab-music-active .apple-dynamic-backdrop {
-  opacity: 0.96;
+  opacity: 1;
+}
+
+body.tab-music-active .ambient-backdrop {
+  opacity: 0 !important;
+  display: none !important;
 }
 
 body.tab-music-active header {
-  background: rgba(0, 0, 0, 0.22) !important;
-  backdrop-filter: blur(25px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(18, 18, 22, 0.18) !important;
+  backdrop-filter: blur(35px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(35px) saturate(190%) !important;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.10) !important;
 }
 
 body.tab-music-active .tab-bar-container {
-  background: rgba(0, 0, 0, 0.25) !important;
-  backdrop-filter: blur(30px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+  background: rgba(18, 18, 22, 0.22) !important;
+  backdrop-filter: blur(40px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(190%) !important;
   border-top: 0.5px solid rgba(255, 255, 255, 0.12) !important;
 }
 
 body.tab-music-active .main-content {
-  padding-top: 6px !important;
-  padding-bottom: 74px !important;
+  background: transparent !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+  padding-top: 2px !important;
+  padding-bottom: 70px !important;
+  max-width: 440px !important;
 }
 
 body.tab-music-active #tab-music {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
+  animation: none !important;
+  transform: none !important;
 }
 
 .apple-player-container {
@@ -395,30 +410,35 @@ body.tab-music-active #tab-music {
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 18px 12px;
-  max-width: 420px;
+  padding: 0 4px 6px;
+  max-width: 400px;
+  width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
-  min-height: calc(100vh - 136px);
+  min-height: calc(100dvh - 134px);
+  height: calc(100dvh - 134px);
 }
 
 .apple-source-header {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
+  margin-top: 2px;
 }
 
 .apple-source-pill {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.68);
+  color: rgba(255, 255, 255, 0.65);
   letter-spacing: -0.1px;
 }
 
 .apple-media-viewport {
   width: 100%;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   position: relative;
   display: flex;
   justify-content: center;
+  align-items: center;
+  flex-shrink: 1;
 }
 
 .apple-cover-stage {
@@ -429,10 +449,10 @@ body.tab-music-active #tab-music {
 }
 
 .apple-cover-stage .cover-wrapper {
-  width: min(35vh, 76vw);
-  height: min(35vh, 76vw);
-  max-width: 275px;
-  max-height: 275px;
+  width: min(28vh, 66vw);
+  height: min(28vh, 66vw);
+  max-width: 230px;
+  max-height: 230px;
   aspect-ratio: 1 / 1;
   position: relative;
   display: flex;
@@ -444,7 +464,7 @@ body.tab-music-active #tab-music {
 .apple-cover-stage .cover-art {
   width: 100%;
   height: 100%;
-  border-radius: 20px;
+  border-radius: 18px;
   object-fit: cover;
   position: relative;
   z-index: 2;
@@ -478,10 +498,10 @@ body.tab-music-active #tab-music {
 
 .apple-lyrics-stage {
   width: 100%;
-  height: min(35vh, 76vw);
-  max-width: 275px;
-  max-height: 275px;
-  border-radius: 20px;
+  height: min(28vh, 66vw);
+  max-width: 230px;
+  max-height: 230px;
+  border-radius: 18px;
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
@@ -496,7 +516,7 @@ body.tab-music-active #tab-music {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .apple-track-info {
@@ -506,7 +526,7 @@ body.tab-music-active #tab-music {
 }
 
 .apple-track-info .track-name {
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 700;
   color: #ffffff;
   letter-spacing: -0.4px;
@@ -518,7 +538,7 @@ body.tab-music-active #tab-music {
 }
 
 .apple-track-info .artist-name {
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.68);
   white-space: nowrap;
@@ -531,14 +551,14 @@ body.tab-music-active #tab-music {
 .apple-track-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .apple-action-btn {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
@@ -555,24 +575,25 @@ body.tab-music-active #tab-music {
 }
 
 .apple-action-btn.starred {
-  background: rgba(255, 214, 10, 0.22);
-  border-color: rgba(255, 214, 10, 0.55);
+  background: rgba(255, 214, 10, 0.24) !important;
+  border-color: rgba(255, 214, 10, 0.65) !important;
 }
 
 .apple-action-btn.starred svg {
-  fill: #ffd60a;
-  stroke: #ffd60a;
-  filter: drop-shadow(0 0 6px rgba(255, 214, 10, 0.85));
+  fill: #ffd60a !important;
+  stroke: #ffd60a !important;
+  filter: drop-shadow(0 0 7px rgba(255, 214, 10, 0.95)) !important;
 }
 
 @keyframes starSpringPop {
-  0% { transform: scale(0.8); }
-  50% { transform: scale(1.35) rotate(14deg); }
+  0% { transform: scale(0.75); }
+  45% { transform: scale(1.4) rotate(16deg); }
+  75% { transform: scale(0.92) rotate(-5deg); }
   100% { transform: scale(1) rotate(0deg); }
 }
 
 .apple-action-btn.star-animated {
-  animation: starSpringPop 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: starSpringPop 0.42s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .apple-lyrics-teaser {
@@ -580,17 +601,17 @@ body.tab-music-active #tab-music {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 7px 12px;
+  padding: 6px 12px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.09);
   border: 0.5px solid rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.88);
   cursor: pointer;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   box-sizing: border-box;
   transition: background 0.15s ease, transform 0.12s ease;
 }
@@ -611,7 +632,7 @@ body.tab-music-active #tab-music {
 /* Apple iOS Scrubber */
 .scrub-container {
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .scrub-track {
@@ -638,8 +659,8 @@ body.tab-music-active #tab-music {
 .scrub-labels {
   display: flex;
   justify-content: space-between;
-  margin-top: 5px;
-  font-size: 11.5px;
+  margin-top: 4px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -651,8 +672,8 @@ body.tab-music-active #tab-music {
   align-items: center;
   justify-content: space-between;
   width: 82%;
-  max-width: 280px;
-  margin: 2px auto 10px;
+  max-width: 270px;
+  margin: 1px auto 8px;
 }
 
 .apple-ctrl-btn {
@@ -678,7 +699,7 @@ body.tab-music-active #tab-music {
   align-items: center;
   gap: 10px;
   width: 100%;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .vol-icon-btn {
@@ -2467,6 +2488,9 @@ body.tab-music-active #tab-music {
 <body>
 <audio id="pc-audio-stream-player" preload="none" playsinline webkit-playsinline></audio>
 
+<!-- Full-Bleed Apple Music Dynamic Blurred Backdrop (covers entire viewport seamlessly) -->
+<div id="apple-music-bg" class="apple-dynamic-backdrop"></div>
+
 <!-- Ambient Backlight -->
 <div class="ambient-backdrop">
   <div class="ambient-blob blob-1"></div>
@@ -2513,9 +2537,6 @@ body.tab-music-active #tab-music {
   <!-- ══════════ TAB 1: APPLE MUSIC IMMERSIVE PLAYER ══════════ -->
   <section id="tab-music" class="view-section active">
     <div class="apple-music-wrapper">
-      <!-- Dynamic Ambient Blurred Backdrop -->
-      <div id="apple-music-bg" class="apple-dynamic-backdrop"></div>
-
       <div class="apple-player-container">
         <!-- Top Source Header -->
         <div class="apple-source-header">
