@@ -498,18 +498,17 @@ body.tab-music-active #tab-music {
 
 .apple-lyrics-stage {
   width: 100%;
-  height: min(38vh, 82vw);
-  max-width: 320px;
-  max-height: 320px;
-  border-radius: 22px;
-  background: rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(40px) saturate(200%);
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  height: min(44vh, 88vw);
+  max-width: 100%;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .apple-metadata-row {
@@ -956,34 +955,47 @@ body.tab-music-active #tab-music {
   flex: 1;
   overflow-y: auto;
   scroll-behavior: smooth;
-  padding: 34px 14px 68px;
-  text-align: center;
-  mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+  padding: 40px 14px 80px;
+  text-align: left;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 82%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 82%, transparent 100%);
+  scrollbar-width: none;
+}
+
+.lyrics-container::-webkit-scrollbar {
+  display: none;
 }
 
 .lyric-item {
-  padding: 12px 16px;
-  margin: 5px 0;
-  font-size: 21px;
-  line-height: 1.52;
-  color: rgba(255, 255, 255, 0.40);
-  font-weight: 600;
-  border-radius: 14px;
+  padding: 10px 8px;
+  margin: 6px 0;
+  font-size: 24px;
+  line-height: 1.48;
+  color: rgba(255, 255, 255, 0.36);
+  font-weight: 700;
+  border-radius: 0;
   cursor: pointer;
-  filter: blur(0.4px);
-  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  filter: blur(0.5px);
+  transition: all 0.32s cubic-bezier(0.25, 1, 0.5, 1);
+  background: transparent !important;
+  user-select: none;
 }
 
 .lyric-item.active {
-  color: #ffffff;
-  font-size: 27px;
-  font-weight: 800;
-  letter-spacing: -0.3px;
-  transform: scale(1.05);
-  filter: blur(0px);
-  text-shadow: 0 0 24px rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff !important;
+  font-size: 32px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.4px !important;
+  transform: scale(1.03) translateX(4px) !important;
+  transform-origin: left center !important;
+  filter: blur(0px) !important;
+  text-shadow: 0 4px 28px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 255, 255, 0.6) !important;
+  background: transparent !important;
+}
+
+.lyric-item:active {
+  transform: scale(0.98);
+  opacity: 0.7;
 }
 
 .lyric-item:active {
@@ -3748,15 +3760,18 @@ function toggleLyricsView(force) {
   const coverStage = document.getElementById("apple-cover-stage");
   const lyricsStage = document.getElementById("apple-lyrics-stage");
   const btnLyrics = document.getElementById("btn-bottom-lyrics");
+  const teaser = document.getElementById("lyrics-teaser-strip");
   if (coverStage && lyricsStage) {
     if (isLyricsViewActive) {
       coverStage.style.display = "none";
       lyricsStage.style.display = "flex";
+      if (teaser) teaser.style.display = "none";
       if (btnLyrics) btnLyrics.classList.add("active");
       evaluateCurrentLyric();
     } else {
       coverStage.style.display = "flex";
       lyricsStage.style.display = "none";
+      if (teaser) teaser.style.display = "flex";
       if (btnLyrics) btnLyrics.classList.remove("active");
     }
   }
