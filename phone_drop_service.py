@@ -629,31 +629,33 @@ body.tab-music-active #tab-music {
   text-align: left;
 }
 
-/* Apple iOS Scrubber */
+/* Apple iOS Animated Sound Wave Scrubber (Origin Island style) */
 .scrub-container {
   width: 100%;
   margin-bottom: 6px;
+  position: relative;
 }
 
 .scrub-track {
   width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.24);
-  border-radius: 999px;
+  height: 22px;
   position: relative;
   cursor: pointer;
   touch-action: none;
+  display: flex;
+  align-items: center;
+  background: transparent;
+}
+
+.scrub-canvas {
+  width: 100%;
+  height: 22px;
+  display: block;
+  pointer-events: none;
 }
 
 .scrub-progress {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 0%;
-  background: #ffffff;
-  border-radius: 999px;
-  transition: width 0.08s linear;
+  display: none;
 }
 
 .scrub-labels {
@@ -2610,10 +2612,11 @@ body.tab-music-active #tab-music {
           <span class="teaser-text" id="lyrics-teaser-text">♪ Tap for Live Synchronized Lyrics ›</span>
         </div>
 
-        <!-- Scrubber -->
+        <!-- Scrubber with Animated Sound Wave & Dynamic Artwork Color -->
         <div class="scrub-container">
           <div class="scrub-track" id="scrub-track">
-            <div class="scrub-progress" id="scrub-progress"></div>
+            <canvas id="scrub-wave-canvas" class="scrub-canvas"></canvas>
+            <div class="scrub-progress" id="scrub-progress" style="display:none;"></div>
           </div>
           <div class="scrub-labels">
             <span id="label-pos">0:00</span>
@@ -3678,10 +3681,166 @@ if (scrubTrack) {
   });
 }
 
+// ══════════ ORIGIN ISLAND SOUND WAVE SCRUBBER & DYNAMIC ARTWORK ACCENT ══════════
+const scrubCanvas = document.getElementById("scrub-wave-canvas");
+const scrubCtx = scrubCanvas ? scrubCanvas.getContext("2d") : null;
+let currentAccentColor = "#fa2d48";
+let waveAnimTime = 0;
+
+function updateAccentTheme(hexOrRgb) {
+  if (!hexOrRgb) return;
+  currentAccentColor = hexOrRgb;
+  document.documentElement.style.setProperty("--theme-accent", hexOrRgb);
+
+  // Update star button, sliders, and controls accent tone
+  const favBtn = document.getElementById("btn-music-star");
+  if (favBtn && favBtn.classList.contains("starred")) {
+    favBtn.style.borderColor = hexOrRgb;
+  }
+  const streamBtn = document.getElementById("btn-toggle-audio-stream");
+  if (streamBtn && streamBtn.classList.contains("start")) {
+    streamBtn.style.backgroundColor = hexOrRgb;
+  }
+}
+
+function extractCoverAccent(imgEl) {
+  if (!imgEl || !imgEl.complete || imgEl.naturalWidth === 0) return;
+  try {
+    const c = document.createElement("canvas");
+    c.width = 16;
+    c.height = 16;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(imgEl, 0, 0, 16, 16);
+    const data = ctx.getImageData(0, 0, 16, 16).data;
+    let bestScore = -1;
+    let bestCol = null;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
+      const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+      const val = maxC / 255;
+      if (val > 0.22 && val < 0.96 && sat > 0.20) {
+        const score = sat * 2.5 + val * 1.2;
+        if (score > bestScore) {
+          bestScore = score;
+          bestCol = `rgb(${r}, ${g}, ${b})`;
+        }
+      }
+    }
+    if (bestCol) {
+      updateAccentTheme(bestCol);
+    }
+  } catch (e) {}
+}
+
+if (trackCover) {
+  trackCover.addEventListener("load", () => extractCoverAccent(trackCover));
+}
+
+function drawWaveScrubber() {
+  if (!scrubCanvas || !scrubCtx || !scrubTrack) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = scrubTrack.getBoundingClientRect();
+  const w = rect.width;
+  const h = 22;
+
+  if (w <= 0) return;
+  const targetW = Math.round(w * dpr);
+  const targetH = Math.round(h * dpr);
+  if (scrubCanvas.width !== targetW || scrubCanvas.height !== targetH) {
+    scrubCanvas.width = targetW;
+    scrubCanvas.height = targetH;
+  }
+
+  scrubCtx.save();
+  scrubCtx.scale(dpr, dpr);
+  scrubCtx.clearRect(0, 0, w, h);
+
+  const centerY = h / 2;
+  const ratio = currentDur > 0 ? Math.max(0, Math.min(1, currentPos / currentDur)) : 0;
+  const fillW = Math.max(3, w * ratio);
+
+  // 1. Unplayed background track line (soft frosted glass)
+  scrubCtx.beginPath();
+  scrubCtx.moveTo(fillW, centerY);
+  scrubCtx.lineTo(w, centerY);
+  scrubCtx.strokeStyle = "rgba(255, 255, 255, 0.20)";
+  scrubCtx.lineWidth = 4;
+  scrubCtx.lineCap = "round";
+  scrubCtx.stroke();
+
+  // 2. Played portion with Fluid Animated Squiggly Sound Wave (Origin Island style)
+  if (fillW > 5) {
+    scrubCtx.beginPath();
+    scrubCtx.moveTo(0, centerY);
+
+    if (isPlaying && fillW > 14) {
+      waveAnimTime += 0.055;
+      const wavePhase = waveAnimTime * 2.6;
+      const step = 2;
+      for (let x = 0; x <= fillW; x += step) {
+        const prog = x / fillW;
+        const envelope = Math.sin(prog * Math.PI); // tapered at both ends
+        const amp = 3.6 * envelope;
+        const waveY = centerY + amp * Math.sin(x * 0.17 - wavePhase);
+        scrubCtx.lineTo(x, waveY);
+      }
+      scrubCtx.lineTo(fillW, centerY);
+    } else {
+      // Paused: clean straight bar
+      scrubCtx.lineTo(fillW, centerY);
+    }
+
+    // Glowing aura stroke behind wave (matches album art color)
+    scrubCtx.save();
+    scrubCtx.shadowColor = currentAccentColor;
+    scrubCtx.shadowBlur = 12;
+    scrubCtx.strokeStyle = currentAccentColor;
+    scrubCtx.lineWidth = 4.5;
+    scrubCtx.lineCap = "round";
+    scrubCtx.lineJoin = "round";
+    scrubCtx.stroke();
+    scrubCtx.restore();
+
+    // Foreground crisp wave stroke
+    scrubCtx.strokeStyle = currentAccentColor;
+    scrubCtx.lineWidth = 3.5;
+    scrubCtx.lineCap = "round";
+    scrubCtx.lineJoin = "round";
+    scrubCtx.stroke();
+  }
+
+  // 3. Glowing Scrubber Thumb Knob at head of wave
+  if (ratio > 0.005) {
+    const knobR = isDraggingScrub ? 8.0 : 6.0;
+    scrubCtx.save();
+    scrubCtx.shadowColor = currentAccentColor;
+    scrubCtx.shadowBlur = 14;
+    scrubCtx.fillStyle = "#ffffff";
+    scrubCtx.beginPath();
+    scrubCtx.arc(fillW, centerY, knobR, 0, Math.PI * 2);
+    scrubCtx.fill();
+
+    // Vibrant center core dot
+    scrubCtx.fillStyle = currentAccentColor;
+    scrubCtx.beginPath();
+    scrubCtx.arc(fillW, centerY, knobR * 0.45, 0, Math.PI * 2);
+    scrubCtx.fill();
+    scrubCtx.restore();
+  }
+
+  scrubCtx.restore();
+}
+
+function animWaveLoop() {
+  drawWaveScrubber();
+  requestAnimationFrame(animWaveLoop);
+}
+requestAnimationFrame(animWaveLoop);
+
 function updateScrubber() {
   if (currentDur > 0) {
-    const pct = Math.min(100, (currentPos / currentDur) * 100);
-    scrubProgress.style.width = pct + "%";
     labelPos.innerText = fmtTime(currentPos);
     labelDur.innerText = fmtTime(currentDur);
   }
@@ -4314,6 +4473,12 @@ async function pollStatus() {
         if (coverRefl) coverRefl.src = newCover;
         const dynamicBg = document.getElementById("apple-music-bg");
         if (dynamicBg) dynamicBg.style.backgroundImage = `url("${newCover}")`;
+
+        if (song.accent_color) {
+          updateAccentTheme(song.accent_color);
+        } else {
+          extractCoverAccent(trackCover);
+        }
 
         // Restore Favorite Star state for this song
         const favKey = `fav_${song.title}_${song.artist}`.toLowerCase();

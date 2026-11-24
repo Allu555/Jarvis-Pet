@@ -6102,6 +6102,18 @@ class OriginIsland(QWidget):
                         except Exception:
                             cover_b64 = ""
 
+            art_color_hex = "#fa2d48"
+            if getattr(self, "_extracted_art_color", None):
+                art_color_hex = self._extracted_art_color.name()
+            elif cur_tb:
+                try:
+                    ext_c = self._extract_artwork_color(cur_tb)
+                    if ext_c:
+                        self._extracted_art_color = ext_c
+                        art_color_hex = ext_c.name()
+                except Exception:
+                    pass
+
             cur_song = {
                 "title": media_src.title,
                 "artist": media_src.artist or "Unknown Artist",
@@ -6112,6 +6124,7 @@ class OriginIsland(QWidget):
                 "has_cover": bool(cur_tb),
                 "cover_id": cover_id,
                 "cover_data": cover_b64,
+                "accent_color": art_color_hex,
                 "has_lyrics": bool(lyrics_lines),
                 "active_lyric_idx": int(getattr(self, "_lyrics_active_idx", 0)),
                 "lines": lyrics_lines,
