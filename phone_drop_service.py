@@ -2109,9 +2109,9 @@ header {
       <span id="header-pc-bat">💻 --%</span>
       <span id="header-phone-bat">📱 --%</span>
     </div>
-    <a href="/app" id="header-apk-link" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:rgba(0,122,255,0.18);border:0.5px solid rgba(0,122,255,0.4);color:#5ac8fa;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.2px;" title="Download JARVIS Remote Android APK v2.2">
+    <a href="/app" id="header-apk-link" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;background:rgba(0,122,255,0.18);border:0.5px solid rgba(0,122,255,0.4);color:#5ac8fa;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:0.2px;" title="Download JARVIS Remote Android APK v2.3">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.552 0 .9997.4486.9997 1.0001s-.4477 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5682.1523l-2.0223 3.503C15.5902 8.4116 13.8533 8.125 12 8.125s-3.5902.2866-5.1322.8299L4.8455 5.4519a.416.416 0 00-.5682-.1523.416.416 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
-      APK v2.2
+      APK v2.3
     </a>
     <div class="ios-pill-badge">
       <div class="ios-pulse-dot"></div>
@@ -4527,23 +4527,64 @@ if (window.webkitSpeechRecognition || window.SpeechRecognition) {
 }
 
 // Global native dictation bridge from Android app
+window.onNativePartialSpeech = function(text) {
+  if (dictateTranscript) {
+    dictateTranscript.style.display = "block";
+    dictateTranscript.textContent = `“${text}…”`;
+    dictateTranscript.style.color = "#00d2ff";
+  }
+};
+
+window.onNativeSpeechState = function(state, detail) {
+  if (state === "ready" || state === "speaking") {
+    if (btnStartDictate) btnStartDictate.classList.add("recording");
+    if (labelDictate) labelDictate.textContent = "🎙️ Listening... speak now";
+    if (dictateTranscript) dictateTranscript.style.display = "block";
+  } else if (state === "processing") {
+    if (labelDictate) labelDictate.textContent = "⚡ Injecting to PC...";
+  } else if (state === "error" || state === "done") {
+    if (btnStartDictate) btnStartDictate.classList.remove("recording");
+    if (labelDictate) labelDictate.textContent = "Tap to Dictate (Live into PC)";
+    if (state === "error" && detail && dictateTranscript) {
+      dictateTranscript.textContent = detail;
+      dictateTranscript.style.color = "#ff453a";
+    }
+  }
+};
+
 window.onNativeDictationResult = function(text) {
   if (dictateTranscript) {
+    dictateTranscript.style.display = "block";
     dictateTranscript.textContent = `“${text}”`;
     dictateTranscript.style.color = "#30d158";
   }
-  showToast(`Dictated: ${text.slice(0, 32)}...`);
+  showToast(`Typed: ${text.slice(0, 32)}...`);
   if (btnStartDictate) btnStartDictate.classList.remove("recording");
   if (labelDictate) labelDictate.textContent = "Tap to Dictate (Live into PC)";
 };
 
+let isNativeDictating = false;
 if (btnStartDictate) {
   btnStartDictate.addEventListener("click", () => {
     if (window.AndroidBridge && typeof window.AndroidBridge.startNativeDictation === "function") {
-      btnStartDictate.classList.add("recording");
-      if (labelDictate) labelDictate.textContent = "🎙️ Listening... speak now";
-      if (dictateTranscript) dictateTranscript.textContent = "Listening to speech...";
-      window.AndroidBridge.startNativeDictation();
+      if (!isNativeDictating) {
+        isNativeDictating = true;
+        btnStartDictate.classList.add("recording");
+        if (labelDictate) labelDictate.textContent = "🎙️ Listening... speak now";
+        if (dictateTranscript) {
+          dictateTranscript.style.display = "block";
+          dictateTranscript.textContent = "Listening to speech...";
+          dictateTranscript.style.color = "#8e8e93";
+        }
+        window.AndroidBridge.startNativeDictation();
+      } else {
+        isNativeDictating = false;
+        if (typeof window.AndroidBridge.stopNativeDictation === "function") {
+          window.AndroidBridge.stopNativeDictation();
+        }
+        btnStartDictate.classList.remove("recording");
+        if (labelDictate) labelDictate.textContent = "Tap to Dictate (Live into PC)";
+      }
       return;
     }
 
@@ -5271,7 +5312,7 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             return
 
         elif path == "/api/jarvis":
-            body = self.rfile.read(content_length).decode("utf-8")
+test            body = self.rfile.read(content_length).decode("utf-8")
             data = json.loads(body)
             query = data.get("query", "").strip()
             if query:
@@ -5690,80 +5731,122 @@ class PhoneDropService:
         return 0
 
     def handle_remote_type(self, text: str, mode: str = "auto"):
-        """Types text directly into the focused Windows application using hardware keybd_event & clipboard paste."""
+        """Types text directly into the focused Windows application using hardware SendInput KEYEVENTF_UNICODE."""
         if not text:
             return
         try:
             self._attach_desktop()
-            self._ensure_active_target_window()
             user32 = ctypes.windll.user32
+
+            # Check if active foreground window is already an interactive application
+            fg = user32.GetForegroundWindow()
+            if not fg or not user32.IsWindow(fg) or not user32.IsWindowVisible(fg):
+                self._ensure_active_target_window()
+            else:
+                buf = ctypes.create_unicode_buffer(256)
+                user32.GetClassNameW(fg, buf, 256)
+                if buf.value in ("Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd"):
+                    self._ensure_active_target_window()
+
             KEYEVENTF_KEYUP = 0x0002
+            KEYEVENTF_UNICODE = 0x0004
+            INPUT_KEYBOARD = 1
 
-            # Native Win32 clipboard paste (Ctrl+V) is instant, lossless, handles all UTF-8 characters,
-            # accents, emojis, and punctuation across all Windows edit controls.
-            if mode in ("paste", "auto") and len(text) > 1:
-                if set_win32_clipboard(text):
-                    time.sleep(0.02)
-                    user32.keybd_event(0x11, 0, 0, 0)  # Ctrl down
-                    user32.keybd_event(0x56, 0, 0, 0)  # 'V' down
-                    time.sleep(0.025)
-                    user32.keybd_event(0x56, 0, KEYEVENTF_KEYUP, 0)  # 'V' up
-                    user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)  # Ctrl up
-                    time.sleep(0.01)
-                    return
+            class KEYBDINPUT(ctypes.Structure):
+                _fields_ = [
+                    ("wVk", ctypes.c_ushort),
+                    ("wScan", ctypes.c_ushort),
+                    ("dwFlags", ctypes.c_ulong),
+                    ("time", ctypes.c_ulong),
+                    ("dwExtraInfo", ctypes.c_void_p),
+                ]
 
-            # Character-by-character hardware keyboard injection (keybd_event + VkKeyScanW)
+            class HARDWAREINPUT(ctypes.Structure):
+                _fields_ = [
+                    ("uMsg", ctypes.c_ulong),
+                    ("wParamL", ctypes.c_ushort),
+                    ("wParamH", ctypes.c_ushort),
+                ]
+
+            class MOUSEINPUT(ctypes.Structure):
+                _fields_ = [
+                    ("dx", ctypes.c_long),
+                    ("dy", ctypes.c_long),
+                    ("mouseData", ctypes.c_ulong),
+                    ("dwFlags", ctypes.c_ulong),
+                    ("time", ctypes.c_ulong),
+                    ("dwExtraInfo", ctypes.c_void_p),
+                ]
+
+            class _INPUT_UNION(ctypes.Union):
+                _fields_ = [
+                    ("mi", MOUSEINPUT),
+                    ("ki", KEYBDINPUT),
+                    ("hi", HARDWAREINPUT),
+                ]
+
+            class INPUT(ctypes.Structure):
+                _fields_ = [
+                    ("type", ctypes.c_ulong),
+                    ("u", _INPUT_UNION),
+                ]
+
+            events = []
             for ch in text:
                 if ch in ("\r", "\n"):
-                    user32.keybd_event(0x0D, 0, 0, 0)
-                    time.sleep(0.01)
-                    user32.keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0)
+                    dn = INPUT(type=INPUT_KEYBOARD)
+                    dn.u.ki.wVk = 0x0D
+                    dn.u.ki.wScan = 0
+                    dn.u.ki.dwFlags = 0
+                    events.append(dn)
+
+                    up = INPUT(type=INPUT_KEYBOARD)
+                    up.u.ki.wVk = 0x0D
+                    up.u.ki.wScan = 0
+                    up.u.ki.dwFlags = KEYEVENTF_KEYUP
+                    events.append(up)
                 elif ch == "\t":
-                    user32.keybd_event(0x09, 0, 0, 0)
-                    time.sleep(0.01)
-                    user32.keybd_event(0x09, 0, KEYEVENTF_KEYUP, 0)
+                    dn = INPUT(type=INPUT_KEYBOARD)
+                    dn.u.ki.wVk = 0x09
+                    dn.u.ki.wScan = 0
+                    dn.u.ki.dwFlags = 0
+                    events.append(dn)
+
+                    up = INPUT(type=INPUT_KEYBOARD)
+                    up.u.ki.wVk = 0x09
+                    up.u.ki.wScan = 0
+                    up.u.ki.dwFlags = KEYEVENTF_KEYUP
+                    events.append(up)
                 elif ch == "\b":
-                    user32.keybd_event(0x08, 0, 0, 0)
-                    time.sleep(0.01)
-                    user32.keybd_event(0x08, 0, KEYEVENTF_KEYUP, 0)
-                elif ch == " ":
-                    user32.keybd_event(0x20, 0, 0, 0)
-                    time.sleep(0.01)
-                    user32.keybd_event(0x20, 0, KEYEVENTF_KEYUP, 0)
+                    dn = INPUT(type=INPUT_KEYBOARD)
+                    dn.u.ki.wVk = 0x08
+                    dn.u.ki.wScan = 0
+                    dn.u.ki.dwFlags = 0
+                    events.append(dn)
+
+                    up = INPUT(type=INPUT_KEYBOARD)
+                    up.u.ki.wVk = 0x08
+                    up.u.ki.wScan = 0
+                    up.u.ki.dwFlags = KEYEVENTF_KEYUP
+                    events.append(up)
                 else:
-                    vk_res = user32.VkKeyScanW(ord(ch))
-                    if vk_res != -1:
-                        vk = vk_res & 0xFF
-                        shift = bool((vk_res >> 8) & 1)
-                        ctrl = bool((vk_res >> 8) & 2)
-                        alt = bool((vk_res >> 8) & 4)
-                        if shift:
-                            user32.keybd_event(0x10, 0, 0, 0)
-                        if ctrl:
-                            user32.keybd_event(0x11, 0, 0, 0)
-                        if alt:
-                            user32.keybd_event(0x12, 0, 0, 0)
-                        time.sleep(0.005)
-                        user32.keybd_event(vk, 0, 0, 0)
-                        time.sleep(0.01)
-                        user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
-                        time.sleep(0.005)
-                        if alt:
-                            user32.keybd_event(0x12, 0, KEYEVENTF_KEYUP, 0)
-                        if ctrl:
-                            user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
-                        if shift:
-                            user32.keybd_event(0x10, 0, KEYEVENTF_KEYUP, 0)
-                    else:
-                        # Fallback for individual emoji / unmappable character
-                        if set_win32_clipboard(ch):
-                            time.sleep(0.01)
-                            user32.keybd_event(0x11, 0, 0, 0)
-                            user32.keybd_event(0x56, 0, 0, 0)
-                            time.sleep(0.02)
-                            user32.keybd_event(0x56, 0, KEYEVENTF_KEYUP, 0)
-                            user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
-                time.sleep(0.008)
+                    code = ord(ch)
+                    dn = INPUT(type=INPUT_KEYBOARD)
+                    dn.u.ki.wVk = 0
+                    dn.u.ki.wScan = code
+                    dn.u.ki.dwFlags = KEYEVENTF_UNICODE
+                    events.append(dn)
+
+                    up = INPUT(type=INPUT_KEYBOARD)
+                    up.u.ki.wVk = 0
+                    up.u.ki.wScan = code
+                    up.u.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
+                    events.append(up)
+
+            if events:
+                n = len(events)
+                arr = (INPUT * n)(*events)
+                user32.SendInput(n, ctypes.byref(arr), ctypes.sizeof(INPUT))
         except Exception as e:
             print(f"[PhoneDropService] Error in handle_remote_type: {e}")
 

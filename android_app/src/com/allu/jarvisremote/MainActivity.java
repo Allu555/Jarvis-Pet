@@ -20,7 +20,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -64,6 +66,8 @@ public class MainActivity extends Activity {
     private Handler mainHandler;
     private String currentServerUrl;
     private ValueCallback<Uri[]> mFilePathCallback;
+    private SpeechRecognizer speechRecognizer;
+    private boolean isListeningSpeech = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,6 +97,8 @@ public class MainActivity extends Activity {
                 requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_REQUEST_MIC);
             }
         }
+
+        initNativeSpeechRecognizer();
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.parseColor("#060609"));
@@ -270,6 +276,166 @@ public class MainActivity extends Activity {
                 webView.evaluateJavascript("if (window.onNativeDictationResult) { window.onNativeDictationResult(" + quoted + "); }", null);
             }
         }
+    }
+
+    private void initNativeSpeechRecognizer() {
+        mainHandler.post(() -> {
+            try {
+                if (SpeechRecognizer.isRecognitionAvailable(this)) {
+                    if (speechRecognizer != null) {
+                        try {
+                            speechRecognizer.destroy();
+                        } catch (Exception ignored) {}
+                    }
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+                    speechRecognizer.setRecognitionListener(new RecognitionListener() {
+                        @Override
+                        public void onReadyForSpeech(Bundle params) {
+                            isListeningSpeech = true;
+                            notifyWebSpeechStatus("ready", "");
+                        }
+
+                        @Override
+                        public void onBeginningOfSpeech() {
+                            notifyWebSpeechStatus("speaking", "");
+                        }
+
+                        @Override
+                        public void onRmsChanged(float rmsdB) {}
+
+                        @Override
+                        public void onBufferReceived(byte[] buffer) {}
+
+                        @Override
+                        public void onEndOfSpeech() {
+                            notifyWebSpeechStatus("processing", "");
+                        }
+
+                        @Override
+                        public void onError(int error) {
+                            isListeningSpeech = false;
+                            String msg = "Speech error " + error;
+                            if (error == SpeechRecognizer.ERROR_NO_MATCH) msg = "No speech detected";
+                            else if (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) msg = "Speech timeout";
+                            notifyWebSpeechStatus("error", msg);
+                        }
+
+                        @Override
+                        public void onResults(Bundle results) {
+                            isListeningSpeech = false;
+                            ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                            if (matches != null && !matches.isEmpty()) {
+                                String spokenText = matches.get(0).trim();
+                                if (!spokenText.isEmpty()) {
+                                    sendPcDictation(spokenText);
+                                    String quoted = JSONObject.quote(spokenText);
+                                    webView.evaluateJavascript("if (window.onNativeDictationResult) { window.onNativeDictationResult(" + quoted + "); }", null);
+                                }
+                            }
+                            notifyWebSpeechStatus("done", "");
+                        }
+
+                        @Override
+                        public void onPartialResults(Bundle partialResults) {
+                            ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                            if (matches != null && !matches.isEmpty()) {
+                                String partialText = matches.get(0).trim();
+                                if (!partialText.isEmpty()) {
+                                    String quoted = JSONObject.quote(partialText);
+                                    webView.evaluateJavascript("if (window.onNativePartialSpeech) { window.onNativePartialSpeech(" + quoted + "); }", null);
+                                }
+                            }
+                        }
+
+                        @Override
+                        public void onEvent(int eventType, Bundle params) {}
+                    });
+                }
+            } catch (Exception ignored) {}
+        });
+    }
+
+    private void notifyWebSpeechStatus(String state, String detail) {
+        mainHandler.post(() -> {
+            if (webView != null) {
+                String sQ = JSONObject.quote(state);
+                String dQ = JSONObject.quote(detail);
+                webView.evaluateJavascript("if (window.onNativeSpeechState) { window.onNativeSpeechState(" + sQ + ", " + dQ + "); }", null);
+            }
+        });
+    }
+
+    public void startNativeSpeechListening() {
+        mainHandler.post(() -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_REQUEST_MIC);
+                    return;
+                }
+            }
+
+            if (speechRecognizer == null) {
+                initNativeSpeechRecognizer();
+            }
+
+            if (speechRecognizer != null) {
+                try {
+                    Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                    intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+                    intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 750L);
+                    intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 750L);
+                    intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1500L);
+                    intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+                    speechRecognizer.startListening(intent);
+                    isListeningSpeech = true;
+                    notifyWebSpeechStatus("starting", "");
+                    return;
+                } catch (Exception ignored) {}
+            }
+
+            // Fallback to standard RecognizerIntent dialog if SpeechRecognizer is unavailable on this device
+            try {
+                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now to type live on PC...");
+                startActivityForResult(intent, SPEECH_REQUEST_CODE);
+            } catch (ActivityNotFoundException e) {
+                webView.evaluateJavascript("alert('Speech recognition is not available on this device');", null);
+            }
+        });
+    }
+
+    public void stopNativeSpeechListening() {
+        mainHandler.post(() -> {
+            if (speechRecognizer != null && isListeningSpeech) {
+                try {
+                    speechRecognizer.stopListening();
+                } catch (Exception ignored) {}
+            }
+        });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST_MIC) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                initNativeSpeechRecognizer();
+                startNativeSpeechListening();
+            }
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (speechRecognizer != null) {
+            try {
+                speechRecognizer.destroy();
+                speechRecognizer = null;
+            } catch (Exception ignored) {}
+        }
+        super.onDestroy();
     }
 
     private void sendPcDictation(final String text) {
@@ -450,27 +616,17 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getNativeVersion() {
-            return "2.2.0 Pro (Android 14+ Ready)";
+            return "2.3.0 Pro (Streaming Speech & Win32 Direct Input)";
         }
 
         @JavascriptInterface
         public void startNativeDictation() {
-            mainHandler.post(() -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                        requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_REQUEST_MIC);
-                        return;
-                    }
-                }
-                try {
-                    Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-                    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-                    intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now to type live on PC...");
-                    startActivityForResult(intent, SPEECH_REQUEST_CODE);
-                } catch (ActivityNotFoundException e) {
-                    webView.evaluateJavascript("alert('Speech recognition is not available on this device');", null);
-                }
-            });
+            startNativeSpeechListening();
+        }
+
+        @JavascriptInterface
+        public void stopNativeDictation() {
+            stopNativeSpeechListening();
         }
 
         @JavascriptInterface
