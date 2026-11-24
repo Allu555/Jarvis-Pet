@@ -42,10 +42,13 @@ Floating interactive top-notch overlay inspired by modern mobile dynamic islands
 | 🎵 Expanded Music Player & Waveform EQ | 🌤️ Live Weather & Clock HUD |
 | :---: | :---: |
 | ![Origin Island Player](docs/images/origin_island_player.png) | ![Origin Island Weather](docs/images/origin_island_weather.png) |
-| **⚙️ Control Center & Quick Toggles** | **📁 Smart Shelf (File & QR Stash)** |
+| **⚙️ Control Center & Quick Toggles** | **📁 Smart Shelf (File & Tool Stash)** |
 | ![Origin Island Controls](docs/images/origin_island_controls.png) | ![Origin Island Smart Shelf](docs/images/origin_island_shelf.png) |
-| **⚡ Live Hardware Telemetry & Tools** | **📱 Wireless Phone Drop & QR Remote** |
-| ![Origin Island Telemetry](docs/images/origin_island_telemetry.png) | ![Phone Drop QR Pairing](docs/images/phone_drop_qr.png) |
+
+<p align="center">
+  <b>⚡ Live Hardware Telemetry & Quick Tools</b><br>
+  <img src="docs/images/origin_island_telemetry.png" width="48%" alt="Origin Island Telemetry">
+</p>
 
 - **Real-Time Media Detection**: Windows SMTC integration for Spotify, YouTube, and media players.
 - **Live WASAPI Audio Visualizer**: 60 FPS real-time audio loopback frequency spectrum with adaptive theme colors.
@@ -132,7 +135,7 @@ The entire suite is engineered for zero system lag and minimal resource consumpt
 | **Eureka / Hologram Work** | Double-Click on pet |
 | **Context Menu & Pet Switcher**| Right-Click on pet |
 | **Expand Dynamic Island** | Hover or click top notch |
-| **Phone Link QR** | Click Phone icon on Island shelf |
+| **Phone Link Remote** | Click Phone icon on Island shelf |
 | **Settings Dialog** | Right-click pet → Settings ⚙️ |
 
 ---
