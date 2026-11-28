@@ -35,6 +35,17 @@ BROWSER_PROCS = (
 )
 
 
+def _attach_default_desktop():
+    """Ensures the calling thread is attached to the interactive 'Default' desktop."""
+    try:
+        h = user32.OpenDesktopW("Default", 0, False, 0x01FF)
+        if h:
+            user32.SetThreadDesktop(h)
+            user32.CloseDesktop(h)
+    except Exception:
+        pass
+
+
 def _get_proc_name(hwnd: int) -> str:
     try:
         pid = ctypes.wintypes.DWORD()
@@ -138,6 +149,7 @@ class YouTubeVideoService:
 
     def find_youtube_window(self) -> Tuple[Optional[int], str, bool]:
         """Returns (hwnd, window_title, is_minimized) for the active YouTube/browser window."""
+        _attach_default_desktop()
         matches: List[Tuple[int, int, str, bool]] = []
 
         def _enum_cb(hwnd, _):
@@ -367,6 +379,7 @@ class YouTubeVideoService:
         self._stop_event.clear()
 
         def _loop():
+            _attach_default_desktop()
             while not self._stop_event.is_set():
                 if time.monotonic() - self._last_viewer_ts > 2.5:
                     break

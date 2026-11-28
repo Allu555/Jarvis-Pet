@@ -2212,8 +2212,6 @@ class OriginIsland(QWidget):
             if not getattr(self._last_media_info, "is_playing", False):
                 self._last_media_info.is_playing = False
 
-        self._sync_yt_webview()
-
         # Ensure cover art color is extracted immediately whenever thumbnail is present (either in cur_media or last_media_info)
         active_thumb = None
         if cur_media and cur_media.thumbnail_bytes:
@@ -3265,116 +3263,8 @@ class OriginIsland(QWidget):
         status_str = "Live YouTube Video ON 🎬" if self._music_show_video else "Video Preview OFF 🎵"
         self._ambient_toast_time = time.monotonic()
         self._ambient_toast_name = status_str
-        self._sync_yt_webview()
         self._wake_timer()
         self.update()
-
-    def _hide_yt_webview(self, unload: bool = False):
-        wv = getattr(self, "_yt_webview", None)
-        if wv is not None:
-            try:
-                if wv.isVisible():
-                    wv.hide()
-                if unload and self._yt_webview_video_id:
-                    wv.setUrl(QUrl("about:blank"))
-                    self._yt_webview_video_id = ""
-            except Exception:
-                pass
-
-    def _sync_yt_webview(self):
-        """Synchronizes embedded YouTube mini-player when live window capture is unavailable."""
-        if self._state != self.STATE_MUSIC or not getattr(self, "_music_show_video", False):
-            self._hide_yt_webview(unload=(not getattr(self, "_music_show_video", False)))
-            return
-
-        # If live browser window capture succeeded, hide fallback webview
-        if self._get_yt_video_pixmap() is not None:
-            self._hide_yt_webview(unload=False)
-            return
-
-        if youtube_video_service is None:
-            return
-
-        title = self._last_media_info.title if (self._last_media_info and self._last_media_info.title) else ""
-        artist = self._last_media_info.artist if (self._last_media_info and self._last_media_info.artist) else ""
-        if not title:
-            return
-
-        video_id = youtube_video_service.resolve_video_id(title, artist, async_only=True)
-        if not video_id:
-            return
-
-        w, h = self.width(), self.height()
-        is_theater = getattr(self, "_is_theater_mode", False) or w >= 540 or h >= 260
-        if is_theater:
-            left_w = min(560, max(290, int(w * 0.46)))
-            avail_art_h = h - 220
-            vid_w = int(min(left_w - 40, 440))
-            vid_h = int(vid_w * 9 / 16)
-            if vid_h > avail_art_h:
-                vid_h = max(120, avail_art_h)
-                vid_w = int(vid_h * 16 / 9)
-            art_x = int((left_w - vid_w) // 2)
-            art_y = 46 + max(0, (avail_art_h - vid_h) // 2)
-            radius = 18.0
-        else:
-            art_x, art_y, vid_w, vid_h = 20, 34, 128, 72
-            radius = 12.0
-
-        global_pos = self.mapToGlobal(QPoint(art_x, art_y))
-        target_rect = QRect(global_pos.x(), global_pos.y(), vid_w, vid_h)
-        try:
-            if self._yt_webview is None:
-                from PySide6.QtWebEngineWidgets import QWebEngineView
-                wv = QWebEngineView(None)
-                wv.setWindowFlags(
-                    Qt.WindowType.FramelessWindowHint
-                    | Qt.WindowType.WindowStaysOnTopHint
-                    | Qt.WindowType.Tool
-                    | Qt.WindowType.WindowDoesNotAcceptFocus
-                )
-                wv.setStyleSheet("background: #0d0d10;")
-
-                def _inject_yt_clean(ok):
-                    if not ok:
-                        return
-                    js = (
-                        "(function(){"
-                        "var s=document.createElement('style');"
-                        "s.textContent='html,body{overflow:hidden!important;background:#000!important;} "
-                        "ytd-masthead,#masthead-container,#secondary,#below,#comments,.ytp-chrome-top,.ytp-chrome-bottom,.ytp-watermark,.ytp-pause-overlay{display:none!important;} "
-                        "video{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;object-fit:cover!important;z-index:999999!important;}';"
-                        "if(document.head)document.head.appendChild(s);"
-                        "setInterval(function(){var v=document.querySelector('video');if(v){v.muted=true;if(v.paused)v.play().catch(function(){});}},500);"
-                        "})();"
-                    )
-                    try:
-                        wv.page().runJavaScript(js)
-                    except Exception:
-                        pass
-
-                wv.loadFinished.connect(_inject_yt_clean)
-                self._yt_webview = wv
-
-            wv = self._yt_webview
-            if self._yt_webview_rect != target_rect:
-                from PySide6.QtGui import QRegion
-                wv.setGeometry(target_rect)
-                rpath = QPainterPath()
-                rpath.addRoundedRect(QRectF(0, 0, vid_w, vid_h), radius, radius)
-                wv.setMask(QRegion(rpath.toFillPolygon().toPolygon()))
-                self._yt_webview_rect = target_rect
-
-            if self._yt_webview_video_id != video_id:
-                self._yt_webview_video_id = video_id
-                start_sec = max(0, int(getattr(self, "_playback_pos_sec", 0)))
-                wv.setUrl(QUrl(f"https://www.youtube.com/watch?v={video_id}&t={start_sec}s"))
-
-            if not wv.isVisible():
-                wv.show()
-                wv.raise_()
-        except Exception:
-            pass
 
     def _get_yt_video_pixmap(self) -> Optional[QPixmap]:
         """Fetches cached QPixmap of the live YouTube window frame without blocking paintEvent."""
