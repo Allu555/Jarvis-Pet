@@ -4155,9 +4155,33 @@ function toggleVideoView(force) {
     videoStage.style.display = "flex";
     if (teaser) teaser.style.display = "flex";
     if (btnVideo) btnVideo.classList.add("active");
-    if (videoImg) videoImg.src = "/api/youtube/mjpeg?t=" + Date.now();
+    if (videoImg) {
+      videoImg.style.display = "block";
+      videoImg.src = "/api/youtube/mjpeg?t=" + Date.now();
+    }
+    const oldIf = document.getElementById("yt-video-iframe");
+    if (oldIf) oldIf.remove();
+
+    fetch("/api/youtube/status").then(r => r.json()).then(st => {
+      if (!isVideoViewActive) return;
+      if (!st.available && st.video_id && videoWrap) {
+        if (videoImg) { videoImg.src = ""; videoImg.style.display = "none"; }
+        const ifr = document.createElement("iframe");
+        ifr.id = "yt-video-iframe";
+        ifr.style.cssText = "width:100%;height:100%;border:none;display:block;";
+        ifr.allow = "autoplay; encrypted-media; picture-in-picture";
+        const startSec = Math.max(0, Math.floor(currentPos || 0));
+        ifr.src = `https://www.youtube-nocookie.com/embed/${st.video_id}?autoplay=1&mute=1&start=${startSec}&playsinline=1&rel=0`;
+        videoWrap.insertBefore(ifr, videoWrap.firstChild);
+      }
+    }).catch(() => {});
   } else {
-    if (videoImg) videoImg.src = "";
+    if (videoImg) {
+      videoImg.src = "";
+      videoImg.style.display = "block";
+    }
+    const oldIf = document.getElementById("yt-video-iframe");
+    if (oldIf) oldIf.remove();
     if (videoWrap) videoWrap.classList.remove("fullscreen");
     videoStage.style.display = "none";
     coverStage.style.display = "flex";
@@ -6558,9 +6582,14 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/youtube/status":
             if youtube_video_service is not None:
-                self._send_json(youtube_video_service.is_youtube_available())
+                info = youtube_video_service.is_youtube_available()
+                now_p = self.server.service.get_now_playing() if hasattr(self.server.service, "get_now_playing") else {}
+                t = (now_p or {}).get("title", "")
+                a = (now_p or {}).get("artist", "")
+                info["video_id"] = youtube_video_service.resolve_video_id(t, a, async_only=False) if t else ""
+                self._send_json(info)
             else:
-                self._send_json({"available": False, "minimized": False, "title": "", "crop_mode": "zoom"})
+                self._send_json({"available": False, "minimized": False, "title": "", "crop_mode": "zoom", "video_id": ""})
             return
 
         elif path == "/api/youtube/mjpeg":

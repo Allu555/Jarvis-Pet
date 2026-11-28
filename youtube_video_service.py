@@ -1,8 +1,11 @@
 import ctypes
 import ctypes.wintypes
 import io
+import re
 import threading
 import time
+import urllib.parse
+import urllib.request
 from typing import Optional, Tuple, Dict, Any, List
 
 from PIL import Image, ImageDraw
@@ -74,6 +77,50 @@ class YouTubeVideoService:
 
         self._worker_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
+        self._video_id_cache: Dict[str, str] = {}
+        self._video_id_pending: set = set()
+
+    def resolve_video_id(self, title: str, artist: str = "", async_only: bool = False) -> str:
+        """Resolves & caches a YouTube 11-char videoId for (title, artist) without API keys."""
+        t = (title or "").strip()
+        a = (artist or "").strip()
+        if not t or t.lower() in ("no music playing", "unknown track"):
+            return ""
+        cache_key = f"{t}||{a}".lower()
+        with self._lock:
+            if cache_key in self._video_id_cache:
+                return self._video_id_cache[cache_key]
+            if async_only and cache_key in self._video_id_pending:
+                return ""
+            if async_only:
+                self._video_id_pending.add(cache_key)
+
+        def _fetch():
+            vid = ""
+            try:
+                q_parts = [t]
+                if a and a.lower() not in ("youtube", "brave", "chrome", "edge", "unknown", "media"):
+                    q_parts.append(a)
+                q = urllib.parse.quote(" ".join(q_parts))
+                req = urllib.request.Request(
+                    f"https://www.youtube.com/results?search_query={q}",
+                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                )
+                html = urllib.request.urlopen(req, timeout=5).read().decode("utf-8", errors="ignore")
+                m = re.search(r'"videoId":"([a-zA-Z0-9_-]{11})"', html)
+                if m:
+                    vid = m.group(1)
+            except Exception:
+                pass
+            with self._lock:
+                self._video_id_cache[cache_key] = vid
+                self._video_id_pending.discard(cache_key)
+            return vid
+
+        if async_only:
+            threading.Thread(target=_fetch, daemon=True).start()
+            return ""
+        return _fetch()
 
     @property
     def crop_mode(self) -> str:
