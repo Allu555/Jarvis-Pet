@@ -1,10 +1,17 @@
 import ctypes
+import ctypes.wintypes
 import io
 import threading
 import time
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any, List
 
 from PIL import Image, ImageDraw
+
+try:
+    import mss
+    HAS_MSS = True
+except Exception:
+    HAS_MSS = False
 
 try:
     import win32gui
@@ -15,16 +22,40 @@ except Exception:
     HAS_WIN32 = False
 
 user32 = ctypes.windll.user32
+kernel32 = ctypes.windll.kernel32
 PW_RENDERFULLCONTENT = 2
+WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
 
-BROWSER_HINTS = ("chrome", "brave", "edge", "firefox", "opera", "vivaldi", "arc")
+BROWSER_PROCS = (
+    "brave.exe", "chrome.exe", "msedge.exe", "firefox.exe",
+    "opera.exe", "vivaldi.exe", "arc.exe"
+)
+
+
+def _get_proc_name(hwnd: int) -> str:
+    try:
+        pid = ctypes.wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        if pid.value == 0:
+            return ""
+        h_proc = kernel32.OpenProcess(0x1000, False, pid.value)
+        if not h_proc:
+            return ""
+        buf = ctypes.create_unicode_buffer(1024)
+        size = ctypes.wintypes.DWORD(1024)
+        kernel32.QueryFullProcessImageNameW(h_proc, 0, buf, ctypes.byref(size))
+        kernel32.CloseHandle(h_proc)
+        return buf.value.split("\\")[-1].lower()
+    except Exception:
+        return ""
 
 
 class YouTubeVideoService:
     """
     Lightweight, zero-leak live YouTube browser window capture service.
     Shared by Origin Island (desktop PiP) and Phone Drop Service (MJPEG stream).
-    Captures only when actively viewed; 0% CPU when idle.
+    Uses PrintWindow (PW_RENDERFULLCONTENT) with automatic mss screen-rect fallback
+    for hardware-accelerated Chromium/Brave/Edge video layers.
     """
 
     def __init__(self):
@@ -59,30 +90,35 @@ class YouTubeVideoService:
         return self._crop_mode
 
     def find_youtube_window(self) -> Tuple[Optional[int], str, bool]:
-        """Returns (hwnd, window_title, is_minimized) for the active YouTube browser window."""
-        if not HAS_WIN32:
-            return None, "", False
-
-        matches = []
+        """Returns (hwnd, window_title, is_minimized) for the active YouTube/browser window."""
+        matches: List[Tuple[int, int, str, bool]] = []
 
         def _enum_cb(hwnd, _):
             try:
-                if not win32gui.IsWindowVisible(hwnd):
+                if not user32.IsWindowVisible(hwnd):
                     return True
-                title = win32gui.GetWindowText(hwnd) or ""
+                length = user32.GetWindowTextLengthW(hwnd)
+                if length <= 0:
+                    return True
+                buf = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(hwnd, buf, length + 1)
+                title = buf.value.strip()
                 if not title:
                     return True
                 tl = title.lower()
-                # Primary match: explicit "- YouTube" tab title
-                if "- youtube" in tl or tl.startswith("youtube"):
-                    is_min = bool(win32gui.IsIconic(hwnd))
-                    matches.append((0 if not is_min else 1, hwnd, title, is_min))
+                is_min = bool(user32.IsIconic(hwnd))
+                proc = _get_proc_name(hwnd)
+
+                if "youtube" in tl:
+                    matches.append((0 if not is_min else 2, hwnd, title, is_min))
+                elif proc in BROWSER_PROCS and not is_min:
+                    matches.append((1, hwnd, title, False))
             except Exception:
                 pass
             return True
 
         try:
-            win32gui.EnumWindows(_enum_cb, None)
+            user32.EnumWindows(WNDENUMPROC(_enum_cb), 0)
         except Exception:
             pass
 
@@ -112,76 +148,102 @@ class YouTubeVideoService:
             return False
         try:
             if is_min:
-                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-            win32gui.SetForegroundWindow(hwnd)
+                user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+            user32.SetForegroundWindow(hwnd)
             return True
         except Exception:
             return False
 
-    def _capture_hwnd_image(self, hwnd: int) -> Optional[Image.Image]:
-        if not HAS_WIN32 or not hwnd or win32gui.IsIconic(hwnd):
-            return None
-
-        hwndDC = None
-        mfcDC = None
-        saveDC = None
-        saveBitMap = None
+    def _is_mostly_black(self, img: Image.Image) -> bool:
         try:
-            left, top, right, bot = win32gui.GetWindowRect(hwnd)
-            w = right - left
-            h = bot - top
-            if w < 120 or h < 120:
-                return None
+            tiny = img.resize((16, 16))
+            ext = tiny.getextrema()
+            return all(hi < 6 for _, hi in ext)
+        except Exception:
+            return False
 
-            hwndDC = win32gui.GetWindowDC(hwnd)
-            mfcDC = win32ui.CreateDCFromHandle(hwndDC)
-            saveDC = mfcDC.CreateCompatibleDC()
-            saveBitMap = win32ui.CreateBitmap()
-            saveBitMap.CreateCompatibleBitmap(mfcDC, w, h)
-            saveDC.SelectObject(saveBitMap)
-
-            # PW_RENDERFULLCONTENT = 2 captures hardware-accelerated DWM browser video
-            res = user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), PW_RENDERFULLCONTENT)
-            if res == 0:
-                res = user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), 0)
-            if res == 0:
-                return None
-
-            bmpinfo = saveBitMap.GetInfo()
-            bmpstr = saveBitMap.GetBitmapBits(True)
-            img = Image.frombuffer(
-                "RGB",
-                (bmpinfo["bmWidth"], bmpinfo["bmHeight"]),
-                bmpstr,
-                "raw",
-                "BGRX",
-                0,
-                1,
-            )
-            return img
+    def _capture_mss_rect(self, left: int, top: int, w: int, h: int) -> Optional[Image.Image]:
+        if not HAS_MSS or w < 120 or h < 120:
+            return None
+        try:
+            with mss.mss() as sct:
+                mon = {"left": max(0, left), "top": max(0, top), "width": w, "height": h}
+                shot = sct.grab(mon)
+                return Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
         except Exception:
             return None
-        finally:
+
+    def _capture_hwnd_image(self, hwnd: int) -> Optional[Image.Image]:
+        if not hwnd or user32.IsIconic(hwnd):
+            return None
+
+        rect = ctypes.wintypes.RECT()
+        if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+            return None
+        left, top, right, bot = rect.left, rect.top, rect.right, rect.bottom
+        w = right - left
+        h = bot - top
+        if w < 120 or h < 120:
+            return None
+
+        img: Optional[Image.Image] = None
+        if HAS_WIN32:
+            hwndDC = None
+            mfcDC = None
+            saveDC = None
+            saveBitMap = None
             try:
-                if saveBitMap:
-                    win32gui.DeleteObject(saveBitMap.GetHandle())
+                hwndDC = win32gui.GetWindowDC(hwnd)
+                mfcDC = win32ui.CreateDCFromHandle(hwndDC)
+                saveDC = mfcDC.CreateCompatibleDC()
+                saveBitMap = win32ui.CreateBitmap()
+                saveBitMap.CreateCompatibleBitmap(mfcDC, w, h)
+                saveDC.SelectObject(saveBitMap)
+
+                res = user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), PW_RENDERFULLCONTENT)
+                if res == 0:
+                    res = user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), 0)
+                if res != 0:
+                    bmpinfo = saveBitMap.GetInfo()
+                    bmpstr = saveBitMap.GetBitmapBits(True)
+                    cand = Image.frombuffer(
+                        "RGB",
+                        (bmpinfo["bmWidth"], bmpinfo["bmHeight"]),
+                        bmpstr,
+                        "raw",
+                        "BGRX",
+                        0,
+                        1,
+                    )
+                    if not self._is_mostly_black(cand):
+                        img = cand
             except Exception:
-                pass
-            try:
-                if saveDC:
-                    saveDC.DeleteDC()
-            except Exception:
-                pass
-            try:
-                if mfcDC:
-                    mfcDC.DeleteDC()
-            except Exception:
-                pass
-            try:
-                if hwndDC:
-                    win32gui.ReleaseDC(hwnd, hwndDC)
-            except Exception:
-                pass
+                img = None
+            finally:
+                try:
+                    if saveBitMap:
+                        win32gui.DeleteObject(saveBitMap.GetHandle())
+                except Exception:
+                    pass
+                try:
+                    if saveDC:
+                        saveDC.DeleteDC()
+                except Exception:
+                    pass
+                try:
+                    if mfcDC:
+                        mfcDC.DeleteDC()
+                except Exception:
+                    pass
+                try:
+                    if hwndDC:
+                        win32gui.ReleaseDC(hwnd, hwndDC)
+                except Exception:
+                    pass
+
+        if img is None:
+            img = self._capture_mss_rect(left, top, w, h)
+        return img
 
     def _apply_smart_crop(self, img: Image.Image) -> Image.Image:
         w, h = img.size
@@ -195,12 +257,10 @@ class YouTubeVideoService:
         if self._crop_mode == "full" or is_fullscreen:
             return img
 
-        # Remove browser window border & top tabs/address bar + YouTube header
         top_bar = min(132, max(76, int(h * 0.13)))
         if self._crop_mode == "clean":
             return img.crop((8, top_bar, max(16, w - 8), max(top_bar + 40, h - 12)))
 
-        # "zoom" mode: focus on the 16:9 YouTube player region
         if w > 950 and (w / max(1, h)) > 1.25:
             x1 = int(w * 0.015)
             y1 = top_bar
@@ -209,7 +269,6 @@ class YouTubeVideoService:
             if x2 > x1 + 100 and y2 > y1 + 80:
                 return img.crop((x1, y1, x2, y2))
 
-        # Narrow / compact window fallback: crop top bar & keep 16:9 upper region
         y1 = top_bar
         x1 = 8
         x2 = max(16, w - 8)
@@ -270,7 +329,7 @@ class YouTubeVideoService:
                 except Exception:
                     pass
                 elapsed = time.monotonic() - t0
-                time.sleep(max(0.01, 0.048 - elapsed))  # ~20 FPS target
+                time.sleep(max(0.01, 0.048 - elapsed))
 
         self._worker_thread = threading.Thread(target=_loop, daemon=True, name="YouTubeVideoCapture")
         self._worker_thread.start()
@@ -292,7 +351,6 @@ class YouTubeVideoService:
         with self._lock:
             if self._latest_jpeg and (time.monotonic() - self._last_capture_ts) < 2.0:
                 return self._latest_jpeg, True, False
-        # Immediate fallback capture on first request
         self._capture_once()
         with self._lock:
             if self._latest_jpeg:
@@ -303,5 +361,4 @@ class YouTubeVideoService:
         self._stop_event.set()
 
 
-# Global singleton shared between Origin Island and Phone Drop Service
 youtube_video_service = YouTubeVideoService()
