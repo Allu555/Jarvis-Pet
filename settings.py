@@ -77,6 +77,10 @@ DEFAULTS: Dict[str, Any] = {
 # Clean, professional, emoji-free display names
 PET_DISPLAY_NAMES = {
     "tanjiro": "Tanjiro Kamado",
+    "rengoku": "Kyojuro Rengoku",
+    "gojo": "Gojo Satoru",
+    "naruto": "Naruto Uzumaki",
+    "luffy": "Luffy (Gear 5)",
     "nezuko": "Nezuko Kamado",
     "zenitsu": "Zenitsu Agatsuma",
     "inosuke": "Inosuke Hashibira",

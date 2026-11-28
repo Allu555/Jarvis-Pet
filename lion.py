@@ -408,6 +408,10 @@ class LionWindow(QWidget):
             ("Inosuke Hashibira 🐗", "inosuke"),
             ("Akaza (Upper Moon 3) ❄️", "akaza"),
             ("Tanjiro Kamado ⚔️", "tanjiro"),
+            ("Kyojuro Rengoku 🔥⚔️", "rengoku"),
+            ("Gojo Satoru 🤞✨", "gojo"),
+            ("Naruto Uzumaki 🦊🍥", "naruto"),
+            ("Luffy (Gear 5) 👒⚡", "luffy"),
             ("Kid Goku 🥋", "goku"),
             ("Venom 🕷️", "venom"),
             ("Spider-Man 🕷️🕸️", "spiderman"),
@@ -830,6 +834,14 @@ class LionWindow(QWidget):
                 self._bubble.show_message("Destructive Death: COMPASS NEEDLE! ❄️🥋\nAir Type Annihilation Shockwaves!", self._move.x, self._move.y, self._pet_size, duration=4.5)
             elif pet == "tanjiro":
                 self._bubble.show_message("Water Breathing 10th Form: Constant Flux! 🌊🐉⚔️\n(Water Dragon Unleashed!)", self._move.x, self._move.y, self._pet_size, duration=4.5)
+            elif pet == "rengoku":
+                self._bubble.show_message("Flame Breathing Ninth Form: RENGOKU! 🔥⚔️\nSet your heart ablaze!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+            elif pet == "gojo":
+                self._bubble.show_message("Hollow Technique: PURPLE! 🤞🟣✨\nThroughout Heaven and Earth, I alone am the honored one.", self._move.x, self._move.y, self._pet_size, duration=4.5)
+            elif pet == "naruto":
+                self._bubble.show_message("RASENGAN! 🌀🦊⚡\nBelieve it! Dattebayo!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+            elif pet == "luffy":
+                self._bubble.show_message("GEAR 5! GOMU GOMU NO BAJRANG GUN! 👒⚡😂\nShishishi! Total freedom!", self._move.x, self._move.y, self._pet_size, duration=4.5)
             elif pet == "goth_girl":
                 self._bubble.show_message("Dark Butterfly Swarm Magic! 🦋✨🔮\nIlluminating the twilight sky...", self._move.x, self._move.y, self._pet_size, duration=4.0)
             elif pet == "dragon":
@@ -954,6 +966,10 @@ class LionWindow(QWidget):
             "inosuke": "Inosuke Hashibira 🐗",
             "akaza": "Akaza (Upper Moon 3) ❄️",
             "tanjiro": "Tanjiro Kamado ⚔️",
+            "rengoku": "Kyojuro Rengoku 🔥⚔️",
+            "gojo": "Gojo Satoru 🤞✨",
+            "naruto": "Naruto Uzumaki 🦊🍥",
+            "luffy": "Luffy (Gear 5) 👒⚡",
             "goth_girl": "Gothic Butterfly 🦋",
             "alien": "Alien Pet 👽",
             "anime_girl": "Anime Girl 🌸",
@@ -988,6 +1004,14 @@ class LionWindow(QWidget):
             self._bubble.show_message("Destructive Death: Compass Needle! ❄️🥋\nLet us hone our martial prowess together!", self._move.x, self._move.y, self._pet_size, duration=4.5)
         elif pet_key == "tanjiro":
             self._bubble.show_message("Kamado Tanjiro desu! ⚔️🔥\nI will protect you with Water & Sun Breathing!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+        elif pet_key == "rengoku":
+            self._bubble.show_message("UMAI! 🔥⚔️\nKyojuro Rengoku, Flame Hashira, reporting for duty!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+        elif pet_key == "gojo":
+            self._bubble.show_message("Yo! Gojo Satoru here! 🤞✨\nLimitless & Six Eyes active—nothing can touch your desktop!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+        elif pet_key == "naruto":
+            self._bubble.show_message("Hey! I'm Naruto Uzumaki! 🦊🍥\nFuture Hokage on your desktop—dattebayo!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+        elif pet_key == "luffy":
+            self._bubble.show_message("Shishishi! Gear 5 Luffy is here! 👒⚡\nLet's have fun on your desktop!", self._move.x, self._move.y, self._pet_size, duration=4.5)
         elif pet_key == "goth_girl":
             self._bubble.show_message("Hello... I'm your Gothic Butterfly pet 🦋🖤\nLet me flutter alongside you in the shadows...", self._move.x, self._move.y, self._pet_size, duration=4.5)
         elif pet_key == "batman":
