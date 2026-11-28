@@ -679,7 +679,7 @@ class LionWindow(QWidget):
 
         # Dismiss / Exit options
         dismiss_this_act = QAction("Exit This Pet ❌", self)
-        dismiss_this_act.triggered.connect(self.close)
+        dismiss_this_act.triggered.connect(self._exit_this_pet_only)
         menu.addAction(dismiss_this_act)
 
         if len(PetManager.instance().pets) > 1:
@@ -715,6 +715,19 @@ class LionWindow(QWidget):
         PetManager.instance().spawn_random_pet(near_x=self._move.x, near_y=self._move.y)
         self._bubble.show_message("Spawned a random pet companion! 🎲✨", self._move.x, self._move.y, self._pet_size, duration=3.0)
 
+    def _exit_this_pet_only(self):
+        """Hides/closes only this pet, keeping Origin Island alive if it is visible."""
+        if self._island and self._island.isVisible():
+            self._timer.stop()
+            self._bubble.hide()
+            self._media_card.hide()
+            self.hide()
+            if self._is_secondary:
+                PetManager.instance().unregister_pet(self)
+                self.deleteLater()
+        else:
+            self.close()
+
     def _toggle_island(self, enable: bool):
         if not self._island:
             return
@@ -725,7 +738,10 @@ class LionWindow(QWidget):
             self._bubble.show_message("OriginOS Dynamic Island Enabled! 🏝️✨", self._move.x, self._move.y, self._pet_size, duration=3.0)
         else:
             self._island.hide()
-            self._bubble.show_message("Dynamic Island Hidden 🏝️", self._move.x, self._move.y, self._pet_size, duration=2.5)
+            if self.isVisible():
+                self._bubble.show_message("Dynamic Island Hidden 🏝️", self._move.x, self._move.y, self._pet_size, duration=2.5)
+            elif len([p for p in PetManager.instance().pets if p.isVisible()]) == 0:
+                QApplication.quit()
 
     def _select_island_theme(self, theme_key: str):
         if not self._island:
