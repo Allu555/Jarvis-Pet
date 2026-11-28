@@ -1,7 +1,12 @@
 import ctypes
 import ctypes.wintypes
 import io
+import json
+import os
 import re
+import struct
+import subprocess
+import sys
 import threading
 import time
 import urllib.parse
@@ -90,6 +95,18 @@ class YouTubeVideoService:
         self._stop_event = threading.Event()
         self._video_id_cache: Dict[str, str] = {}
         self._video_id_pending: set = set()
+
+        self._ctx_title: str = ""
+        self._ctx_artist: str = ""
+        self._ctx_pos: float = 0.0
+        self._helper_proc: Optional[subprocess.Popen] = None
+        self._helper_vid: str = ""
+        self._helper_reader: Optional[threading.Thread] = None
+
+    def set_media_context(self, title: str, artist: str = "", pos_sec: float = 0.0):
+        self._ctx_title = (title or "").strip()
+        self._ctx_artist = (artist or "").strip()
+        self._ctx_pos = max(0.0, float(pos_sec or 0.0))
 
     def resolve_video_id(self, title: str, artist: str = "", async_only: bool = False) -> str:
         """Resolves & caches a YouTube 11-char videoId for (title, artist) without API keys."""
@@ -343,13 +360,100 @@ class YouTubeVideoService:
         img.save(buf, format="JPEG", quality=75)
         return buf.getvalue()
 
+    def _stop_helper(self):
+        proc = self._helper_proc
+        self._helper_proc = None
+        self._helper_vid = ""
+        if proc is not None:
+            try:
+                if proc.stdin:
+                    proc.stdin.write(b'{"quit": true}\n')
+                    proc.stdin.flush()
+            except Exception:
+                pass
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+
+    def _ensure_helper(self, video_id: str, pos_sec: float):
+        if not video_id:
+            return
+        if self._helper_proc is not None and self._helper_proc.poll() is None:
+            if self._helper_vid != video_id:
+                self._helper_vid = video_id
+                try:
+                    msg = json.dumps({"video_id": video_id, "pos": int(pos_sec)}) + "\n"
+                    self._helper_proc.stdin.write(msg.encode("utf-8"))
+                    self._helper_proc.stdin.flush()
+                except Exception:
+                    self._stop_helper()
+            return
+
+        helper_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "yt_player_helper.py")
+        if not os.path.exists(helper_path):
+            return
+        try:
+            creationflags = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW
+            proc = subprocess.Popen(
+                [sys.executable, helper_path],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                creationflags=creationflags,
+            )
+            self._helper_proc = proc
+            self._helper_vid = video_id
+            msg = json.dumps({"video_id": video_id, "pos": int(pos_sec)}) + "\n"
+            proc.stdin.write(msg.encode("utf-8"))
+            proc.stdin.flush()
+
+            def _read_frames():
+                try:
+                    out = proc.stdout
+                    while proc.poll() is None and self._helper_proc is proc:
+                        hdr = out.read(16)
+                        if not hdr or len(hdr) < 16:
+                            break
+                        magic, fw, fh, flen = struct.unpack("<4sIII", hdr)
+                        if magic != b"YTFM" or flen <= 0 or flen > 4_000_000:
+                            break
+                        rgb = out.read(flen)
+                        if not rgb or len(rgb) < flen:
+                            break
+                        img = Image.frombytes("RGB", (fw, fh), rgb)
+                        buf = io.BytesIO()
+                        img.save(buf, format="JPEG", quality=72, optimize=False)
+                        jbytes = buf.getvalue()
+                        with self._lock:
+                            self._latest_rgb = rgb
+                            self._latest_size = (fw, fh)
+                            self._latest_jpeg = jbytes
+                            self._frame_version += 1
+                            self._last_capture_ts = time.monotonic()
+                except Exception:
+                    pass
+
+            self._helper_reader = threading.Thread(target=_read_frames, daemon=True, name="YTHelperReader")
+            self._helper_reader.start()
+        except Exception:
+            self._helper_proc = None
+
     def _capture_once(self):
         hwnd, title, is_min = self.find_youtube_window()
         if not hwnd or is_min:
+            # Fallback to offscreen helper when YouTube is minimized or in a background tab
+            if self._ctx_title:
+                vid = self.resolve_video_id(self._ctx_title, self._ctx_artist, async_only=True)
+                if vid:
+                    self._ensure_helper(vid, self._ctx_pos)
+                    return
             with self._lock:
                 self._latest_rgb = None
                 self._latest_size = (0, 0)
             return
+
+        self._stop_helper()
         img = self._capture_hwnd_image(hwnd)
         if img is None:
             return
@@ -383,6 +487,7 @@ class YouTubeVideoService:
             _attach_default_desktop()
             while not self._stop_event.is_set():
                 if time.monotonic() - self._last_viewer_ts > 2.5:
+                    self._stop_helper()
                     break
                 t0 = time.monotonic()
                 try:

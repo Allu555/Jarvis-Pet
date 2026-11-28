@@ -3271,6 +3271,12 @@ class OriginIsland(QWidget):
         if youtube_video_service is None:
             return None
         try:
+            if self._last_media_info and self._last_media_info.has_media:
+                youtube_video_service.set_media_context(
+                    self._last_media_info.title or "",
+                    self._last_media_info.artist or "",
+                    self._playback_pos_sec,
+                )
             rgb_bytes, vw, vh, ver = youtube_video_service.get_latest_rgb_frame()
             if rgb_bytes and vw > 0 and vh > 0:
                 if ver != self._yt_video_ver or self._yt_video_pix is None:
