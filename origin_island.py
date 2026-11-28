@@ -4313,6 +4313,12 @@ class OriginIsland(QWidget):
                         self._settings.enable_island = False
                         self._settings.save()
                     self.hide()
+                    try:
+                        from pet_manager import PetManager
+                        if not any(p.isVisible() for p in PetManager.instance().pets):
+                            QApplication.quit()
+                    except Exception:
+                        pass
                 act_hide.triggered.connect(_hide_island)
                 act_quit = QAction("Exit Pet & Origin Island 🛑", self)
                 act_quit.triggered.connect(QApplication.quit)
