@@ -237,16 +237,39 @@ def run_agent(
             elif isinstance(msg, dict):
                 messages.append({"role": "assistant", "content": str(msg)})
 
-        # ── Call Active LLM (Local Ollama or NVIDIA NIM fallback) ─────────────
+        # ── Call Active LLM (Local Ollama native /api/chat with think=False, or NVIDIA NIM) ─
         try:
             client, model_name, backend = get_llm_client_and_model(prefer_vision=False)
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=messages,
-                max_tokens=512,
-                temperature=0.35 if JARVIS_PERSONALITY == "grok" else 0.1,
-                stop=["OBSERVATION:"],   # stop before it hallucinates results
-            )
+            if backend == "ollama":
+                import urllib.request as _ureq
+                from config import OLLAMA_BASE_URL
+                api_url = OLLAMA_BASE_URL.replace("/v1", "").rstrip("/") + "/api/chat"
+                payload = json.dumps({
+                    "model": model_name,
+                    "messages": messages,
+                    "stream": False,
+                    "think": False,
+                    "keep_alive": "15m",
+                    "options": {
+                        "num_predict": 200,
+                        "temperature": 0.35 if JARVIS_PERSONALITY == "grok" else 0.1,
+                        "stop": ["OBSERVATION:"],
+                    },
+                }).encode("utf-8")
+                req = _ureq.Request(api_url, data=payload, headers={"Content-Type": "application/json"})
+                with _ureq.urlopen(req, timeout=30) as res:
+                    data = json.loads(res.read().decode("utf-8"))
+                raw = (data.get("message", {}).get("content") or "").strip()
+            else:
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    max_tokens=512,
+                    temperature=0.35 if JARVIS_PERSONALITY == "grok" else 0.1,
+                    stop=["OBSERVATION:"],   # stop before it hallucinates results
+                )
+                msg = response.choices[0].message
+                raw = (msg.content or getattr(msg, "reasoning_content", "") or "").strip()
         except Exception as e:
             err = str(e)
             logger.error(f"LLM API error ({backend if 'backend' in locals() else 'llm'}): {err}")
@@ -255,13 +278,10 @@ def run_agent(
             elif "404" in err or "410" in err:
                 speak_fn("The AI model is not available. Please check config.")
             elif "connection" in err.lower() or "timeout" in err.lower():
-                speak_fn("I can't reach the NVIDIA API. Please check internet.")
+                speak_fn("I can't reach the AI backend. Please check Ollama or internet.")
             else:
-                speak_fn(f"API error: please try again.")
+                speak_fn("API error: please try again.")
             return f"API error: {err}"
-
-        msg = response.choices[0].message
-        raw = (msg.content or getattr(msg, "reasoning_content", "") or "").strip()
         logger.info(f"Model response:\n{raw[:400]}")
 
         thought, action, final = _parse_response(raw)
