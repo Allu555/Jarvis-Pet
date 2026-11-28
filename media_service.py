@@ -181,14 +181,16 @@ def is_valid_media_info(info: Optional[MediaInfo]) -> bool:
     if any(t_lower.endswith(ext) or f"{ext} " in t_lower or f"{ext} -" in t_lower for ext in doc_exts):
         return False
 
-    # Blacklist of development tools, file managers, editors, and system apps
+    # Blacklist of development tools, file managers, editors, and system apps (word-boundary matched
+    # so song/video titles like "Official Video", "Ride", "Digital", "Words" are never falsely rejected)
     blacklist = (
         "antigravity", "ide", "file explorer", "explorer.exe", "explorer", "visual studio",
         "vscode", "vs code", "cursor", "pycharm", "intellij", "sublime", "atom", "notepad",
         "terminal", "powershell", "cmd.exe", "command prompt", "task manager", "settings",
         "calculator", "snipping tool", "snip", "word", "excel", "powerpoint", "git", "github"
     )
-    if any(b in t_lower or b in a_lower or b in app_lower for b in blacklist):
+    bl_pattern = r"\b(?:" + "|".join(re.escape(b) for b in blacklist) + r")\b"
+    if re.search(bl_pattern, t_lower) or re.search(bl_pattern, a_lower) or re.search(bl_pattern, app_lower):
         return False
 
     return True
