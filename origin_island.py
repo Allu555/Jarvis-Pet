@@ -10921,6 +10921,23 @@ class OriginIsland(QWidget):
                 p.save()
                 p.setPen(Qt.PenStyle.NoPen)
                 p.setBrush(QColor(0, 0, 0, 80))
+                p.drawRoundedRect(QRectF(art_x + 1, art_y + 3, art_size, art_size), 14.0, 14.0)
+                p.restore()
+
+                has_art = False
+                if thumb_bytes:
+                    pix = self._get_scaled_album_art(thumb_bytes, art_size)
+                    if pix and not pix.isNull():
+                        p.save()
+                        p.setClipPath(art_path)
+                        p.drawPixmap(art_rect, pix)
+                        p.restore()
+                        has_art = True
+
+                if not has_art:
+                    art_grad = QLinearGradient(art_x, art_y, art_x + art_size, art_y + art_size)
+                    art_grad.setColorAt(0.0, QColor(255, 75, 95))
+                    art_grad.setColorAt(0.5, QColor(255, 115, 135))
                     art_grad.setColorAt(1.0, QColor(210, 48, 120))
                     p.fillPath(art_path, art_grad)
                     self._draw_vector_note(p, art_x + art_size // 2, art_y + art_size // 2, size=18, color=QColor(255, 255, 255))
