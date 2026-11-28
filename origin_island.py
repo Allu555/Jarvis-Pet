@@ -1600,6 +1600,27 @@ class OriginIsland(QWidget):
         self._update_chat_input_theme()
         self._chat_input.hide()
 
+        # ── Hover-reveal ✕ Close Button (top-right corner) ───────────────────
+        self._close_btn = QPushButton("✕", self)
+        self._close_btn.setFixedSize(22, 22)
+        self._close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._close_btn.setToolTip("Close Origin Island")
+        self._close_btn.setStyleSheet(
+            "QPushButton {"
+            "  background: rgba(220,50,50,0.85);"
+            "  color: white;"
+            "  border: none;"
+            "  border-radius: 11px;"
+            "  font-size: 11px;"
+            "  font-weight: bold;"
+            "}"
+            "QPushButton:hover {"
+            "  background: rgba(255,70,70,1.0);"
+            "}"
+        )
+        self._close_btn.hide()
+        self._close_btn.clicked.connect(self._close_island)
+
         # Render loop (OriginOS 60 FPS ultra-smooth physics, throttles to 1s when idle)
         self._timer = QTimer(self)
         self._timer.setTimerType(Qt.TimerType.PreciseTimer)
@@ -3861,6 +3882,16 @@ class OriginIsland(QWidget):
 
         return bg_color, border_color, scale, h_val, p_val
 
+    def _close_island(self):
+        """Hide Origin Island; quit app only when no pets are alive either."""
+        from PyQt6.QtWidgets import QApplication
+        self.hide()
+        # Count visible pet windows
+        pets_alive = [w for w in QApplication.topLevelWidgets()
+                      if w is not self and w.isVisible() and w.__class__.__name__ in ("LionWindow", "PetWindow")]
+        if not pets_alive:
+            QApplication.quit()
+
     def enterEvent(self, event):
         self._is_hovered = True
         self._last_user_activity_time = time.monotonic()
@@ -3868,6 +3899,12 @@ class OriginIsland(QWidget):
         self._collapse_timer.stop()
         if hasattr(self, "_retract_timer") and self._retract_timer.isActive():
             self._retract_timer.stop()
+
+        # Show close button (top-right corner) when user hovers the island
+        if hasattr(self, "_close_btn"):
+            self._position_close_btn()
+            self._close_btn.show()
+            self._close_btn.raise_()
 
         # When retracted: hovering over the small trigger icon immediately brings our island down!
         if getattr(self, "_is_retracted", False) or self.height() <= 16:
@@ -3885,7 +3922,20 @@ class OriginIsland(QWidget):
             self._collapse_timer.start(1200)
         if getattr(self, "_auto_retract", True) and not self._is_genuine_music_playing() and not self._pinned:
             self._retract_timer.start(2500)
+        # Hide close button when cursor leaves
+        if hasattr(self, "_close_btn"):
+            self._close_btn.hide()
         super().leaveEvent(event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "_close_btn"):
+            self._position_close_btn()
+
+    def _position_close_btn(self):
+        """Keep the ✕ button anchored to the top-right corner of the island."""
+        btn = self._close_btn
+        btn.move(self.width() - btn.width() - 4, 4)
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
