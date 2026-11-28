@@ -258,6 +258,10 @@ from media_service import MediaService, MediaInfo
 from weather_service import WeatherService, WeatherInfo
 from bluetooth_service import BluetoothService, BluetoothInfo
 from phone_drop_service import PhoneDropService
+try:
+    from youtube_video_service import youtube_video_service
+except Exception:
+    youtube_video_service = None
 
 
 def parse_rgba_color(val) -> QColor:
@@ -1532,6 +1536,11 @@ class OriginIsland(QWidget):
         self._lyrics_scroll_y: float = 0.0
         self._lyrics_item_rects: Dict[int, QRect] = {}
         self._lyrics_offset_sec: float = 0.0
+
+        # Live YouTube Video View inside Origin Island
+        self._music_show_video: bool = False
+        self._yt_video_pix: Optional[QPixmap] = None
+        self._yt_video_ver: int = -1
 
         # Nixi Features (7 Eye Colors, RGBA Custom Color Picker, Water Logger, Keep Awake, Stopwatch, Windows Popups)
         self._eye_color_key: str = "white"
@@ -3035,6 +3044,7 @@ class OriginIsland(QWidget):
             or (self._pet_emotion_timer > 0.0)
             or bool(self._pet_particles)
             or abs(self._pet_bounce_vel) > 0.05
+            or (self._state == self.STATE_MUSIC and getattr(self, "_music_show_video", False))
         )
 
         if needs_high_fps:
@@ -3235,6 +3245,38 @@ class OriginIsland(QWidget):
         else:
             self._wake_timer()
             self.update()
+
+    def toggle_video_view(self, show: Optional[bool] = None):
+        """Toggle live YouTube video preview inside Origin Island."""
+        if show is None:
+            self._music_show_video = not getattr(self, "_music_show_video", False)
+        else:
+            self._music_show_video = bool(show)
+
+        if self._music_show_video and self._music_show_lyrics and not getattr(self, "_is_theater_mode", False):
+            self._music_show_lyrics = False
+
+        status_str = "Live YouTube Video ON 🎬" if self._music_show_video else "Video Preview OFF 🎵"
+        self._ambient_toast_time = time.monotonic()
+        self._ambient_toast_name = status_str
+        self._wake_timer()
+        self.update()
+
+    def _get_yt_video_pixmap(self) -> Optional[QPixmap]:
+        """Fetches cached QPixmap of the live YouTube window frame without blocking paintEvent."""
+        if youtube_video_service is None:
+            return None
+        try:
+            rgb_bytes, vw, vh, ver = youtube_video_service.get_latest_rgb_frame()
+            if rgb_bytes and vw > 0 and vh > 0:
+                if ver != self._yt_video_ver or self._yt_video_pix is None:
+                    qimg = QImage(rgb_bytes, vw, vh, vw * 3, QImage.Format.Format_RGB888)
+                    self._yt_video_pix = QPixmap.fromImage(qimg)
+                    self._yt_video_ver = ver
+                return self._yt_video_pix
+        except Exception:
+            pass
+        return self._yt_video_pix
 
     def toggle_theater_mode(self):
         """Toggles between standard island card view (420x192) and full responsive theater mode with smooth fluid animation."""
@@ -3947,6 +3989,8 @@ class OriginIsland(QWidget):
                     return "theater_wave_cycle"
                 if (pos.x() - (cx + 108)) ** 2 + (pos.y() - ctrl_y) ** 2 <= 22 ** 2:
                     return "lyrics_toggle"
+                if left_w - 114 <= pos.x() <= left_w - 22 and 44 <= pos.y() <= 72:
+                    return "video_toggle"
                 if hasattr(self, "_theater_lyrics_rects"):
                     for l_idx, r in self._theater_lyrics_rects.items():
                         if r.contains(pos):
@@ -3955,6 +3999,8 @@ class OriginIsland(QWidget):
 
             ctrl_y = 164
             cx = w // 2
+            if (pos.x() - 56) ** 2 + (pos.y() - ctrl_y) ** 2 <= 22 ** 2:
+                return "video_toggle"
             if (pos.x() - (w - 56)) ** 2 + (pos.y() - ctrl_y) ** 2 <= 22 ** 2:
                 return "lyrics_toggle"
             if (pos.x() - (cx - 48)) ** 2 + (pos.y() - ctrl_y) ** 2 <= 20 ** 2:
@@ -4898,6 +4944,20 @@ class OriginIsland(QWidget):
                     self.toggle_lyrics_view()
                     return True
 
+                # Theater Video Toggle Pill (top-right of left column)
+                if left_w - 114 <= pos.x() <= left_w - 22 and 44 <= pos.y() <= 72:
+                    self.toggle_video_view()
+                    return True
+
+                # Theater Video Crop Mode Pill when video is active
+                if getattr(self, "_music_show_video", False) and youtube_video_service is not None:
+                    if left_w - 114 <= pos.x() <= left_w - 22 and 76 <= pos.y() <= 100:
+                        new_mode = youtube_video_service.cycle_crop_mode()
+                        self._ambient_toast_time = time.monotonic()
+                        self._ambient_toast_name = f"Video Crop: {new_mode.title()} 🎬"
+                        self.update()
+                        return True
+
                 # Theater Scrubber click
                 bar_y = getattr(self, "_theater_bar_y", h - 96)
                 track_x = 36
@@ -4928,6 +4988,11 @@ class OriginIsland(QWidget):
             ctrl_y = 164
             cx = w // 2
 
+            # Video toggle button (56, ctrl_y)
+            if (pos.x() - 56) ** 2 + (pos.y() - ctrl_y) ** 2 <= 22 ** 2:
+                self.toggle_video_view()
+                return True
+
             # Lyrics toggle button (w - 56, ctrl_y)
             if (pos.x() - (w - 56)) ** 2 + (pos.y() - ctrl_y) ** 2 <= 22 ** 2:
                 self.toggle_lyrics_view()
@@ -4946,6 +5011,21 @@ class OriginIsland(QWidget):
             # Next Button (cx + 48, ctrl_y)
             if (pos.x() - (cx + 48)) ** 2 + (pos.y() - ctrl_y) ** 2 <= 20 ** 2:
                 self._media.next_track()
+                return True
+
+            # Video box click (cycles crop or restores minimized YouTube) OR Album Art toggles lyrics view!
+            if getattr(self, "_music_show_video", False) and 20 <= pos.x() <= 148 and 34 <= pos.y() <= 106:
+                if youtube_video_service is not None:
+                    yt_info = youtube_video_service.is_youtube_available()
+                    if yt_info.get("minimized"):
+                        youtube_video_service.restore_youtube_window()
+                        self._ambient_toast_time = time.monotonic()
+                        self._ambient_toast_name = "Restored YouTube Window 🎬"
+                    else:
+                        new_mode = youtube_video_service.cycle_crop_mode()
+                        self._ambient_toast_time = time.monotonic()
+                        self._ambient_toast_name = f"Video Crop: {new_mode.title()} 🎬"
+                self.update()
                 return True
 
             # Album Art / App Badge (x: 18 to 88, y: 34 to 104) toggles lyrics view!
@@ -10766,52 +10846,96 @@ class OriginIsland(QWidget):
             ctrl_y = 168
 
         # ======================================================================
-        # VIEW 2: STANDARD MUSIC PLAYER (Screenshot 1)
+        # VIEW 2: STANDARD MUSIC PLAYER (or LIVE YOUTUBE VIDEO PREVIEW)
         # ======================================================================
         else:
-            # 1. Left: 64x64 Album Artwork Squircle with Drop Shadow
-            art_x = 20
-            art_y = 36
-            art_size = 64
-            art_rect = QRect(art_x, art_y, art_size, art_size)
-            art_path = QPainterPath()
-            art_path.addRoundedRect(QRectF(art_rect), 14.0, 14.0)
+            show_video = getattr(self, "_music_show_video", False)
+            if show_video:
+                # 1. Left: 128x72 (16:9) Live YouTube Video Frame with Rounded Corners
+                art_x = 20
+                art_y = 34
+                vid_w = 128
+                vid_h = 72
+                art_rect = QRect(art_x, art_y, vid_w, vid_h)
+                art_path = QPainterPath()
+                art_path.addRoundedRect(QRectF(art_rect), 12.0, 12.0)
 
-            # Soft natural dark shadow underneath album art
-            p.save()
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(0, 0, 0, 80))
-            p.drawRoundedRect(QRectF(art_x + 1, art_y + 3, art_size, art_size), 14.0, 14.0)
-            p.restore()
+                p.save()
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QColor(250, 45, 72, 60))
+                p.drawRoundedRect(QRectF(art_x - 2, art_y + 2, vid_w + 4, vid_h + 4), 13.0, 13.0)
+                p.restore()
 
-            has_art = False
-            if thumb_bytes:
-                pix = self._get_scaled_album_art(thumb_bytes, art_size)
-                if pix and not pix.isNull():
+                vid_pix = self._get_yt_video_pixmap()
+                if vid_pix and not vid_pix.isNull():
                     p.save()
                     p.setClipPath(art_path)
-                    p.drawPixmap(art_rect, pix)
+                    p.drawPixmap(art_rect, vid_pix.scaled(vid_w, vid_h, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
                     p.restore()
-                    has_art = True
+                else:
+                    p.fillPath(art_path, QColor(20, 20, 24))
+                    p.setFont(QFont(["Segoe UI", "sans-serif"], 8.0, QFont.Weight.Bold))
+                    p.setPen(QColor(220, 220, 230, 200))
+                    p.drawText(art_rect, Qt.AlignmentFlag.AlignCenter, "Open YouTube\non PC")
 
-            if not has_art:
-                art_grad = QLinearGradient(art_x, art_y, art_x + art_size, art_y + art_size)
-                art_grad.setColorAt(0.0, QColor(255, 75, 95))
-                art_grad.setColorAt(0.5, QColor(255, 115, 135))
-                art_grad.setColorAt(1.0, QColor(210, 48, 120))
-                p.fillPath(art_path, art_grad)
-                self._draw_vector_note(p, art_x + art_size // 2, art_y + art_size // 2, size=18, color=QColor(255, 255, 255))
+                p.strokePath(art_path, QPen(QColor(255, 60, 80, 140), 1.4))
 
-            p.strokePath(art_path, QPen(QColor(255, 255, 255, 30), 1.0))
+                # Compact LIVE dot badge at top-left of video
+                p.save()
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QColor(255, 0, 50, 230))
+                p.drawRoundedRect(QRectF(art_x + 6, art_y + 6, 30, 13), 4.0, 4.0)
+                p.setFont(QFont(["Segoe UI", "sans-serif"], 6.5, QFont.Weight.Bold))
+                p.setPen(QColor(255, 255, 255))
+                p.drawText(QRect(art_x + 6, art_y + 6, 30, 13), Qt.AlignmentFlag.AlignCenter, "LIVE")
+                p.restore()
 
-            # 2. Bottom-Right App Source Badge (e.g. Brave, Spotify, Chrome)
-            badge_cx = art_x + art_size - 7.0
-            badge_cy = art_y + art_size - 7.0
-            self._draw_app_badge(p, badge_cx, badge_cy, r=10.0, app_name=app_name)
+                meta_x = art_x + vid_w + 14
+                meta_w = w - meta_x - 24
+            else:
+                # 1. Left: 64x64 Album Artwork Squircle with Drop Shadow
+                art_x = 20
+                art_y = 36
+                art_size = 64
+                art_rect = QRect(art_x, art_y, art_size, art_size)
+                art_path = QPainterPath()
+                art_path.addRoundedRect(QRectF(art_rect), 14.0, 14.0)
 
-            # 3. Track Metadata Block
-            meta_x = art_x + art_size + 14
-            meta_w = w - meta_x - 24
+                # Soft natural dark shadow underneath album art
+                p.save()
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QColor(0, 0, 0, 80))
+                p.drawRoundedRect(QRectF(art_x + 1, art_y + 3, art_size, art_size), 14.0, 14.0)
+                p.restore()
+
+                has_art = False
+                if thumb_bytes:
+                    pix = self._get_scaled_album_art(thumb_bytes, art_size)
+                    if pix and not pix.isNull():
+                        p.save()
+                        p.setClipPath(art_path)
+                        p.drawPixmap(art_rect, pix)
+                        p.restore()
+                        has_art = True
+
+                if not has_art:
+                    art_grad = QLinearGradient(art_x, art_y, art_x + art_size, art_y + art_size)
+                    art_grad.setColorAt(0.0, QColor(255, 75, 95))
+                    art_grad.setColorAt(0.5, QColor(255, 115, 135))
+                    art_grad.setColorAt(1.0, QColor(210, 48, 120))
+                    p.fillPath(art_path, art_grad)
+                    self._draw_vector_note(p, art_x + art_size // 2, art_y + art_size // 2, size=18, color=QColor(255, 255, 255))
+
+                p.strokePath(art_path, QPen(QColor(255, 255, 255, 30), 1.0))
+
+                # 2. Bottom-Right App Source Badge (e.g. Brave, Spotify, Chrome)
+                badge_cx = art_x + art_size - 7.0
+                badge_cy = art_y + art_size - 7.0
+                self._draw_app_badge(p, badge_cx, badge_cy, r=10.0, app_name=app_name)
+
+                # 3. Track Metadata Block
+                meta_x = art_x + art_size + 14
+                meta_w = w - meta_x - 24
 
             # Line 1: Title (Bold White)
             title_rect = QRectF(meta_x, 34, meta_w, 20)
@@ -10991,6 +11115,35 @@ class OriginIsland(QWidget):
         n2.closeSubpath()
         p.drawPath(n2)
 
+        # 0. Video Toggle Button 🎬 at (56, ctrl_y)
+        is_video_on = getattr(self, "_music_show_video", False)
+        vr, vcol, vh_val, _ = _btn_anim("video_toggle", 18.0, 55 if is_video_on else 16)
+        p.save()
+        p.setPen(Qt.PenStyle.NoPen)
+        if is_video_on:
+            p.setBrush(QColor(250, 45, 72, int(65 + vh_val * 40)))
+            p.drawEllipse(QPointF(56, ctrl_y), vr, vr)
+            p.setPen(QPen(QColor(250, 45, 72, 180), 1.2))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawEllipse(QPointF(56, ctrl_y), vr, vr)
+        else:
+            p.setBrush(vcol)
+            p.drawEllipse(QPointF(56, ctrl_y), vr, vr)
+        # Play-inside-screen icon
+        v_col = QColor(255, 255, 255) if is_video_on else peach_color
+        p.setPen(QPen(v_col, 1.5))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawRoundedRect(QRectF(56 - 7.5, ctrl_y - 5.5, 15, 11), 2.5, 2.5)
+        vp = QPainterPath()
+        vp.moveTo(56 - 2, ctrl_y - 3)
+        vp.lineTo(56 - 2, ctrl_y + 3)
+        vp.lineTo(56 + 3.5, ctrl_y)
+        vp.closeSubpath()
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(v_col)
+        p.drawPath(vp)
+        p.restore()
+
         # 4. Lyrics Toggle Button 💬 at (w - 56, ctrl_y)
         is_lyrics_on = getattr(self, "_music_show_lyrics", False)
         base_a = 55 if is_lyrics_on else 16
@@ -11112,62 +11265,124 @@ class OriginIsland(QWidget):
             return r, QColor(255, 255, 255, alpha), h_v, p_v
 
         # ======================================================================
-        # LEFT COLUMN: HERO MUSIC PLAYER (Artwork + Meta + Wave Progress + Controls)
+        # LEFT COLUMN: HERO MUSIC PLAYER (Artwork or Live YouTube Video + Meta + Controls)
         # ======================================================================
+        show_theater_video = getattr(self, "_music_show_video", False)
         avail_art_h = h - 220
-        art_size = int(min(320, max(140, min(left_w - 60, avail_art_h))))
-        art_x = int((left_w - art_size) // 2)
-        art_y = 44
-        art_rect = QRect(art_x, art_y, art_size, art_size)
-        art_path = QPainterPath()
-        art_radius = min(24.0, max(14.0, art_size * 0.12))
-        art_path.addRoundedRect(QRectF(art_rect), art_radius, art_radius)
+        if show_theater_video:
+            vid_w = int(min(left_w - 40, 440))
+            vid_h = int(vid_w * 9 / 16)
+            if vid_h > avail_art_h:
+                vid_h = max(120, avail_art_h)
+                vid_w = int(vid_h * 16 / 9)
+            art_size = vid_h
+            art_x = int((left_w - vid_w) // 2)
+            art_y = 46 + max(0, (avail_art_h - vid_h) // 2)
+            art_rect = QRect(art_x, art_y, vid_w, vid_h)
+            art_path = QPainterPath()
+            art_radius = 18.0
+            art_path.addRoundedRect(QRectF(art_rect), art_radius, art_radius)
 
-        # Ambient artwork shadow
-        p.save()
-        p.setPen(Qt.PenStyle.NoPen)
-        if is_playing:
-            p.setBrush(QColor(art_r, art_g, art_b, 110))
-            p.drawRoundedRect(QRectF(art_x - 3, art_y + 3, art_size + 6, art_size + 6), art_radius + 2, art_radius + 2)
-        else:
-            p.setBrush(QColor(0, 0, 0, 100))
-            p.drawRoundedRect(QRectF(art_x, art_y + 4, art_size, art_size), art_radius, art_radius)
-
-        # Draw Artwork Pixmap
-        has_art = False
-        if thumb_bytes:
-            pix = QPixmap()
-            if pix.loadFromData(thumb_bytes):
+            p.save()
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(250, 45, 72, 70))
+            p.drawRoundedRect(QRectF(art_x - 3, art_y + 3, vid_w + 6, vid_h + 6), art_radius + 2, art_radius + 2)
+            vid_pix = self._get_yt_video_pixmap()
+            if vid_pix and not vid_pix.isNull():
                 p.setClipPath(art_path)
-                p.drawPixmap(art_rect, pix.scaled(art_size, art_size, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
-                has_art = True
+                p.drawPixmap(art_rect, vid_pix.scaled(vid_w, vid_h, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
+            else:
+                p.fillPath(art_path, QColor(18, 18, 22))
+                p.setFont(QFont(["Segoe UI", "sans-serif"], 11.0, QFont.Weight.Bold))
+                p.setPen(QColor(235, 235, 240, 200))
+                p.drawText(art_rect, Qt.AlignmentFlag.AlignCenter, "Open YouTube Video on PC")
+            p.restore()
+            p.strokePath(art_path, QPen(QColor(250, 45, 72, 140), 1.5))
 
-        if not has_art:
-            art_grad = QLinearGradient(art_x, art_y, art_x + art_size, art_y + art_size)
-            art_grad.setColorAt(0.0, QColor(art_r, art_g, art_b))
-            art_grad.setColorAt(1.0, QColor(max(0, art_r - 60), max(0, art_g - 60), max(0, art_b - 60)))
-            p.fillPath(art_path, art_grad)
-            self._draw_vector_note(p, art_x + art_size // 2, art_y + art_size // 2, size=int(art_size * 0.35), color=QColor(255, 255, 255, 220))
+            # LIVE badge on video
+            p.save()
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(255, 0, 50, 230))
+            p.drawRoundedRect(QRectF(art_x + 12, art_y + 12, 48, 20), 6.0, 6.0)
+            p.setFont(QFont(["Segoe UI", "sans-serif"], 8.0, QFont.Weight.Bold))
+            p.setPen(QColor(255, 255, 255))
+            p.drawText(QRect(art_x + 12, art_y + 12, 48, 20), Qt.AlignmentFlag.AlignCenter, "YT LIVE")
+            p.restore()
+            art_y_bottom = art_y + vid_h
+        else:
+            art_size = int(min(320, max(140, min(left_w - 60, avail_art_h))))
+            art_x = int((left_w - art_size) // 2)
+            art_y = 44
+            art_rect = QRect(art_x, art_y, art_size, art_size)
+            art_path = QPainterPath()
+            art_radius = min(24.0, max(14.0, art_size * 0.12))
+            art_path.addRoundedRect(QRectF(art_rect), art_radius, art_radius)
 
-        p.restore()
+            # Ambient artwork shadow
+            p.save()
+            p.setPen(Qt.PenStyle.NoPen)
+            if is_playing:
+                p.setBrush(QColor(art_r, art_g, art_b, 110))
+                p.drawRoundedRect(QRectF(art_x - 3, art_y + 3, art_size + 6, art_size + 6), art_radius + 2, art_radius + 2)
+            else:
+                p.setBrush(QColor(0, 0, 0, 100))
+                p.drawRoundedRect(QRectF(art_x, art_y + 4, art_size, art_size), art_radius, art_radius)
 
-        # Artwork border
-        p.strokePath(art_path, QPen(QColor(255, 255, 255, 45), 1.2))
+            # Draw Artwork Pixmap
+            has_art = False
+            if thumb_bytes:
+                pix = QPixmap()
+                if pix.loadFromData(thumb_bytes):
+                    p.setClipPath(art_path)
+                    p.drawPixmap(art_rect, pix.scaled(art_size, art_size, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
+                    has_art = True
 
-        # App Source Badge on bottom-right of artwork
-        badge_size = 28
-        badge_x = art_x + art_size - badge_size + 2
-        badge_y = art_y + art_size - badge_size + 2
-        badge_rect = QRect(badge_x, badge_y, badge_size, badge_size)
+            if not has_art:
+                art_grad = QLinearGradient(art_x, art_y, art_x + art_size, art_y + art_size)
+                art_grad.setColorAt(0.0, QColor(art_r, art_g, art_b))
+                art_grad.setColorAt(1.0, QColor(max(0, art_r - 60), max(0, art_g - 60), max(0, art_b - 60)))
+                p.fillPath(art_path, art_grad)
+                self._draw_vector_note(p, art_x + art_size // 2, art_y + art_size // 2, size=int(art_size * 0.35), color=QColor(255, 255, 255, 220))
+
+            p.restore()
+
+            # Artwork border
+            p.strokePath(art_path, QPen(QColor(255, 255, 255, 45), 1.2))
+
+            # App Source Badge on bottom-right of artwork
+            badge_size = 28
+            badge_x = art_x + art_size - badge_size + 2
+            badge_y = art_y + art_size - badge_size + 2
+            badge_rect = QRect(badge_x, badge_y, badge_size, badge_size)
+            p.save()
+            p.setPen(QPen(QColor(0, 0, 0, 180), 2.2))
+            p.setBrush(QColor(18, 18, 20))
+            p.drawEllipse(badge_rect)
+            self._draw_app_badge(p, badge_x + 14.0, badge_y + 14.0, 13.0, app_name)
+            p.restore()
+            art_y_bottom = art_y + art_size
+
+        # Theater Video Toggle Pill (top-right of left column)
         p.save()
-        p.setPen(QPen(QColor(0, 0, 0, 180), 2.2))
-        p.setBrush(QColor(18, 18, 20))
-        p.drawEllipse(badge_rect)
-        self._draw_app_badge(p, badge_x + 14.0, badge_y + 14.0, 13.0, app_name)
+        vt_rect = QRectF(left_w - 114, 44, 92, 26)
+        p.setPen(QPen(QColor(250, 45, 72, 180) if show_theater_video else QColor(255, 255, 255, 45), 1.0))
+        p.setBrush(QColor(250, 45, 72, 65) if show_theater_video else QColor(255, 255, 255, 18))
+        p.drawRoundedRect(vt_rect, 13.0, 13.0)
+        p.setFont(QFont(["Segoe UI", "sans-serif"], 8.5, QFont.Weight.Bold))
+        p.setPen(QColor(255, 255, 255))
+        p.drawText(vt_rect, Qt.AlignmentFlag.AlignCenter, "🖼 Cover" if show_theater_video else "▶ Video")
+        if show_theater_video and youtube_video_service is not None:
+            crop_rect = QRectF(left_w - 114, 75, 92, 22)
+            p.setPen(QPen(QColor(255, 255, 255, 35), 1.0))
+            p.setBrush(QColor(255, 255, 255, 14))
+            p.drawRoundedRect(crop_rect, 11.0, 11.0)
+            p.setFont(QFont(["Segoe UI", "sans-serif"], 7.5, QFont.Weight.Medium))
+            p.setPen(QColor(235, 235, 240))
+            p.drawText(crop_rect, Qt.AlignmentFlag.AlignCenter, f"Crop: {youtube_video_service.crop_mode.title()}")
         p.restore()
 
         # Typography: Title & Artist
-        meta_top = art_y + art_size + 14
+        meta_top = art_y_bottom + 14
         title_font_size = 14.5 if art_size < 200 else 17.5
         title_font = QFont(["Segoe UI", "Nirmala UI", "sans-serif"], title_font_size, QFont.Weight.Bold)
         title_rect = QRectF(24, meta_top, left_w - 48, 26)

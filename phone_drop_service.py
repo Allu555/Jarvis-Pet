@@ -29,6 +29,10 @@ from typing import Optional, Callable, Dict, Any, List, Tuple
 
 import qrcode
 from PIL import Image, ImageDraw, ImageGrab
+try:
+    from youtube_video_service import youtube_video_service
+except Exception:
+    youtube_video_service = None
 
 BASE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = BASE_DIR / "assets"
@@ -476,6 +480,100 @@ body.tab-music-active #tab-music {
 
 .apple-cover-stage .cover-art.playing {
   animation: vinylBreathe 5s infinite ease-in-out;
+}
+
+/* Live YouTube Video Stage inside Phone App */
+.apple-video-stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.yt-video-frame-wrap {
+  position: relative;
+  width: min(92vw, 420px);
+  aspect-ratio: 16 / 9;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #0d0d10;
+  border: 1px solid rgba(250, 45, 72, 0.45);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.8), 0 0 24px rgba(250, 45, 72, 0.2);
+}
+
+.yt-video-frame-wrap.fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+  z-index: 99999;
+  background: #000;
+  border: none;
+}
+
+.yt-video-stream {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.yt-video-live-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(255, 0, 50, 0.88);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.yt-video-live-badge .yt-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  animation: pulseOpacity 1.4s infinite ease-in-out;
+}
+
+.yt-video-controls-overlay {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  z-index: 4;
+}
+
+.yt-mini-pill {
+  background: rgba(18, 18, 22, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+.yt-mini-pill:active {
+  transform: scale(0.93);
+  background: rgba(250, 45, 72, 0.65);
 }
 
 @keyframes vinylBreathe {
@@ -2670,6 +2768,19 @@ body.tab-music-active #tab-music {
               <div class="lyrics-placeholder" id="lyrics-loading">Connecting to music stream...</div>
             </div>
           </div>
+
+          <!-- Live YouTube Video View (Toggled via Video Button) -->
+          <div class="apple-video-stage" id="apple-video-stage" style="display:none;">
+            <div class="yt-video-frame-wrap" id="yt-video-frame-wrap">
+              <img id="yt-video-stream" class="yt-video-stream" src="" alt="Live YouTube Video">
+              <div class="yt-video-live-badge"><span class="yt-dot"></span> YT LIVE</div>
+              <div class="yt-video-controls-overlay">
+                <button class="yt-mini-pill" id="btn-yt-crop" title="Cycle Crop Mode">✂ Zoom</button>
+                <button class="yt-mini-pill" id="btn-yt-restore" title="Restore YouTube Window on PC">↗ Restore</button>
+                <button class="yt-mini-pill" id="btn-yt-fullscreen" title="Fullscreen">⛶</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Track Metadata Row with Star and More buttons -->
@@ -2768,6 +2879,15 @@ body.tab-music-active #tab-music {
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
               <line x1="9" y1="9" x2="15" y2="9"></line>
               <line x1="9" y1="13" x2="13" y2="13"></line>
+            </svg>
+          </button>
+
+          <!-- Live YouTube Video Toggle -->
+          <button class="apple-util-btn" id="btn-bottom-video" title="Watch YouTube Video">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="14" rx="3" ry="3"></rect>
+              <polygon points="10 8.5 15.5 11 10 13.5 10 8.5" fill="currentColor" stroke="none"></polygon>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
             </svg>
           </button>
 
@@ -3607,6 +3727,9 @@ function activateTab(tabId) {
     document.body.classList.add("tab-music-active");
   } else {
     document.body.classList.remove("tab-music-active");
+    if (typeof isVideoViewActive !== "undefined" && isVideoViewActive) {
+      toggleVideoView(false);
+    }
   }
 }
 document.body.classList.add("tab-music-active");
@@ -4006,11 +4129,50 @@ function evaluateCurrentLyric() {
 
 // Apple Music View Controls & Sheets
 let isLyricsViewActive = false;
+let isVideoViewActive = false;
+
+function toggleVideoView(force) {
+  if (typeof force === "boolean") {
+    isVideoViewActive = force;
+  } else {
+    isVideoViewActive = !isVideoViewActive;
+  }
+  const coverStage = document.getElementById("apple-cover-stage");
+  const lyricsStage = document.getElementById("apple-lyrics-stage");
+  const videoStage = document.getElementById("apple-video-stage");
+  const videoImg = document.getElementById("yt-video-stream");
+  const videoWrap = document.getElementById("yt-video-frame-wrap");
+  const btnVideo = document.getElementById("btn-bottom-video");
+  const btnLyrics = document.getElementById("btn-bottom-lyrics");
+  const teaser = document.getElementById("lyrics-teaser-strip");
+
+  if (!videoStage || !coverStage) return;
+  if (isVideoViewActive) {
+    isLyricsViewActive = false;
+    if (lyricsStage) lyricsStage.style.display = "none";
+    if (btnLyrics) btnLyrics.classList.remove("active");
+    coverStage.style.display = "none";
+    videoStage.style.display = "flex";
+    if (teaser) teaser.style.display = "flex";
+    if (btnVideo) btnVideo.classList.add("active");
+    if (videoImg) videoImg.src = "/api/youtube/mjpeg?t=" + Date.now();
+  } else {
+    if (videoImg) videoImg.src = "";
+    if (videoWrap) videoWrap.classList.remove("fullscreen");
+    videoStage.style.display = "none";
+    coverStage.style.display = "flex";
+    if (btnVideo) btnVideo.classList.remove("active");
+  }
+}
+
 function toggleLyricsView(force) {
   if (typeof force === "boolean") {
     isLyricsViewActive = force;
   } else {
     isLyricsViewActive = !isLyricsViewActive;
+  }
+  if (isLyricsViewActive && isVideoViewActive) {
+    toggleVideoView(false);
   }
   const coverStage = document.getElementById("apple-cover-stage");
   const lyricsStage = document.getElementById("apple-lyrics-stage");
@@ -4037,6 +4199,48 @@ if (teaserStrip) teaserStrip.addEventListener("click", () => toggleLyricsView(tr
 
 const btnBottomLyrics = document.getElementById("btn-bottom-lyrics");
 if (btnBottomLyrics) btnBottomLyrics.addEventListener("click", () => toggleLyricsView());
+
+const btnBottomVideo = document.getElementById("btn-bottom-video");
+if (btnBottomVideo) btnBottomVideo.addEventListener("click", () => toggleVideoView());
+
+const btnYtCrop = document.getElementById("btn-yt-crop");
+if (btnYtCrop) {
+  btnYtCrop.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch("/api/youtube/crop", { method: "POST" });
+      const data = await res.json();
+      if (data.crop_mode) {
+        const label = data.crop_mode.charAt(0).toUpperCase() + data.crop_mode.slice(1);
+        btnYtCrop.innerText = "✂ " + label;
+        showToast("Video Crop: " + label);
+      }
+    } catch (err) {}
+  });
+}
+
+const btnYtRestore = document.getElementById("btn-yt-restore");
+if (btnYtRestore) {
+  btnYtRestore.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    try {
+      await fetch("/api/youtube/restore", { method: "POST" });
+      showToast("Restored YouTube on PC");
+    } catch (err) {}
+  });
+}
+
+const btnYtFullscreen = document.getElementById("btn-yt-fullscreen");
+if (btnYtFullscreen) {
+  btnYtFullscreen.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const wrap = document.getElementById("yt-video-frame-wrap");
+    if (wrap) {
+      wrap.classList.toggle("fullscreen");
+      btnYtFullscreen.innerText = wrap.classList.contains("fullscreen") ? "✕" : "⛶";
+    }
+  });
+}
 
 const btnStar = document.getElementById("btn-music-star");
 if (btnStar) {
@@ -6352,6 +6556,35 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
             self._send_json(lyrics_data)
             return
 
+        elif path == "/api/youtube/status":
+            if youtube_video_service is not None:
+                self._send_json(youtube_video_service.is_youtube_available())
+            else:
+                self._send_json({"available": False, "minimized": False, "title": "", "crop_mode": "zoom"})
+            return
+
+        elif path == "/api/youtube/mjpeg":
+            self.send_response(200)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            try:
+                while self.server.service.is_running:
+                    if youtube_video_service is not None:
+                        frame, _, _ = youtube_video_service.get_latest_jpeg_frame()
+                    else:
+                        break
+                    self.wfile.write(b"--frame\r\n")
+                    self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                    self.wfile.write(f"Content-Length: {len(frame)}\r\n\r\n".encode("utf-8"))
+                    self.wfile.write(frame)
+                    self.wfile.write(b"\r\n")
+                    time.sleep(0.05)
+            except (ConnectionResetError, BrokenPipeError, ConnectionAbortedError, socket.error):
+                return
+            return
+
         elif path == "/api/remote/mjpeg":
             self.send_response(200)
             self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
@@ -6485,6 +6718,16 @@ class PhoneDropHandler(BaseHTTPRequestHandler):
 
             self.server.service.on_file_received(str(target_path), target_path.name)
             self._send_json({"success": True, "path": str(target_path), "name": target_path.name})
+            return
+
+        elif path == "/api/youtube/crop":
+            mode = youtube_video_service.cycle_crop_mode() if youtube_video_service is not None else "zoom"
+            self._send_json({"ok": True, "crop_mode": mode})
+            return
+
+        elif path == "/api/youtube/restore":
+            ok = youtube_video_service.restore_youtube_window() if youtube_video_service is not None else False
+            self._send_json({"ok": ok})
             return
 
         elif path == "/api/jarvis":
