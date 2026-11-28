@@ -4302,6 +4302,24 @@ class OriginIsland(QWidget):
             return
 
         elif event.button() == Qt.MouseButton.RightButton:
+            if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                from PySide6.QtWidgets import QMenu
+                from PySide6.QtGui import QAction
+                m = QMenu(self)
+                m.setWindowFlags(m.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+                act_hide = QAction("Exit Origin Island 🏝️❌", self)
+                def _hide_island():
+                    if self._settings:
+                        self._settings.enable_island = False
+                        self._settings.save()
+                    self.hide()
+                act_hide.triggered.connect(_hide_island)
+                act_quit = QAction("Exit Pet & Origin Island 🛑", self)
+                act_quit.triggered.connect(QApplication.quit)
+                m.addAction(act_hide)
+                m.addAction(act_quit)
+                m.exec(event.globalPosition().toPoint())
+                return
             # Right click cycles island tabs
             states = [
                 self.STATE_COMPACT,

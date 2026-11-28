@@ -677,8 +677,8 @@ class LionWindow(QWidget):
 
         menu.addSeparator()
 
-        # Dismiss / Close options
-        dismiss_this_act = QAction("Dismiss This Pet ❌", self)
+        # Dismiss / Exit options
+        dismiss_this_act = QAction("Exit This Pet ❌", self)
         dismiss_this_act.triggered.connect(self.close)
         menu.addAction(dismiss_this_act)
 
@@ -687,7 +687,12 @@ class LionWindow(QWidget):
             dismiss_others_act.triggered.connect(lambda: PetManager.instance().dismiss_all_except(self))
             menu.addAction(dismiss_others_act)
 
-        exit_action = QAction("Exit All Pets 🛑", self)
+        if self._island:
+            exit_island_act = QAction("Exit Origin Island 🏝️❌", self)
+            exit_island_act.triggered.connect(lambda: self._toggle_island(False))
+            menu.addAction(exit_island_act)
+
+        exit_action = QAction("Exit Pet & Origin Island 🛑", self)
         exit_action.triggered.connect(QApplication.quit)
         menu.addAction(exit_action)
 
