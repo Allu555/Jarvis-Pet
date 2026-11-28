@@ -147,6 +147,58 @@ def draw_notes(frame: Image.Image, color: tuple, stage: int) -> Image.Image:
     return out
 
 
+def build_articulated_walk_frames(pose: Image.Image) -> list:
+    """
+    Creates a grounded 6-frame alternating left-right leg stride walk cycle
+    from the character's actual upper body and left/right leg crops (no hopping/jumping).
+    """
+    pw, ph = pose.size
+    hip_y = int(ph * 0.72)
+    overlap = 6
+    upper = pose.crop((0, 0, pw, min(ph, hip_y + overlap)))
+    left_leg = pose.crop((0, max(0, hip_y - 2), pw // 2 + 2, ph))
+    right_leg = pose.crop((max(0, pw // 2 - 2), max(0, hip_y - 2), pw, ph))
+
+    # 6-phase grounded stride:
+    # (l_dx, l_dy, l_rot, r_dx, r_dy, r_rot, body_dy, body_tilt)
+    phases = [
+        (  9, -1,  12,  -8,  0, -10,  0, -1.5),
+        (  2,  0,   2,   0, -5,   8, -1,  0.0),
+        ( -8,  0, -10,   9, -1,  12,  0, -1.5),
+        ( -6, -3,  -6,   7,  0,   6,  0, -1.0),
+        (  0, -5,   8,   2,  0,   2, -1,  0.0),
+        (  7,  0,   6,  -6, -3,  -6,  0, -1.0),
+    ]
+
+    frames = []
+    for l_dx, l_dy, l_rot, r_dx, r_dy, r_rot, b_dy, b_tilt in phases:
+        comp = Image.new("RGBA", (pw + 36, ph + 16), (0, 0, 0, 0))
+        ox_base = 18
+        oy_base = 8
+
+        ll = left_leg.rotate(l_rot, resample=Image.Resampling.BICUBIC, expand=True)
+        rl = right_leg.rotate(r_rot, resample=Image.Resampling.BICUBIC, expand=True)
+        ub = upper.rotate(b_tilt, resample=Image.Resampling.BICUBIC, expand=True)
+
+        # Back-to-front leg draw order based on which leg is swinging behind
+        leg_y = oy_base + hip_y - 2
+        l_pos = (ox_base + l_dx - (ll.width - left_leg.width) // 2, leg_y + l_dy)
+        r_pos = (ox_base + pw // 2 - 2 + r_dx - (rl.width - right_leg.width) // 2, leg_y + r_dy)
+
+        if l_dx < r_dx:
+            comp.paste(ll, l_pos, ll)
+            comp.paste(rl, r_pos, rl)
+        else:
+            comp.paste(rl, r_pos, rl)
+            comp.paste(ll, l_pos, ll)
+
+        ub_pos = (ox_base - (ub.width - upper.width) // 2, oy_base + b_dy)
+        comp.paste(ub, ub_pos, ub)
+
+        frames.append(place_frame(comp, dy=0, align_bottom=True))
+    return frames
+
+
 def build_pet_sprites(pet_key: str, ref_path: Path, aura_rgb: tuple, bottom_trim_frac: float = 0.0):
     REF_OUT_DIR.mkdir(parents=True, exist_ok=True)
     out_dir = SPRITES_DIR / pet_key
@@ -175,8 +227,8 @@ def build_pet_sprites(pet_key: str, ref_path: Path, aura_rgb: tuple, bottom_trim
     make_strip([place_frame(p_idle_flip, dy=int(-2 * math.sin(i * math.pi / 3))) for i in range(6)]).save(out_dir / "idle_flip.png")
     make_strip([place_frame(p_idle, sy=0.96 if i == 2 else 1.0) for i in range(6)]).save(out_dir / "blink.png")
 
-    walk_r = [place_frame(p_walk, dy=-abs(int(6 * math.sin(i * math.pi / 3))), angle=3 * math.sin(i * math.pi / 3)) for i in range(6)]
-    walk_l = [place_frame(p_walk_l, dy=-abs(int(6 * math.sin(i * math.pi / 3))), angle=-3 * math.sin(i * math.pi / 3)) for i in range(6)]
+    walk_r = build_articulated_walk_frames(p_walk)
+    walk_l = [f.transpose(Image.Transpose.FLIP_LEFT_RIGHT) for f in walk_r]
     make_strip(walk_r).save(out_dir / "walk_right.png")
     make_strip(walk_l).save(out_dir / "walk_left.png")
 
@@ -210,11 +262,14 @@ def build_pet_sprites(pet_key: str, ref_path: Path, aura_rgb: tuple, bottom_trim
 
 if __name__ == "__main__":
     specs = [
-        ("gojo", Path(r"C:\Users\alame\.gemini\antigravity\brain\c3a5426e-de13-4bce-9051-4dbb3eefcc22\gojo_reference_1795863308482.jpg"), (130, 190, 255)),
-        ("naruto", Path(r"C:\Users\alame\.gemini\antigravity\brain\c3a5426e-de13-4bce-9051-4dbb3eefcc22\naruto_chibi_sprite_sheet_v3_1795863600777.jpg"), (255, 145, 30)),
-        ("luffy", Path(r"C:\Users\alame\.gemini\antigravity\brain\c3a5426e-de13-4bce-9051-4dbb3eefcc22\luffy_reference_1795863318321.jpg"), (245, 245, 255)),
-        ("rengoku", Path(r"C:\Users\alame\.gemini\antigravity\brain\c3a5426e-de13-4bce-9051-4dbb3eefcc22\rengoku_reference_1795863322767.jpg"), (255, 110, 30)),
+        ("gojo", Path(r"C:\Users\alame\.gemini\antigravity\brain\c3a5426e-de13-4bce-9051-4dbb3eefcc22\gojo_reference_1795863308482.jpg"), (130, 190, 255), 0.0),
+        ("naruto", Path(r"C:\Users\alame\.gemini\antigravity\brain\c3a5426e-de13-4bce-9051-4dbb3eefcc22\naruto_chibi_sprite_sheet_v3_1795863600777.jpg"), (255, 145, 30), 0.0),
+        ("luffy", Path(r"C:\Users\alame\.gemini\antigravity\brain\c3a5426e-de13-4bce-9051-4dbb3eefcc22\luffy_reference_1795863318321.jpg"), (245, 245, 255), 0.0),
+        ("rengoku", Path(r"C:\Users\alame\.gemini\antigravity\brain\c3a5426e-de13-4bce-9051-4dbb3eefcc22\rengoku_reference_1795863322767.jpg"), (255, 110, 30), 0.0),
+        ("ironman", Path(r"C:\Users\alame\.gemini\antigravity\brain\c3a5426e-de13-4bce-9051-4dbb3eefcc22\iron_man_mk85_chibi_spritesheet_1795863814914.jpg"), (60, 210, 255), 0.0),
+        ("pikachu", Path(r"C:\Users\alame\.gemini\antigravity\brain\c3a5426e-de13-4bce-9051-4dbb3eefcc22\pikachu_sprite_sheet_1795863803196.jpg"), (255, 225, 40), 0.14),
+        ("astro_bot", Path(r"C:\Users\alame\.gemini\antigravity\brain\c3a5426e-de13-4bce-9051-4dbb3eefcc22\astro_bot_sprite_sheet_1795863810430.jpg"), (60, 190, 255), 0.0),
     ]
-    for key, path, col in specs:
+    for key, path, col, trim in specs:
         if path.exists():
-            build_pet_sprites(key, path, col)
+            build_pet_sprites(key, path, col, trim)
