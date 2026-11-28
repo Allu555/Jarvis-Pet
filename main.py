@@ -74,8 +74,13 @@ def main():
         except Exception:
             pass
 
-    # High-DPI support
+    # High-DPI support & WebEngine OpenGL context sharing
     os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
+    try:
+        from PySide6.QtCore import Qt
+        QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
+    except Exception:
+        pass
 
     app = QApplication(sys.argv)
     QPixmapCache.setCacheLimit(2048)   # Cap Qt internal image cache to 2MB to prevent RAM bloat
