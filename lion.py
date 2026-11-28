@@ -716,17 +716,20 @@ class LionWindow(QWidget):
         self._bubble.show_message("Spawned a random pet companion! 🎲✨", self._move.x, self._move.y, self._pet_size, duration=3.0)
 
     def _exit_this_pet_only(self):
-        """Hides/closes only this pet, keeping Origin Island alive if it is visible."""
-        if self._island and self._island.isVisible():
-            self._timer.stop()
-            self._bubble.hide()
-            self._media_card.hide()
-            self.hide()
-            if self._is_secondary:
-                PetManager.instance().unregister_pet(self)
-                self.deleteLater()
-        else:
-            self.close()
+        """Closes only this pet window; keeps Origin Island alive if it is visible."""
+        # Signal closeEvent NOT to close the island
+        self._keep_island_on_close = True
+        self._timer.stop()
+        self._bubble.hide()
+        self._media_card.hide()
+        PetManager.instance().unregister_pet(self)
+        self.hide()
+        self.deleteLater()
+        # If no pets remain and island is gone too, quit the app
+        remaining = [p for p in PetManager.instance().pets if p.isVisible()]
+        island_alive = self._island and self._island.isVisible()
+        if not remaining and not island_alive:
+            QApplication.quit()
 
     def _toggle_island(self, enable: bool):
         if not self._island:
@@ -1221,12 +1224,15 @@ class LionWindow(QWidget):
         self._timer.stop()
         self._bubble.close()
         self._media_card.close()
-        if self._island:
+        # Only close island when this is a full app quit, not a pet-only exit
+        if self._island and not getattr(self, "_keep_island_on_close", False):
             self._island.close()
         event.accept()
 
         if len(PetManager.instance().pets) == 0:
-            QApplication.quit()
+            island_alive = self._island and self._island.isVisible()
+            if not island_alive:
+                QApplication.quit()
 
 
 # Alias for clean naming
