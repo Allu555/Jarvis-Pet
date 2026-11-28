@@ -74,11 +74,12 @@ def main():
         except Exception:
             pass
 
-    # High-DPI support & WebEngine OpenGL context sharing
+    # High-DPI support & WebEngine initialization BEFORE QApplication
     os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
     try:
         from PySide6.QtCore import Qt
         QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
+        import PySide6.QtWebEngineWidgets  # noqa: F401
     except Exception:
         pass
 

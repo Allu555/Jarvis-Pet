@@ -3321,13 +3321,18 @@ class OriginIsland(QWidget):
             art_x, art_y, vid_w, vid_h = 20, 34, 128, 72
             radius = 12.0
 
-        target_rect = QRect(art_x, art_y, vid_w, vid_h)
+        global_pos = self.mapToGlobal(QPoint(art_x, art_y))
+        target_rect = QRect(global_pos.x(), global_pos.y(), vid_w, vid_h)
         try:
             if self._yt_webview is None:
                 from PySide6.QtWebEngineWidgets import QWebEngineView
-                from PySide6.QtGui import QRegion
-                wv = QWebEngineView(self)
-                wv.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+                wv = QWebEngineView(None)
+                wv.setWindowFlags(
+                    Qt.WindowType.FramelessWindowHint
+                    | Qt.WindowType.WindowStaysOnTopHint
+                    | Qt.WindowType.Tool
+                    | Qt.WindowType.WindowDoesNotAcceptFocus
+                )
                 wv.setStyleSheet("background: #0d0d10;")
 
                 def _inject_yt_clean(ok):
@@ -3367,6 +3372,7 @@ class OriginIsland(QWidget):
 
             if not wv.isVisible():
                 wv.show()
+                wv.raise_()
         except Exception:
             pass
 
