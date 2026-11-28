@@ -412,6 +412,9 @@ class LionWindow(QWidget):
             ("Gojo Satoru 🤞✨", "gojo"),
             ("Naruto Uzumaki 🦊🍥", "naruto"),
             ("Luffy (Gear 5) 👒⚡", "luffy"),
+            ("Iron Man (Mark 85) 🤖🔴", "ironman"),
+            ("Pikachu ⚡💛", "pikachu"),
+            ("Astro Bot 🤖💙", "astro_bot"),
             ("Kid Goku 🥋", "goku"),
             ("Venom 🕷️", "venom"),
             ("Spider-Man 🕷️🕸️", "spiderman"),
@@ -842,6 +845,18 @@ class LionWindow(QWidget):
                 self._bubble.show_message("RASENGAN! 🌀🦊⚡\nBelieve it! Dattebayo!", self._move.x, self._move.y, self._pet_size, duration=4.5)
             elif pet == "luffy":
                 self._bubble.show_message("GEAR 5! GOMU GOMU NO BAJRANG GUN! 👒⚡😂\nShishishi! Total freedom!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+            elif pet == "ironman":
+                self._bubble.show_message("Maximum Pulse Repulsor Blast! 🤖🔵⚡\nJARVIS, target locked!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+            elif pet == "deadpool":
+                self._bubble.show_message("MAXIMUM EFFORT! ⚔️🔴🌮\nBreaking the fourth wall on your desktop!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+            elif pet == "pikachu":
+                self._bubble.show_message("PIKA-CHUUUUU! ⚡⚡💛\n100,000 Volt Thunderbolt!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+            elif pet == "toothless":
+                self._bubble.show_message("NIGHT FURY PLASMA BLAST! 🐉💜⚡\n*Happy dragon roar!*", self._move.x, self._move.y, self._pet_size, duration=4.5)
+            elif pet == "astro_bot":
+                self._bubble.show_message("ASTRO SPIN BOOST! 🤖💙✨\nAll circuits energized!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+            elif pet == "shiba_samurai":
+                self._bubble.show_message("BORK-SHIDO SLASH! 🐕⚔️🔥\nMuch honor! Very samurai!", self._move.x, self._move.y, self._pet_size, duration=4.5)
             elif pet == "goth_girl":
                 self._bubble.show_message("Dark Butterfly Swarm Magic! 🦋✨🔮\nIlluminating the twilight sky...", self._move.x, self._move.y, self._pet_size, duration=4.0)
             elif pet == "dragon":
@@ -970,6 +985,9 @@ class LionWindow(QWidget):
             "gojo": "Gojo Satoru 🤞✨",
             "naruto": "Naruto Uzumaki 🦊🍥",
             "luffy": "Luffy (Gear 5) 👒⚡",
+            "ironman": "Iron Man (Mark 85) 🤖🔴",
+            "pikachu": "Pikachu ⚡💛",
+            "astro_bot": "Astro Bot 🤖💙",
             "goth_girl": "Gothic Butterfly 🦋",
             "alien": "Alien Pet 👽",
             "anime_girl": "Anime Girl 🌸",
@@ -1012,6 +1030,18 @@ class LionWindow(QWidget):
             self._bubble.show_message("Hey! I'm Naruto Uzumaki! 🦊🍥\nFuture Hokage on your desktop—dattebayo!", self._move.x, self._move.y, self._pet_size, duration=4.5)
         elif pet_key == "luffy":
             self._bubble.show_message("Shishishi! Gear 5 Luffy is here! 👒⚡\nLet's have fun on your desktop!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+        elif pet_key == "ironman":
+            self._bubble.show_message("Mark 85 online! 🤖🔴\nJARVIS and I have your desktop covered!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+        elif pet_key == "deadpool":
+            self._bubble.show_message("Hey! Nice desktop you got here! ⚔️🔴\nGot any chimichangas?", self._move.x, self._move.y, self._pet_size, duration=4.5)
+        elif pet_key == "pikachu":
+            self._bubble.show_message("Pika-Pi! ⚡💛\nPikachu is ready to spark up your day!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+        elif pet_key == "toothless":
+            self._bubble.show_message("Rrr-purr! 🐉🖤\nToothless the Night Fury has landed!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+        elif pet_key == "astro_bot":
+            self._bubble.show_message("Beep-boop! 🤖💙\nAstro Bot ready for desktop adventures!", self._move.x, self._move.y, self._pet_size, duration=4.5)
+        elif pet_key == "shiba_samurai":
+            self._bubble.show_message("Woof! Samurai Shiba reporting! 🐕⚔️\nGuarding your screen with honor!", self._move.x, self._move.y, self._pet_size, duration=4.5)
         elif pet_key == "goth_girl":
             self._bubble.show_message("Hello... I'm your Gothic Butterfly pet 🦋🖤\nLet me flutter alongside you in the shadows...", self._move.x, self._move.y, self._pet_size, duration=4.5)
         elif pet_key == "batman":

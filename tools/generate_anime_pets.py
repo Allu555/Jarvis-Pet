@@ -147,7 +147,7 @@ def draw_notes(frame: Image.Image, color: tuple, stage: int) -> Image.Image:
     return out
 
 
-def build_pet_sprites(pet_key: str, ref_path: Path, aura_rgb: tuple):
+def build_pet_sprites(pet_key: str, ref_path: Path, aura_rgb: tuple, bottom_trim_frac: float = 0.0):
     REF_OUT_DIR.mkdir(parents=True, exist_ok=True)
     out_dir = SPRITES_DIR / pet_key
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -160,7 +160,8 @@ def build_pet_sprites(pet_key: str, ref_path: Path, aura_rgb: tuple):
     poses = []
     for row in range(2):
         for col in range(4):
-            cell = sheet.crop((col * cw, row * ch, (col + 1) * cw, (row + 1) * ch))
+            y1 = int((row + 1) * ch - ch * bottom_trim_frac)
+            cell = sheet.crop((col * cw, row * ch, (col + 1) * cw, y1))
             clean = remove_white_bg_floodfill(cell)
             poses.append(fit_pose(clean))
 
