@@ -346,6 +346,9 @@ class YouTubeVideoService:
     def _capture_once(self):
         hwnd, title, is_min = self.find_youtube_window()
         if not hwnd or is_min:
+            with self._lock:
+                self._latest_rgb = None
+                self._latest_size = (0, 0)
             return
         img = self._capture_hwnd_image(hwnd)
         if img is None:

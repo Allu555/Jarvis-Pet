@@ -4164,7 +4164,7 @@ function toggleVideoView(force) {
 
     fetch("/api/youtube/status").then(r => r.json()).then(st => {
       if (!isVideoViewActive) return;
-      if (!st.available && st.video_id && videoWrap) {
+      if ((!st.available || st.minimized) && st.video_id && videoWrap) {
         if (videoImg) { videoImg.src = ""; videoImg.style.display = "none"; }
         const ifr = document.createElement("iframe");
         ifr.id = "yt-video-iframe";
