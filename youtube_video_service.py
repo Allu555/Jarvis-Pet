@@ -168,10 +168,8 @@ class YouTubeVideoService:
                 is_min = bool(user32.IsIconic(hwnd))
                 proc = _get_proc_name(hwnd)
 
-                if "youtube" in tl:
-                    matches.append((0 if not is_min else 2, hwnd, title, is_min))
-                elif proc in BROWSER_PROCS and not is_min:
-                    matches.append((1, hwnd, title, False))
+                if "youtube" in tl or "picture-in-picture" in tl or "picture in picture" in tl:
+                    matches.append((0 if not is_min else 1, hwnd, title, is_min))
             except Exception:
                 pass
             return True

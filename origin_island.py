@@ -10876,6 +10876,17 @@ class OriginIsland(QWidget):
                     p.setClipPath(art_path)
                     p.drawPixmap(art_rect, vid_pix.scaled(vid_w, vid_h, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
                     p.restore()
+                elif thumb_bytes:
+                    tpix = QPixmap()
+                    if tpix.loadFromData(thumb_bytes):
+                        p.save()
+                        p.setClipPath(art_path)
+                        p.drawPixmap(art_rect, tpix.scaled(vid_w, vid_h, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
+                        p.fillPath(art_path, QColor(0, 0, 0, 95))
+                        p.restore()
+                    p.setFont(QFont(["Segoe UI", "sans-serif"], 7.5, QFont.Weight.Bold))
+                    p.setPen(QColor(255, 255, 255, 230))
+                    p.drawText(QRect(art_x, art_y + vid_h - 20, vid_w, 16), Qt.AlignmentFlag.AlignCenter, "Switch to YT Tab")
                 else:
                     p.fillPath(art_path, QColor(20, 20, 24))
                     p.setFont(QFont(["Segoe UI", "sans-serif"], 8.0, QFont.Weight.Bold))
@@ -11295,6 +11306,15 @@ class OriginIsland(QWidget):
             if vid_pix and not vid_pix.isNull():
                 p.setClipPath(art_path)
                 p.drawPixmap(art_rect, vid_pix.scaled(vid_w, vid_h, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
+            elif thumb_bytes:
+                tpix = QPixmap()
+                if tpix.loadFromData(thumb_bytes):
+                    p.setClipPath(art_path)
+                    p.drawPixmap(art_rect, tpix.scaled(vid_w, vid_h, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
+                    p.fillPath(art_path, QColor(0, 0, 0, 100))
+                p.setFont(QFont(["Segoe UI", "sans-serif"], 10.5, QFont.Weight.Bold))
+                p.setPen(QColor(255, 255, 255, 235))
+                p.drawText(art_rect, Qt.AlignmentFlag.AlignCenter, "Switch to YouTube Tab / Window")
             else:
                 p.fillPath(art_path, QColor(18, 18, 22))
                 p.setFont(QFont(["Segoe UI", "sans-serif"], 11.0, QFont.Weight.Bold))
