@@ -46,7 +46,7 @@ logger = logging.getLogger("jarvis.main")
 # ── Imports (after logging is set up) ─────────────────────────────────────────
 import keyboard                              # type: ignore
 
-from config import PTT_HOTKEY, STOP_HOTKEY, WAKE_WORD, NVIDIA_API_KEY
+from config import PTT_HOTKEY, STOP_HOTKEY, WAKE_WORD, NVIDIA_API_KEY, USE_OLLAMA, is_ollama_running
 from memory import Memory
 from safety import register_kill_hotkey, is_killed, reset_kill
 from audio.listener import Listener
@@ -55,9 +55,9 @@ from brain.agent    import run_agent
 from ui.overlay     import Overlay, start_tray
 
 
-# ─── Validate NVIDIA API key early ──────────────────────────────────────────
-if not NVIDIA_API_KEY:
-    logger.error("NVIDIA_API_KEY not set. Get a free key at https://build.nvidia.com")
+# ─── Validate LLM Backend (Ollama or NVIDIA API key) ────────────────────────
+if not (USE_OLLAMA and is_ollama_running(auto_start=True)) and not NVIDIA_API_KEY:
+    logger.error("Neither local Ollama nor NVIDIA_API_KEY is available.")
     sys.exit(1)
 
 

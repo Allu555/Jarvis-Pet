@@ -32,11 +32,66 @@ CORRECTIONS_FILE = BASE_DIR / "corrections.json"
 ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")   # kept for reference
 NVIDIA_API_KEY:    str = os.getenv("NVIDIA_API_KEY", "")
 
+# ─── Local Ollama Brain (ultra-fast offline LLM, auto-fallback to NVIDIA NIM) ─
+USE_OLLAMA          = os.getenv("USE_OLLAMA", "1").lower() in ("1", "true", "yes")
+OLLAMA_BASE_URL     = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
+OLLAMA_MODEL        = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
+JARVIS_PERSONALITY  = os.getenv("JARVIS_PERSONALITY", "jarvis")  # "jarvis" or "grok"
+
 # ─── NVIDIA NIM (free brain — 1000 credits/month) ─────────────────────────────
 # Free key at: https://build.nvidia.com → Sign in → Get API Key
 NVIDIA_BASE_URL      = "https://integrate.api.nvidia.com/v1"
 NVIDIA_MODEL         = "nvidia/nemotron-3.5-bolt-e4b"              # ultra-fast 240ms-1.2s agent model
 NVIDIA_VISION_MODEL  = "nvidia/nemotron-3.5-super-vl-120b-a12b"   # verified active vision model
+
+_ollama_cache = {"ts": 0.0, "ok": False, "model": OLLAMA_MODEL}
+
+
+def is_ollama_running(auto_start: bool = False) -> bool:
+    import time, urllib.request, json, subprocess, shutil
+    now = time.monotonic()
+    if now - _ollama_cache["ts"] < 15.0 and _ollama_cache["ok"]:
+        return True
+
+    def _probe() -> bool:
+        try:
+            url = OLLAMA_BASE_URL.replace("/v1", "").rstrip("/") + "/api/tags"
+            with urllib.request.urlopen(url, timeout=0.6) as res:
+                data = json.loads(res.read().decode("utf-8"))
+                models = [m.get("name", "") for m in data.get("models", [])]
+                if models and OLLAMA_MODEL not in models:
+                    _ollama_cache["model"] = models[0]
+                else:
+                    _ollama_cache["model"] = OLLAMA_MODEL
+                return True
+        except Exception:
+            return False
+
+    ok = _probe()
+    if not ok and auto_start:
+        exe = shutil.which("ollama") or str(Path.home() / "AppData/Local/Programs/Ollama/ollama.exe")
+        if exe and Path(exe).exists():
+            try:
+                flags = 0x08000000 if os.name == "nt" else 0
+                subprocess.Popen([exe, "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
+                for _ in range(8):
+                    time.sleep(0.35)
+                    if _probe():
+                        ok = True
+                        break
+            except Exception:
+                pass
+    _ollama_cache["ts"] = time.monotonic()
+    _ollama_cache["ok"] = ok
+    return ok
+
+
+def get_llm_client_and_model(prefer_vision: bool = False):
+    from openai import OpenAI  # type: ignore
+    if USE_OLLAMA and not prefer_vision and is_ollama_running(auto_start=True):
+        return OpenAI(api_key="ollama", base_url=OLLAMA_BASE_URL), _ollama_cache.get("model") or OLLAMA_MODEL, "ollama"
+    model = NVIDIA_VISION_MODEL if prefer_vision else NVIDIA_MODEL
+    return OpenAI(api_key=NVIDIA_API_KEY, base_url=NVIDIA_BASE_URL), model, "nvidia"
 
 MAX_AGENT_STEPS = 15                        # max tool calls per command
 

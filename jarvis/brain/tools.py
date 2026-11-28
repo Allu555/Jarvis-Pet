@@ -870,14 +870,16 @@ def dispatch_tool(
 # ─── Write-document helper ────────────────────────────────────────────────────
 
 def _write_document(topic: str, save_as: str, speak_fn: Callable) -> str:
-    from openai import OpenAI
-    from config import NVIDIA_API_KEY, NVIDIA_BASE_URL, NVIDIA_MODEL
+    try:
+        from config import get_llm_client_and_model
+    except ImportError:
+        from jarvis.config import get_llm_client_and_model
     from control import keyboard_mouse, files
 
     speak_fn(f"Writing a document about {topic}.")
-    client = OpenAI(api_key=NVIDIA_API_KEY, base_url=NVIDIA_BASE_URL)
+    client, model_name, _ = get_llm_client_and_model()
     resp = client.chat.completions.create(
-        model=NVIDIA_MODEL,
+        model=model_name,
         max_tokens=1500,
         messages=[
             {"role": "system", "content": "You are a professional document writer. Write clear, well-formatted plain text documents."},
@@ -951,9 +953,13 @@ def _open_and_write(app: str, topic: str, content: str, announce_fn: Callable) -
                 announce_fn(f"Writing {topic}…")
                 raw = ""
                 try:
-                    client = OpenAI(api_key=NVIDIA_API_KEY, base_url=NVIDIA_BASE_URL)
+                    try:
+                        from config import get_llm_client_and_model
+                    except ImportError:
+                        from jarvis.config import get_llm_client_and_model
+                    client, model_name, _ = get_llm_client_and_model()
                     resp = client.chat.completions.create(
-                        model=NVIDIA_MODEL,
+                        model=model_name,
                         messages=[
                             {"role": "system", "content": "You are an expert code and text writer. Output ONLY the raw requested code or document. Do NOT output markdown code blocks (no ```), do NOT output introductory or concluding remarks. Output ONLY the raw content ready to paste."},
                             {"role": "user", "content": f"Write: {topic}"},

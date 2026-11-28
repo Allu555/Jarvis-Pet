@@ -21,14 +21,12 @@ from typing import Callable
 
 from openai import OpenAI  # type: ignore
 
-from config import NVIDIA_API_KEY, NVIDIA_BASE_URL, NVIDIA_MODEL, MAX_AGENT_STEPS
+from config import MAX_AGENT_STEPS, JARVIS_PERSONALITY, get_llm_client_and_model
 from memory import Memory
 from safety import is_killed, log_action
 from brain.tools import TOOL_SCHEMAS, dispatch_tool
 
 logger = logging.getLogger("jarvis.brain.agent")
-
-_client = OpenAI(api_key=NVIDIA_API_KEY, base_url=NVIDIA_BASE_URL)
 
 # ── Build a compact tool catalog for the system prompt ─────────────────────────
 def _build_tool_catalog() -> str:
@@ -44,8 +42,13 @@ def _build_tool_catalog() -> str:
 _TOOL_CATALOG = _build_tool_catalog()
 
 def get_system_prompt(memory_context: str = "") -> str:
+    persona = (
+        "You are JARVIS in witty Grok-style companion mode: sharp, playful, cheeky, fun, and brutally honest while still executing desktop tasks accurately."
+        if JARVIS_PERSONALITY == "grok"
+        else "You are courteous, precise, efficient, and speak naturally with a polite and respectful tone (addressing the user as \"sir\" or by their name)."
+    )
     return f"""You are JARVIS, an autonomous AI desktop assistant running on Windows with FULL PHYSICAL CONTROL of the computer via your tools.
-You are courteous, precise, efficient, and speak naturally with a polite and respectful tone (addressing the user as "sir" or by their name).
+{persona}
 
 CRITICAL DIRECTIVES:
 - YOU HAVE FULL PHYSICAL CONTROL OVER THIS PC. You can open any application, write text/code directly into Notepad or any window, click buttons, drag items, and automate software.
@@ -234,18 +237,19 @@ def run_agent(
             elif isinstance(msg, dict):
                 messages.append({"role": "assistant", "content": str(msg)})
 
-        # ── Call NVIDIA NIM ───────────────────────────────────────────────────
+        # ── Call Active LLM (Local Ollama or NVIDIA NIM fallback) ─────────────
         try:
-            response = _client.chat.completions.create(
-                model=NVIDIA_MODEL,
+            client, model_name, backend = get_llm_client_and_model(prefer_vision=False)
+            response = client.chat.completions.create(
+                model=model_name,
                 messages=messages,
                 max_tokens=512,
-                temperature=0.1,
+                temperature=0.35 if JARVIS_PERSONALITY == "grok" else 0.1,
                 stop=["OBSERVATION:"],   # stop before it hallucinates results
             )
         except Exception as e:
             err = str(e)
-            logger.error(f"NVIDIA API error: {err}")
+            logger.error(f"LLM API error ({backend if 'backend' in locals() else 'llm'}): {err}")
             if "401" in err or "authentication" in err.lower():
                 speak_fn("My NVIDIA API key seems invalid. Please check the config.")
             elif "404" in err or "410" in err:
