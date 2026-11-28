@@ -442,18 +442,11 @@ class YouTubeVideoService:
     def _capture_once(self):
         hwnd, title, is_min = self.find_youtube_window()
         if not hwnd or is_min:
-            # Fallback to offscreen helper when YouTube is minimized or in a background tab
-            if self._ctx_title:
-                vid = self.resolve_video_id(self._ctx_title, self._ctx_artist, async_only=True)
-                if vid:
-                    self._ensure_helper(vid, self._ctx_pos)
-                    return
             with self._lock:
                 self._latest_rgb = None
                 self._latest_size = (0, 0)
             return
 
-        self._stop_helper()
         img = self._capture_hwnd_image(hwnd)
         if img is None:
             return
